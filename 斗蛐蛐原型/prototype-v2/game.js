@@ -86,6 +86,7 @@
   ];
 
   let phase = "boot";
+  let solo = false;
   let paused = false;
   let userPaused = false;
   let awaitingQuit = false;
@@ -333,7 +334,8 @@
       null,
       { chargeMul: 1.2, react: 0.28, lead: 0.22, name: "贪蓄" },
     ];
-    for (let i = 0; i < 2; i++) {
+    const n = solo ? 1 : 2;
+    for (let i = 0; i < n; i++) {
       const b = makeBug(i, pos[i].x, pos[i].z, i === 0, brains[i]);
       const d = norm(-pos[i].x, -pos[i].z);
       b.dirX = d.x || 0;
@@ -355,7 +357,9 @@
   }
 
   function liveCount() { return bugs.filter((b) => b.alive).length; }
-  function liveHud() { hudLive.textContent = liveCount() >= 2 ? "对战中" : "残局"; }
+  function liveHud() {
+    hudLive.textContent = solo ? "独自练习" : (liveCount() >= 2 ? "对战中" : "残局");
+  }
   function flash(msg) { banner.textContent = msg; bannerT = 1.6; }
 
   function gravity() {
@@ -741,9 +745,39 @@
     flash(`${reason} · 体型 ${b.grow}`);
   }
 
+  function pullBackSolo(b) {
+    const x = 0;
+    const z = -ARENA_HD * 0.38;
+    b.x = x;
+    b.z = z;
+    b.px = x;
+    b.pz = z;
+    b.y = 0;
+    b.vy = 0;
+    b.vx = 0;
+    b.vz = 0;
+    b.airborne = false;
+    b.charging = false;
+    b.chargeT = 0;
+    b.pendingCharge = b.holding;
+    b.tumble = 0;
+    b.hitTier = null;
+    b.slideMu = knobs.mu;
+    b.spin = 0;
+    const d = norm(-x, -z);
+    b.dirX = d.x || 0;
+    b.dirZ = d.z || 1;
+    spawnDust(x, z, 10, 0.7);
+    flash("出圈 · 拉回");
+  }
+
   function markOut(b) {
     if (!b.alive) return;
     if (inArena(b.x, b.z)) return;
+    if (solo && b.isPlayer) {
+      pullBackSolo(b);
+      return;
+    }
     const killer = bugs.find((k) => k.id === b.lastHitId && k.alive && k !== b);
     b.alive = false;
     b.charging = false;
@@ -955,7 +989,7 @@
   }
 
   function checkEnd() {
-    if (phase !== "play") return;
+    if (phase !== "play" || solo) return;
     const alive = bugs.filter((b) => b.alive);
     if (alive.length <= 1) {
       awaitingQuit = false;
@@ -1143,7 +1177,7 @@
 
   function drawArc(b) {
     if (!b.charging || !b.alive) return;
-    const dvx = jumpDeltaV(b);
+    const dvx = chargeDeltaV(b);
     if (dvx <= 0.01) return;
     const d = norm(b.dirX, b.dirZ);
     if (d.d < 1e-5) return;
@@ -1295,7 +1329,7 @@
     const buzzing = b.tumble > 0 && sliding;
     const hit = b.fxHit;
     const idle = !b.charging && !jumping && !sliding && b.alive;
-    const squat = b.charging ? 1 - 0.32 * Math.max(chargeN, 0.18) : 1;
+    const squat = b.charging ? 1 - 0.32 * chargeN : 1;
     const stretch = jumping ? 1.1 + Math.min(0.12, b.y * 0.08) : squat;
     const shake = full ? Math.sin(time * 48) * (1.2 + chargeN) : (hit > 0 ? Math.sin(time * 70) * hit * 1.6 : 0);
     const screenAng = Math.atan2(-b.dirZ, b.dirX) + b.spin * 0.1;
@@ -1767,15 +1801,23 @@
     syncPause();
   }
 
-  function startCountdown() {
+  function beginMatch() {
     overlayStart.classList.add("hidden");
     overlayResult.classList.add("hidden");
     overlaySpectate.classList.add("hidden");
+    overlayCount.classList.add("hidden");
     userPaused = false;
     awaitingQuit = false;
     spectating = false;
     closeTune();
     spawnMatch();
+    if (solo) {
+      phase = "play";
+      countT = 0;
+      flash("独自练习");
+      syncPause();
+      return;
+    }
     phase = "countdown";
     countT = 3;
     countNum.textContent = "3";
@@ -1785,10 +1827,17 @@
 
   function restart() {
     overlayResult.classList.add("hidden");
-    startCountdown();
+    beginMatch();
   }
 
-  document.getElementById("btn-start").onclick = startCountdown;
+  document.getElementById("btn-start").onclick = () => {
+    solo = false;
+    beginMatch();
+  };
+  document.getElementById("btn-solo").onclick = () => {
+    solo = true;
+    beginMatch();
+  };
   document.getElementById("btn-watch").onclick = continueWatch;
   document.getElementById("btn-quit").onclick = quitMatch;
   document.getElementById("btn-again").onclick = restart;

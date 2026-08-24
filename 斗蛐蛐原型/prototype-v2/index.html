@@ -29,8 +29,11 @@
         <div class="start-mark">一罐蛐蛐</div>
         <p class="start-line">摇杆蓄力起跳，把人撞出圈。</p>
         <p class="start-sub">抛物线飞出 · 落地减速 · 撞后按抵抗分档</p>
-        <button id="btn-start" type="button">开罐</button>
-        <p class="start-hint">点按屏幕召出摇杆，停稳才能蓄力。先调下方数值，再开罐。</p>
+        <div class="btn-row">
+          <button id="btn-start" type="button">开罐</button>
+          <button id="btn-solo" type="button">自己练</button>
+        </div>
+        <p class="start-hint">点按屏幕召出摇杆，停稳才能蓄力。先调旋钮，再开罐或自己练。</p>
       </div>
 
       <div id="result" class="overlay hidden">
@@ -85,7 +88,7 @@
             <input id="k-m" type="range" min="0.5" max="2.5" step="0.05" value="1" />
           </label>
           <label>g 重力 <span id="v-g">18.00</span>
-            <input id="k-g" type="range" min="6" max="40" step="1" value="18" />
+            <input id="k-g" type="range" min="6" max="100" step="1" value="18" />
           </label>
           <label>μ 地面摩擦 <span id="v-mu">0.50</span>
             <input id="k-mu" type="range" min="0.08" max="1.8" step="0.01" value="0.5" />
