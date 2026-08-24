@@ -261,6 +261,7 @@
       fxSquash: 0,
       hitNx: 1,
       hitNz: 0,
+      roll: 0,
       trail: [],
       chargeEmit: 0,
       slideEmit: 0,
@@ -486,6 +487,7 @@
     b.pendingCharge = false;
     b.fxSquash = 0.35;
     b.tumble = 0;
+    b.roll = 0;
     spawnDust(b.x, b.z, 14, 0.85);
     spawnDust(b.x, b.z, 6, 0.55, "spark");
   }
@@ -498,6 +500,64 @@
       return;
     }
     doJump(b);
+  }
+
+  function hitSpraySpec(tier, burst) {
+    if (!tier) {
+      return burst
+        ? { n: 20, spread: 0.55, power: 0.8, life: 0.36, spark: 0.1, size: 0.9, ring: 0.8, origin: 0.14, tint: "#c4b89a", sparkTint: "#e8d8a8", ringTint: "rgba(196, 184, 154, 0.8)" }
+        : { n: 2, spread: 0.45, power: 0.28, life: 0.28, spark: 0.05, size: 0.85, origin: 0.08, tint: "#c4b89a", sparkTint: "#e8d8a8" };
+    }
+    if (tier === "ctrl") {
+      return burst
+        ? { n: 32, spread: 0.1, power: 0.55, life: 0.26, spark: 0.12, size: 0.55, ring: 0.45, origin: 0.06, tint: "#b8c4c8", sparkTint: "#eef4f8", ringTint: "rgba(198, 210, 216, 0.9)" }
+        : { n: 2, spread: 0.08, power: 0.22, life: 0.2, spark: 0.04, size: 0.5, origin: 0.04, tint: "#b8c4c8", sparkTint: "#eef4f8" };
+    }
+    if (tier === "slip") {
+      return burst
+        ? { n: 78, spread: 1, power: 2.7, life: 0.9, spark: 0.5, size: 2.6, ring: 1.85, origin: 0.55, tint: "#c44a28", sparkTint: "#ff9a48", ringTint: "rgba(210, 96, 48, 0.9)" }
+        : { n: 5, spread: 1, power: 0.95, life: 0.55, spark: 0.28, size: 2.1, origin: 0.28, tint: "#c44a28", sparkTint: "#ff9a48" };
+    }
+    return burst
+      ? { n: 46, spread: 0.62, power: 1.35, life: 0.5, spark: 0.28, size: 1.25, ring: 1, origin: 0.2, tint: "#c4a66a", sparkTint: "#ffe08a", ringTint: "rgba(216, 176, 96, 0.88)" }
+      : { n: 3, spread: 0.58, power: 0.42, life: 0.34, spark: 0.12, size: 1.15, origin: 0.12, tint: "#c4a66a", sparkTint: "#ffe08a" };
+  }
+
+  function spawnDirectedDust(x, z, dx, dz, n, power) {
+    spawnHitSpray(x, z, dx, dz, { n, spread: 0.28, power, life: 0.38, spark: 0.08, size: 1, origin: 0.12, tint: "#c4b89a", sparkTint: "#ffe08a" });
+  }
+
+  function spawnHitSpray(x, z, dx, dz, spec) {
+    const d = norm(dx, dz);
+    const bx = d.d < 1e-5 ? 1 : d.x;
+    const bz = d.d < 1e-5 ? 0 : d.z;
+    const n = spec.n | 0;
+    const origin = spec.origin == null ? 0.18 : spec.origin;
+    for (let i = 0; i < n; i++) {
+      const spark = Math.random() < spec.spark;
+      const randA = Math.random() * Math.PI * 2;
+      const k = clamp(spec.spread, 0, 1);
+      let px = bx * (1 - k) + Math.cos(randA) * k;
+      let pz = bz * (1 - k) + Math.sin(randA) * k;
+      const dn = hypot(px, pz) || 1;
+      px /= dn;
+      pz /= dn;
+      const s = (0.3 + Math.random()) * spec.power * (spark ? 1.55 : 1);
+      const life = spec.life * (0.55 + Math.random() * 0.55);
+      particles.push({
+        kind: spark ? "spark" : "sand",
+        x: x + (Math.random() - 0.5) * origin,
+        z: z + (Math.random() - 0.5) * origin,
+        y: spark ? 0.1 : 0.02,
+        vx: px * s,
+        vz: pz * s,
+        vy: (spark ? 2.1 : 0.9) + Math.random() * (spark ? 2.6 : 1.8),
+        life,
+        max: Math.max(life, spec.life),
+        r: spec.size * (spark ? 0.7 : 1) * (0.7 + Math.random() * 0.5),
+        tint: spark ? spec.sparkTint : spec.tint,
+      });
+    }
   }
 
   function spawnDust(x, z, n, power, kind) {
@@ -518,13 +578,16 @@
     }
   }
 
-  function spawnRing(x, z, power) {
+  function spawnRing(x, z, power, scale, tint) {
+    const s = scale == null ? 1 : scale;
     rings.push({
       x, z,
-      life: 0.32,
-      max: 0.32,
-      r0: 0.15,
-      r1: 1.15 + Math.min(1.8, power * 0.12),
+      style: "dust",
+      tint: tint || "rgba(216, 181, 106, 0.88)",
+      life: 0.3 * s,
+      max: 0.3 * s,
+      r0: 0.1,
+      r1: 0.7 * s + Math.min(1.8, power * 0.12),
     });
   }
 
@@ -689,8 +752,10 @@
     b.px = b.x;
     b.pz = b.z;
     b.squatFlash = Math.max(0, b.squatFlash - dt * 3.2);
-    b.fxHit = Math.max(0, b.fxHit - dt * 3.6);
-    b.fxSquash = Math.max(0, b.fxSquash - dt * 4.2);
+    const hitFade = b.hitTier === "slip" ? 1.6 : b.hitTier === "ctrl" ? 8.5 : 3.2;
+    b.fxHit = Math.max(0, b.fxHit - dt * hitFade);
+    b.fxSquash = Math.max(0, b.fxSquash - dt * (b.hitTier === "ctrl" ? 8.5 : b.hitTier === "slip" ? 3.2 : 5.4));
+    if (isSettled(b)) b.roll = Math.max(0, (b.roll || 0) - dt * 7);
     if (b.charging && isSettled(b)) {
       b.chargeEmit += dt;
       if (b.chargeEmit > 0.07) {
@@ -700,10 +765,10 @@
     }
     if (isMovingOnGround(b)) {
       b.slideEmit += dt;
-      const dusty = b.hitTier === "slip" ? 0.032 : 0.045;
+      const dusty = b.hitTier === "slip" ? 0.02 : b.hitTier === "ctrl" ? 0.048 : 0.034;
       if (b.slideEmit > dusty) {
         b.slideEmit = 0;
-        spawnDust(b.x, b.z, b.hitTier === "slip" ? 2 : 1, b.hitTier === "slip" ? 0.42 : 0.28);
+        spawnHitSpray(b.x, b.z, -b.dirX, -b.dirZ, hitSpraySpec(b.hitTier, false));
       }
     }
     for (let i = b.trail.length - 1; i >= 0; i--) {
@@ -762,6 +827,7 @@
     b.pendingCharge = b.holding;
     b.tumble = 0;
     b.hitTier = null;
+    b.roll = 0;
     b.slideMu = knobs.mu;
     b.spin = 0;
     const d = norm(-x, -z);
@@ -852,13 +918,45 @@
     return "默认";
   }
 
-  function applyHitSlide(b, tier) {
+  function applyHitSlide(b, tier, jImp) {
     stickToGround(b);
     b.hitTier = tier;
     b.slideMu = muForTier(tier);
-    b.tumble = tier === "slip" ? 1 : (tier === "base" ? 0.4 : 0);
-    b.fxHit = 1;
-    b.fxSquash = tier === "ctrl" ? 0.55 : 1;
+    const sign = jImp > 0 ? 1 : -1;
+    if (tier === "ctrl") {
+      b.tumble = 0;
+      b.spin = 0;
+      b.fxHit = 1;
+      b.fxSquash = 1.05;
+      b.roll = 0;
+    } else if (tier === "slip") {
+      b.tumble = 1;
+      b.spin += sign * 9.2;
+      b.fxHit = 1;
+      b.fxSquash = 1.35;
+      b.roll = 1;
+    } else {
+      b.tumble = 0.7;
+      b.spin += sign * 2.8;
+      b.fxHit = 1;
+      b.fxSquash = 1.25;
+      b.roll = 0;
+    }
+  }
+
+  function tierHitStop(tier, jImp) {
+    const mag = Math.abs(jImp);
+    if (tier === "ctrl") return 0.022 + Math.min(0.02, mag * 0.006);
+    if (tier === "slip") return 0.1 + Math.min(0.07, mag * 0.018);
+    return 0.04 + Math.min(0.04, mag * 0.012);
+  }
+
+  function playHitFx(b, nx, nz, jImp, tier) {
+    const pwr = Math.min(2.6, Math.abs(jImp) * 0.24);
+    const spec = hitSpraySpec(tier, true);
+    spec.power += pwr * (tier === "slip" ? 0.35 : 0.16);
+    spawnHitSpray(b.x, b.z, -nx, -nz, spec);
+    spawnRing(b.x, b.z, pwr, spec.ring, spec.ringTint);
   }
 
   function bouncePair(a, b, nx, nz) {
@@ -878,23 +976,18 @@
     b.vz += (jImp * invB) * nz;
     faceVelocity(a);
     faceVelocity(b);
-    a.spin += (jImp > 0 ? 1 : -1) * 2.5;
-    b.spin -= (jImp > 0 ? 1 : -1) * 2.5;
     interrupt(a);
     interrupt(b);
     a.lastHitId = b.id;
     b.lastHitId = a.id;
-    applyHitSlide(a, tierA);
-    applyHitSlide(b, tierB);
+    applyHitSlide(a, tierA, jImp);
+    applyHitSlide(b, tierB, -jImp);
     a.hitNx = -nx;
     a.hitNz = -nz;
     b.hitNx = nx;
     b.hitNz = nz;
-    const pwr = Math.min(2.4, Math.abs(jImp) * 0.22);
-    spawnRing((a.x + b.x) * 0.5, (a.z + b.z) * 0.5, pwr);
-    const dustN = 10 + Math.floor(pwr * 6) + (tierA === "slip" || tierB === "slip" ? 4 : 0);
-    spawnDust((a.x + b.x) * 0.5, (a.z + b.z) * 0.5, dustN, 0.7 + pwr * 0.35);
-    spawnDust((a.x + b.x) * 0.5, (a.z + b.z) * 0.5, 8 + Math.floor(pwr * 5), 0.9 + pwr, "spark");
+    playHitFx(a, nx, nz, jImp, tierA);
+    playHitFx(b, -nx, -nz, jImp, tierB);
     flash(`${a.name} ${tierLabel(tierA)} · ${b.name} ${tierLabel(tierB)}`);
     return jImp;
   }
@@ -962,10 +1055,12 @@
         }
         const jImp = bouncePair(a, b, nx, nz);
         if (jImp) {
-          const punch = clamp(Math.abs(jImp) * 1.8, 0, 12);
+          const punchMul = (a.hitTier === "slip" || b.hitTier === "slip") ? 3.3
+            : (a.hitTier === "ctrl" && b.hitTier === "ctrl") ? 0.7 : 1.9;
+          const punch = clamp(Math.abs(jImp) * punchMul, 0, 14);
           camPunch.x += nx * punch;
           camPunch.y += -nz * punch * 0.4;
-          hitstop = Math.max(hitstop, 0.03 + Math.min(0.08, Math.abs(jImp) * 0.014));
+          hitstop = Math.max(hitstop, Math.max(tierHitStop(a.hitTier, jImp), tierHitStop(b.hitTier, jImp)));
         }
       }
     }
@@ -1267,11 +1362,12 @@
     const p = worldToScreen(b.x, b.z, 0);
     const k = b.alive ? 1 / (1 + b.y * 0.55) : Math.max(0, 1 - b.outT);
     const hitPx = b.r * CAM_SCALE;
+    const rollK = 1 + (b.roll || 0) * 0.38;
     ctx.save();
     ctx.globalAlpha = 0.22 * k;
     ctx.fillStyle = "#1a1008";
     ctx.beginPath();
-    ctx.ellipse(p.x, p.y + 6 + b.y * CAM_SCALE * 0.15, hitPx * 0.72 * k, hitPx * 0.32 * k * COS_P, 0, 0, Math.PI * 2);
+    ctx.ellipse(p.x, p.y + 6 + b.y * CAM_SCALE * 0.15, hitPx * 0.72 * k * rollK, hitPx * 0.32 * k * COS_P * rollK, 0, 0, Math.PI * 2);
     ctx.fill();
     if (b.isPlayer && b.alive) {
       ctx.globalAlpha = 0.62 * k;
@@ -1326,13 +1422,18 @@
     const full = b.charging && b.chargeT >= knobs.tMax;
     const jumping = b.airborne && b.y > 0.01;
     const sliding = isMovingOnGround(b);
-    const buzzing = b.tumble > 0 && sliding;
+    const roll = b.roll || 0;
+    const hitPose = b.hitTier;
+    const buzzing = !jumping && !b.charging && (hitPose === "slip" || roll > 0.35);
     const hit = b.fxHit;
-    const idle = !b.charging && !jumping && !sliding && b.alive;
+    const idle = !b.charging && !jumping && !sliding && !hitPose && b.alive;
     const squat = b.charging ? 1 - 0.32 * chargeN : 1;
-    const stretch = jumping ? 1.1 + Math.min(0.12, b.y * 0.08) : squat;
-    const shake = full ? Math.sin(time * 48) * (1.2 + chargeN) : (hit > 0 ? Math.sin(time * 70) * hit * 1.6 : 0);
-    const screenAng = Math.atan2(-b.dirZ, b.dirX) + b.spin * 0.1;
+    let stretch = jumping ? 1.1 + Math.min(0.12, b.y * 0.08) : squat;
+    const shake = full ? Math.sin(time * 48) * (1.2 + chargeN)
+      : hitPose === "slip" ? Math.sin(time * 110) * (1.4 + hit * 2.2) + Math.sin(time * 23) * 1.1
+      : hitPose === "ctrl" && hit > 0 ? 0
+      : (hit > 0 ? Math.sin(time * 62) * hit * 2.2 : 0);
+    const screenAng = Math.atan2(-b.dirZ, b.dirX) + b.spin * (hitPose === "slip" ? 0.24 : 0.1);
     const pal = b.pal;
     const fade = b.alive ? 1 : Math.max(0, 1 - b.outT * 1.4);
     const tId = time * 5.2 + b.id * 1.7;
@@ -1353,18 +1454,42 @@
       }
     }
 
+
     ctx.save();
     ctx.globalAlpha = fade;
     ctx.translate(p.x + shake, p.y);
     ctx.scale(1, 0.78);
     ctx.rotate(screenAng);
+    if (roll > 0.01) {
+      ctx.rotate(roll * Math.PI);
+      ctx.scale(1, 1 - roll * 0.22);
+    }
+    let coil = b.charging ? 0.3 + chargeN * 0.7 : 0;
+    let kick = jumping ? 1 : (sliding ? 0.28 : 0);
+    let ant = idle ? Math.sin(tId) * 1.6 : (b.charging ? -2.2 - chargeN * 2 : jumping ? 3.2 : Math.sin(tId * 1.3) * 1.2);
+    if (!b.charging && !jumping) {
+      if (hitPose === "ctrl") {
+        coil = 0.28;
+        kick = -0.82;
+        ant = 0.2;
+        stretch = 0.78;
+      } else if (hitPose === "base") {
+        coil = -0.12;
+        kick = 0.72;
+        ant = Math.sin(time * 18 + b.id) * 3.1;
+        stretch = 1.06 + Math.sin(hit * Math.PI) * 0.16;
+      } else if (hitPose === "slip" || roll > 0.25) {
+        coil = -0.34;
+        kick = 0.5 + Math.sin(time * 32 + b.id) * 0.95;
+        ant = Math.sin(time * 28 + b.id) * 5.5;
+        stretch = 1.16;
+      }
+    }
     const squash = b.fxSquash;
-    ctx.scale(1 + squash * 0.18, 1 - squash * 0.24);
+    const squashX = hitPose === "ctrl" ? 0.42 : hitPose === "slip" ? 0.12 : 0.2;
+    const squashY = hitPose === "ctrl" ? 0.08 : hitPose === "slip" ? 0.3 : 0.26;
+    ctx.scale(1 + squash * squashX, 1 - squash * squashY);
     ctx.scale((hitPx / 13) * breath, (hitPx / 13) * stretch);
-
-    const coil = b.charging ? 0.3 + chargeN * 0.7 : 0;
-    const kick = jumping ? 1 : (sliding ? 0.28 : 0);
-    const ant = idle ? Math.sin(tId) * 1.6 : (b.charging ? -2.2 - chargeN * 2 : jumping ? 3.2 : Math.sin(tId * 1.3) * 1.2);
 
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -1382,7 +1507,7 @@
     ctx.strokeStyle = pal.leg;
     for (const s of [-1, 1]) {
       const hipX = 1.4;
-      const hipY = s * 2.6;
+      const hipY = s * 2.6 * (1 + roll * 0.7);
       const kneeX = -7.8 - coil * 2.2 + kick * 1.8;
       const kneeY = s * (7.6 - coil * 2.4 + kick * 0.4);
       const footX = -15.2 - kick * 2.4 + coil * 3.2;
@@ -1491,7 +1616,7 @@
     ctx.globalAlpha = fade;
 
     if (buzzing) {
-      const copies = 4;
+      const copies = 6;
       for (let i = 0; i < copies; i++) {
         const buzz = Math.sin(time * 130 + b.id * 13 + i * 0.7) * 0.18;
         for (const s of [-1, 1]) {
@@ -1553,7 +1678,8 @@
       ctx.stroke();
     }
     if (hit > 0) {
-      ctx.fillStyle = `rgba(255, 240, 210, ${hit * 0.4})`;
+      const glow = hitPose === "slip" ? 0.5 : hitPose === "ctrl" ? 0.32 : 0.4;
+      ctx.fillStyle = `rgba(255, 236, 200, ${hit * glow})`;
       ctx.beginPath();
       ctx.ellipse(-1, 0, 14, 7, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -1583,31 +1709,32 @@
       const rad = rg.r0 + (rg.r1 - rg.r0) * u;
       const p = worldToScreen(rg.x, rg.z, 0);
       ctx.save();
-      ctx.globalAlpha = (1 - u) * 0.85;
-      ctx.strokeStyle = u < 0.25 ? "#fff6d8" : "#e8b24a";
-      ctx.lineWidth = 3.2 * (1 - u);
+      ctx.globalAlpha = (1 - u) * 0.82;
+      ctx.strokeStyle = u < 0.22 ? "#fff6d8" : (rg.tint || "#d8b56a");
+      ctx.lineWidth = 3 * (1 - u) + 0.6;
       ctx.beginPath();
       ctx.ellipse(p.x, p.y, rad * CAM_SCALE, rad * CAM_SCALE * COS_P, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
     for (const p of particles) {
-      const s = worldToScreen(p.x, p.z, p.y);
       const a = clamp(p.life / p.max, 0, 1);
+      const s = worldToScreen(p.x, p.z, p.y);
+      const rad = Math.max(0.7, (p.r || 1) * CAM_SCALE * 0.22) * (0.7 + a * 0.5);
       ctx.globalAlpha = a;
       if (p.kind === "spark") {
-        ctx.fillStyle = "#ffe08a";
+        ctx.fillStyle = p.tint || "#ffe08a";
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 1.6 + a * 1.4, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, rad * 1.15, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = "#fff6d0";
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 0.8, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, rad * 0.4, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        ctx.fillStyle = "#b8af94";
+        ctx.fillStyle = p.tint || "#c4b89a";
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 1.8 + a, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, rad, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;

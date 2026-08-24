@@ -358,6 +358,8 @@ eq("settings key v2", js.includes("dou-ququ-knobs-v2"), true);
 eq("drawArc preview uses chargeDeltaV", /function drawArc\(b\) \{[\s\S]{0,500}chargeDeltaV\(b\)/.test(js), true);
 eq("charge waits until settled", /function stepCharge\(b, dt\) \{[\s\S]{0,250}!isSettled\(b\)/.test(js), true);
 eq("own-slide does not plant to charge", !/function plant\(b\)/.test(js) && !/function canStartCharge\(b\)/.test(js), true);
+eq("hit fx split by tier", /function playHitFx\(/.test(js) && /function spawnHitSpray\(/.test(js), true);
+eq("slip sets roll", /b\.roll = 1/.test(js), true);
 
 if (failed) {
   console.error(`\n${failed} failed`);
