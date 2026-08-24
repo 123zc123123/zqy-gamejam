@@ -1,0 +1,28 @@
+# Local AI workflow copies - keep local, do not commit
+.agents/
+.claude/
+.codex/
+.specify/
+.mcp.json
+AGENTS.md
+CLAUDE.md
+
+# Local Unity editor / generated files
+Library/
+Temp/
+Obj/
+Logs/
+UserSettings/
+MemoryCaptures/
+Build/
+Builds/
+*.csproj
+*.sln
+*.pidb
+*.unityproj
+*.suo
+*.user
+*.userprefs
+.vsconfig
+.vs/
+.idea/
