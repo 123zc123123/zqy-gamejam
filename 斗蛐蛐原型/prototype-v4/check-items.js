@@ -215,13 +215,24 @@ const knobs = R.mergeKnobs();
 }
 
 {
+  const seq = [0.08, 0.22, 0.71, 0.39, 0.94, 0.15, 0.62, 0.48, 0.31, 0.87, 0.12, 0.55, 0.78, 0.41, 0.06];
   const eggs = R.scatterEggs({
-    n: 5, x: 0, z: 0, speed: 4.5, spread: 0.6, pad: 0.3,
-    rand: (() => { let i = 0; const u = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]; return () => u[i++] || 0.4; })(),
-    clamp: (x, z, pad) => ({ x: Math.max(-10, Math.min(10, x)), z: Math.max(-10, Math.min(10, z)), pad }),
+    n: 5, hw: 21.2, hd: 31.8, pad: 0.3, speed: 0, minSep: 1,
+    rand: (() => { let i = 0; return () => seq[i++] || 0.4; })(),
+    sdf: (x, z) => Math.max(Math.abs(x) - 20, Math.abs(z) - 30),
+    clamp: (x, z, pad) => ({
+      x: Math.max(-19.7, Math.min(19.7, x)),
+      z: Math.max(-29.7, Math.min(29.7, z)),
+      pad,
+    }),
   });
   eq("scatter count", eggs.length, 5);
-  eq("scatter has speed", eggs.every((e) => Math.hypot(e.vx, e.vz) > 1), true);
+  const xs = eggs.map((e) => e.x);
+  const zs = eggs.map((e) => e.z);
+  eq("scatter spans board x", Math.max.apply(null, xs) - Math.min.apply(null, xs) > 8, true);
+  eq("scatter spans board z", Math.max.apply(null, zs) - Math.min.apply(null, zs) > 8, true);
+  eq("scatter inside", eggs.every((e) => Math.abs(e.x) <= 20 && Math.abs(e.z) <= 30), true);
+  eq("scatter still", eggs.every((e) => e.vx === 0 && e.vz === 0), true);
 }
 
 {

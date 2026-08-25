@@ -239,21 +239,39 @@
   function scatterEggs(spec) {
     const n = Math.max(0, spec.n | 0);
     const rand = spec.rand || Math.random;
-    const speed = spec.speed == null ? 4.5 : spec.speed;
-    const spread = spec.spread == null ? 0.55 : spec.spread;
+    const speed = spec.speed == null ? 0 : spec.speed;
     const pad = spec.pad == null ? 0.36 : spec.pad;
+    const hw = spec.hw == null ? 21.2 : spec.hw;
+    const hd = spec.hd == null ? 31.8 : spec.hd;
+    const minSep = spec.minSep == null ? 0 : spec.minSep;
     const out = [];
-    const baseAng = rand() * Math.PI * 2;
     for (let i = 0; i < n; i++) {
-      const jitter = (rand() - 0.5) * 0.4;
-      const ang = baseAng + (n === 0 ? 0 : (i * Math.PI * 2) / n) + jitter;
-      let x = spec.x + Math.cos(ang) * spread;
-      let z = spec.z + Math.sin(ang) * spread;
-      if (spec.clamp) {
+      let x = 0;
+      let z = 0;
+      let ok = false;
+      for (let t = 0; t < 80; t++) {
+        x = (rand() * 2 - 1) * hw;
+        z = (rand() * 2 - 1) * hd;
+        if (spec.sdf && spec.sdf(x, z) > -pad) continue;
+        let packed = false;
+        if (minSep > 0) {
+          for (let j = 0; j < out.length; j++) {
+            if (hypot(out[j].x - x, out[j].z - z) < minSep) {
+              packed = true;
+              break;
+            }
+          }
+        }
+        if (packed) continue;
+        ok = true;
+        break;
+      }
+      if (!ok && spec.clamp) {
         const p = spec.clamp(x, z, pad);
         x = p.x;
         z = p.z;
       }
+      const ang = rand() * Math.PI * 2;
       out.push({
         x,
         z,

@@ -1516,12 +1516,13 @@
     const pad = (knobs.eggR || 0.55) + 0.08;
     const laid = R.scatterEggs({
       n: knobs.nestEggN,
-      x: nest.x,
-      z: nest.z,
-      speed: knobs.eggScatterV,
-      spread: Math.max(0.45, nest.r * 0.45),
       pad,
+      hw: ARENA_HW,
+      hd: ARENA_HD,
+      minSep: Math.max(0.7, (knobs.eggR || 0.55) * 2),
+      speed: 0,
       rand,
+      sdf: arenaSDF,
       clamp: (x, z, p) => clampInArena(x, z, p),
     });
     const hatches = R.eggHatchTimes(laid.length, knobs, rand);
@@ -2521,6 +2522,50 @@
     return Math.max(3.2, r * CAM_SCALE * 0.95);
   }
 
+  function mixRgb(a, b, t) {
+    const k = clamp(t, 0, 1);
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * k),
+      Math.round(a[1] + (b[1] - a[1]) * k),
+      Math.round(a[2] + (b[2] - a[2]) * k),
+    ];
+  }
+
+  function drawTimeCapsule(cx, cy, fillN, rgb, bright) {
+    const w = 28;
+    const h = 6;
+    const rad = h / 2;
+    const x = Math.round(cx - w / 2);
+    const y = Math.round(cy - h / 2);
+    const n = clamp(fillN, 0, 1);
+    const [r0, g0, b0] = rgb;
+    const lift = bright ? 0.45 : 0;
+    const r = Math.round(r0 + (255 - r0) * lift);
+    const g = Math.round(g0 + (255 - g0) * lift);
+    const b = Math.round(b0 + (255 - b0) * lift);
+    ctx.save();
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, rad);
+    else {
+      ctx.moveTo(x + rad, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rad);
+      ctx.arcTo(x + w, y + h, x, y + h, rad);
+      ctx.arcTo(x, y + h, x, y, rad);
+      ctx.arcTo(x, y, x + w, y, rad);
+    }
+    ctx.fillStyle = "rgba(18, 12, 8, 0.72)";
+    ctx.fill();
+    const fw = Math.max(0, (w - 2) * n);
+    if (fw > 0.5) {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x + 1, y + 1, fw, h - 2, Math.max(1, rad - 1));
+      else ctx.rect(x + 1, y + 1, fw, h - 2);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawHeart(h) {
     if (!h.alive) return;
     const bob = 0.12 + Math.sin(time * 2.6 + h.phase) * 0.07;
@@ -2652,6 +2697,7 @@
       ctx.stroke();
     }
     ctx.restore();
+    drawTimeCapsule(p.x, p.y - rad * 1.15 - 8, left, [232, 210, 164], left <= 0.25);
   }
 
   const SVG_SHIELD = {
@@ -3056,6 +3102,10 @@
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(q.x, q.y);
       ctx.stroke();
+    }
+    if (b.kind === "baby" && b.alive) {
+      const lifeN = clamp(b.lifeT / Math.max(1e-6, knobs.babyLifeT), 0, 1);
+      drawTimeCapsule(p.x, p.y - hitPx * 0.78 - 10, lifeN, mixRgb([232, 220, 196], [208, 56, 48], 1 - lifeN), false);
     }
   }
 
