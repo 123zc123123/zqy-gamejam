@@ -10,6 +10,8 @@
   const overlayCount = document.getElementById("countdown");
   const overlayResult = document.getElementById("result");
   const overlaySpectate = document.getElementById("spectate");
+  const overlayNetWait = document.getElementById("net-wait");
+  const overlayNetJoin = document.getElementById("net-join");
   const countNum = document.getElementById("count-num");
   const resultTitle = document.getElementById("result-title");
   const resultSub = document.getElementById("result-sub");
@@ -189,6 +191,18 @@
 
   let phase = "boot";
   let solo = false;
+  let netRole = null;
+  let mySeat = 0;
+  let netCode = "";
+  let netWs = null;
+  let netPeerOk = false;
+  let remoteInput = { holding: false, x: 0, z: 0, mag: 0 };
+  let remoteV3 = null;
+  let netSendAcc = 0;
+  let netInputAcc = 0;
+  let lastSnap = null;
+  let prevSnap = null;
+  let snapAt = 0;
   let paused = false;
   let userPaused = false;
   let awaitingQuit = false;
@@ -243,6 +257,35 @@
     eye: "#100806",
     stripe: "#3a3020",
     gleam: "#efe0b8",
+  };
+  const FACTION = {
+    ally: {
+      fill: [36, 170, 148],
+      fillFull: [64, 224, 196],
+      edge: [16, 56, 50],
+      edgeFull: [210, 255, 240],
+      arrow: [168, 255, 228],
+      ring: [40, 204, 176],
+      ringEdge: [8, 36, 32],
+    },
+    enemy: {
+      fill: [204, 46, 122],
+      fillFull: [244, 88, 164],
+      edge: [64, 12, 36],
+      edgeFull: [255, 198, 226],
+      arrow: [255, 176, 214],
+      ring: [228, 52, 132],
+      ringEdge: [52, 8, 28],
+    },
+    neutral: {
+      fill: [196, 124, 40],
+      fillFull: [232, 176, 72],
+      edge: [90, 48, 16],
+      edgeFull: [255, 220, 140],
+      arrow: [255, 228, 160],
+      ring: [196, 165, 116],
+      ringEdge: [40, 28, 16],
+    },
   };
   let matchState = null;
   let matchT = 0;
@@ -377,9 +420,10 @@
   function makeBug(id, x, z, isPlayer, personality) {
     return {
       id,
-      name: NAMES[id],
-      pal: PALETTES[id],
+      name: NAMES[id] || "小蟋蟀",
+      pal: PALETTES[id] || BABY_PAL,
       isPlayer,
+      remote: false,
       ai: personality,
       x, z, px: x, pz: z, y: 0, vy: 0,
       vx: 0, vz: 0,
@@ -516,6 +560,7 @@
       { x: 0, z: -ARENA_HD * 0.38 },
       { x: 0, z: ARENA_HD * 0.38 },
     ];
+    const pvp = isNetPvp();
     const brains = [
       null,
       isNestTest()
@@ -524,7 +569,10 @@
     ];
     const n = solo ? 1 : 2;
     for (let i = 0; i < n; i++) {
-      const b = makeBug(i, pos[i].x, pos[i].z, i === 0, brains[i]);
+      const mine = i === mySeat;
+      const brain = (!pvp && !mine) ? brains[i] : null;
+      const b = makeBug(i, pos[i].x, pos[i].z, mine, brain);
+      b.remote = pvp && netRole === "host" && !mine;
       const d = norm(-pos[i].x, -pos[i].z);
       b.dirX = d.x || 0;
       b.dirZ = d.z || 1;
@@ -554,6 +602,7 @@
   }
 
   function liveHud() {
+    if (netRole === "guest" && lastSnap) return;
     if (!hudLive) return;
     if (solo) {
       hudLive.textContent = "独自练习";
@@ -567,7 +616,7 @@
       return;
     }
     if (!matchState || phase === "boot" || phase === "result") {
-      hudLive.textContent = liveCount() >= 2 ? "对战中" : "残局";
+      hudLive.textContent = isNetPvp() ? "联机对战" : (liveCount() >= 2 ? "对战中" : "残局");
       if (hudClock) hudClock.textContent = "";
       return;
     }
@@ -575,10 +624,10 @@
     matchState.t = matchT;
     const clock = R.matchClock(matchState);
     if (clock.phase === "rage") {
-      hudLive.textContent = "狂暴";
+      hudLive.textContent = isNetPvp() ? "联机 · 狂暴" : "狂暴";
       if (hudClock) hudClock.textContent = fmtClock(clock.untilHard);
     } else {
-      hudLive.textContent = liveCount() >= 2 ? "对战中" : "残局";
+      hudLive.textContent = isNetPvp() ? "联机对战" : (liveCount() >= 2 ? "对战中" : "残局");
       if (hudClock) hudClock.textContent = fmtClock(clock.untilReg);
     }
     phoneEl.classList.toggle("rage", !!matchState.rage);
@@ -690,6 +739,14 @@
     if (n.d < 0.12) return;
     b.dirX = n.x;
     b.dirZ = n.z;
+  }
+
+  function isNetPvp() {
+    return netRole === "host" || netRole === "guest";
+  }
+
+  function isHumanControlled(b) {
+    return !!(b && (b.isPlayer || b.remote));
   }
 
   function beginCharge(b) {
@@ -1018,7 +1075,7 @@
   }
 
   function startV3Windup(b, mag, dirX, dirZ) {
-    if (!b || !b.alive || !b.isPlayer) return;
+    if (!b || !b.alive || !isHumanControlled(b)) return;
     if (b.v3Goal != null) return;
     if (mag < 0.12) return;
     const goal = mag * chargeTMax(b);
@@ -1041,6 +1098,33 @@
       if (b.isPlayer && b.alive) return b;
     }
     return null;
+  }
+
+  function localBug() {
+    for (const b of bugs) {
+      if (b.isPlayer) return b;
+    }
+    return null;
+  }
+
+  function factionOf(b) {
+    if (!b) return "neutral";
+    const me = localBug();
+    if (b.kind === "baby") {
+      if (b.ownerId == null || b.ownerId < 0) return "neutral";
+      if (me && b.ownerId === me.id) return "ally";
+      return "enemy";
+    }
+    if (me) return b === me || b.id === me.id ? "ally" : "enemy";
+    return b.isPlayer ? "ally" : "enemy";
+  }
+
+  function factionPaint(b) {
+    return FACTION[factionOf(b)] || FACTION.neutral;
+  }
+
+  function rgbStr(c) {
+    return c[0] + ", " + c[1] + ", " + c[2];
   }
 
   function switchNestControl() {
@@ -1084,6 +1168,17 @@
     if (inputVersion !== 3) return;
     const pull = v3Pull();
     if (!pull) return;
+    if (netRole === "guest") {
+      netSendInput({ v3: { mag: pull.mag, dirX: pull.x, dirZ: pull.z } });
+      const b = playerBug();
+      if (b) {
+        b.charging = true;
+        b.chargeT = 0;
+        b.dirX = pull.x;
+        b.dirZ = pull.z;
+      }
+      return;
+    }
     startV3Windup(playerBug(), pull.mag, pull.x, pull.z);
   }
 
@@ -1093,12 +1188,12 @@
       stepBabyCharge(b, dt);
       return;
     }
-    if (b.isPlayer && inputVersion === 3 && (b.v3Goal != null || b.v3Pending) && !isSettled(b)) {
+    if (isHumanControlled(b) && inputVersion === 3 && (b.v3Goal != null || b.v3Pending) && !isSettled(b)) {
       interrupt(b);
       return;
     }
 
-    if (b.isPlayer && inputVersion === 3) {
+    if (isHumanControlled(b) && inputVersion === 3) {
       if (b.v3Pending && isSettled(b) && b.v3Goal == null) {
         const p = b.v3Pending;
         b.v3Goal = p.goal;
@@ -2171,6 +2266,7 @@
     openTune();
     phoneEl.classList.remove("rage");
     liveHud();
+    if (netRole === "host") netSendState();
   }
 
   function checkEnd() {
@@ -2179,7 +2275,8 @@
     if (alive.length <= 1) {
       if (alive.length === 1) {
         const w = alive[0];
-        finishMatch(w.isPlayer ? "你留下了" : "对手留下", w.isPlayer ? "这一撞能吹。" : "出圈即负。再读一次蓄力。");
+        const mine = w.id === mySeat;
+        finishMatch(mine ? "你留下了" : "对手留下", mine ? "这一撞能吹。" : "出圈即负。再读一次蓄力。");
       } else {
         finishMatch("罐空了", "几乎同时出界。");
       }
@@ -2188,11 +2285,52 @@
     if (matchT + 1e-9 >= knobs.regTime + knobs.otTime) {
       const w = R.centerWinner(bugs);
       if (w.tie || !w.winner) finishMatch("平手", "一样靠近场心。");
-      else finishMatch(w.winner.isPlayer ? "你更靠场心" : "对手更靠场心", "加时结束，比谁离中心近。");
+      else {
+        const mine = w.winner.id === mySeat;
+        finishMatch(mine ? "你更靠场心" : "对手更靠场心", "加时结束，比谁离中心近。");
+      }
+    }
+  }
+
+  function applyHumanInput(b, inp) {
+    if (!b || !b.alive || !inp) return;
+    b.aimMag = inp.mag || 0;
+    if (inp.v3) {
+      startV3Windup(b, inp.v3.mag, inp.v3.dirX, inp.v3.dirZ);
+      return;
+    }
+    if (inputVersion === 3) {
+      if (b.v3Goal != null || b.v3Pending) {
+        b.holding = false;
+        b.v3Preview = 0;
+      } else {
+        b.holding = false;
+        b.v3Preview = inp.holding ? inp.mag : 0;
+        if (inp.holding && hypot(inp.x, inp.z) > 0.01) {
+          b.inX = inp.x;
+          b.inZ = inp.z;
+          b.dirX = inp.x;
+          b.dirZ = inp.z;
+          lastAim.x = inp.x;
+          lastAim.z = inp.z;
+        }
+      }
+    } else {
+      b.holding = !!inp.holding;
+      if (inp.holding && hypot(inp.x, inp.z) > 0.01) {
+        b.inX = inp.x;
+        b.inZ = inp.z;
+        b.dirX = inp.x;
+        b.dirZ = inp.z;
+      }
     }
   }
 
   function simulate(dt) {
+    if (netRole === "guest") {
+      pumpGuest(dt);
+      return;
+    }
     if (phase === "countdown") {
       countT -= dt;
       const n = Math.ceil(countT);
@@ -2206,35 +2344,20 @@
     }
 
     if (phase === "play") {
-      for (const b of bugs) {
-        if (!b.isPlayer) continue;
-        const inp = playerInput();
-        b.aimMag = inp.mag || 0;
-        if (inputVersion === 3) {
-          if (b.v3Goal != null || b.v3Pending) {
-            b.holding = false;
-            b.v3Preview = 0;
-          } else {
-            b.holding = false;
-            b.v3Preview = inp.holding ? inp.mag : 0;
-            if (inp.holding && hypot(inp.x, inp.z) > 0.01) {
-              b.inX = inp.x;
-              b.inZ = inp.z;
-              b.dirX = inp.x;
-              b.dirZ = inp.z;
-              lastAim.x = inp.x;
-              lastAim.z = inp.z;
-            }
-          }
-        } else {
-          b.holding = inp.holding;
-          if (inp.holding && hypot(inp.x, inp.z) > 0.01) {
-            b.inX = inp.x;
-            b.inZ = inp.z;
-            b.dirX = inp.x;
-            b.dirZ = inp.z;
-          }
+      applyHumanInput(playerBug(), playerInput());
+      if (netRole === "host") {
+        const remote = bugs.find((b) => b.remote);
+        const inp = {
+          holding: remoteInput.holding,
+          x: remoteInput.x,
+          z: remoteInput.z,
+          mag: remoteInput.mag,
+        };
+        if (remoteV3) {
+          inp.v3 = remoteV3;
+          remoteV3 = null;
         }
+        applyHumanInput(remote, inp);
       }
       for (const b of bugs) updateAI(b, dt);
     }
@@ -2265,6 +2388,13 @@
       if (bannerT <= 0) banner.textContent = "";
     }
     checkEnd();
+    if (netRole === "host") {
+      netSendAcc += dt;
+      if (netSendAcc >= 0.05 || phase === "result") {
+        netSendAcc = 0;
+        netSendState();
+      }
+    }
   }
 
   function drawJarBg() {
@@ -2416,9 +2546,11 @@
     const start = worldToScreen(b.x, b.z, 0);
     const tip = worldToScreen(b.x + d.x * dist, b.z + d.z * dist, 0);
     if (![start.x, start.y, tip.x, tip.y].every(Number.isFinite)) return;
-    const peak = full >= 1 ? 0.36 : 0.16 + full * 0.16;
-    const rgb = full >= 1 ? "232, 176, 72" : "196, 124, 40";
-    const edgeRgb = full >= 1 ? "255, 220, 140" : "90, 48, 16";
+    const paint = factionPaint(b);
+    const peak = full >= 1 ? 0.5 : 0.22 + full * 0.2;
+    const rgb = rgbStr(full >= 1 ? paint.fillFull : paint.fill);
+    const edgeRgb = rgbStr(full >= 1 ? paint.edgeFull : paint.edge);
+    const arrowRgb = rgbStr(paint.arrow);
     const segs = 18;
 
     function edgePt(side, t) {
@@ -2486,7 +2618,7 @@
       ctx.lineTo(pL.x, pL.y);
       ctx.lineTo(pR.x, pR.y);
       ctx.closePath();
-      ctx.fillStyle = `rgba(255, 228, 160, ${0.22 + fade * (full >= 1 ? 0.5 : 0.32)})`;
+      ctx.fillStyle = `rgba(${arrowRgb}, ${0.28 + fade * (full >= 1 ? 0.58 : 0.38)})`;
       ctx.fill();
     }
     ctx.restore();
@@ -2503,19 +2635,53 @@
     ctx.beginPath();
     ctx.ellipse(p.x, p.y + 6 + b.y * CAM_SCALE * 0.15, hitPx * 0.72 * k * rollK, hitPx * 0.32 * k * COS_P * rollK, 0, 0, Math.PI * 2);
     ctx.fill();
-    if (b.isPlayer && b.alive) {
-      ctx.globalAlpha = 0.62 * k;
-      ctx.strokeStyle = palRing(b);
-      ctx.lineWidth = 1.25;
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y + 6, hitPx * 1.18, hitPx * 0.5 * COS_P, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
     ctx.restore();
+    if (b.alive) drawGroundRing(b, p, hitPx);
   }
 
-  function palRing(b) {
-    return (b.pal && b.pal.ring) || "rgba(196,165,116,0.8)";
+  function drawGroundRing(b, p, hitPx) {
+    const fac = factionOf(b);
+    const paint = FACTION[fac] || FACTION.neutral;
+    const baby = b.kind === "baby";
+    const cx = p.x;
+    const cy = p.y + 6;
+    let rx = baby ? Math.max(11, hitPx * 1.9) : hitPx * 1.42;
+    let ry = baby ? Math.max(5, hitPx * 0.82 * COS_P) : hitPx * 0.62 * COS_P;
+    let fillA = baby ? 0.34 : 0.22;
+    let lineA = baby ? 0.96 : 0.94;
+    if (phase === "countdown" && fac === "ally" && !baby) {
+      const pulse = Math.abs(Math.sin(time * 9));
+      const s = 1 + pulse * 0.12;
+      rx *= s;
+      ry *= s;
+      fillA = 0.2 + pulse * 0.16;
+      lineA = 0.78 + pulse * 0.2;
+    }
+    ctx.save();
+    ctx.globalAlpha = fillA;
+    ctx.fillStyle = "rgb(" + rgbStr(paint.ring) + ")";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (fac === "enemy" && !baby) {
+      const dash = Math.max(6, rx * 0.42);
+      ctx.setLineDash([dash, dash * 0.6]);
+    } else {
+      ctx.setLineDash([]);
+    }
+    ctx.globalAlpha = lineA;
+    ctx.lineWidth = baby ? 3 : 3.6;
+    ctx.strokeStyle = "rgba(" + rgbStr(paint.ringEdge) + ",0.92)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = baby ? 1.9 : 2.3;
+    ctx.strokeStyle = "rgb(" + rgbStr(paint.ring) + ")";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
   }
 
   function pickupScreenR(r) {
@@ -2836,7 +3002,7 @@
       : hitPose === "ctrl" && hit > 0 ? 0
       : (hit > 0 ? Math.sin(time * 62) * hit * 2.2 : 0);
     const screenAng = Math.atan2(-b.dirZ, b.dirX) + b.spin * (hitPose === "slip" ? 0.24 : 0.1);
-    const pal = b.pal;
+    const pal = b.pal || BABY_PAL;
     const fade = b.alive ? 1 : Math.max(0, 1 - b.outT * 1.4);
     const tId = time * 5.2 + b.id * 1.7;
     const breath = idle ? 1 + Math.sin(tId * 0.5) * 0.025 : 1;
@@ -3209,7 +3375,7 @@
   function isStickBlocked(el) {
     if (!el || !el.closest) return false;
     if (el.closest("#tune, #btn-tune")) return true;
-    if (el.closest("button")) return true;
+    if (el.closest("button, input, textarea")) return true;
     const ov = el.closest(".overlay");
     if (ov && !ov.classList.contains("hidden")) return true;
     return false;
@@ -3350,6 +3516,7 @@
     }
     if (e.code === "Space") {
       e.preventDefault();
+      if (isNetPvp()) return;
       userPaused = !userPaused;
       syncPause();
       if (paused) clearStick();
@@ -3369,7 +3536,11 @@
     const wasHeld = keyHeld();
     keys.delete(e.code);
     if (inputVersion === 3 && wasHeld && !keyHeld() && stick.pointerId == null) {
-      startV3Windup(playerBug(), 1, lastAim.x, lastAim.z);
+      if (netRole === "guest") {
+        netSendInput({ v3: { mag: 1, dirX: lastAim.x, dirZ: lastAim.z } });
+      } else {
+        startV3Windup(playerBug(), 1, lastAim.x, lastAim.z);
+      }
     }
     updateStickVisual();
   });
@@ -3447,7 +3618,7 @@
     if (opts && opts.silent) return;
     if (prev !== n) {
       for (const b of bugs) {
-        if (b.isPlayer) {
+        if (isHumanControlled(b)) {
           b.charging = false;
           b.chargeT = 0;
           b.pendingCharge = false;
@@ -3459,11 +3630,404 @@
     if (!opts || opts.persist !== false) saveSettings();
   }
 
+  function netUrl() {
+    if (location.protocol === "file:") return null;
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    return proto + "//" + location.host + "/__ws";
+  }
+
+  function netSend(obj) {
+    if (!netWs || netWs.readyState !== 1) return;
+    try { netWs.send(JSON.stringify(obj)); } catch (_) { /* closed */ }
+  }
+
+  function hideNetOverlays() {
+    if (overlayNetWait) overlayNetWait.classList.add("hidden");
+    if (overlayNetJoin) overlayNetJoin.classList.add("hidden");
+  }
+
+  function setNetWaitStatus(text) {
+    const el = document.getElementById("net-wait-status");
+    if (el) el.textContent = text;
+  }
+
+  function setJoinStatus(text) {
+    const el = document.getElementById("join-status");
+    if (el) el.textContent = text;
+  }
+
+  function packBug(b) {
+    return {
+      id: b.id,
+      name: b.name,
+      pal: b.pal,
+      x: b.x, z: b.z, y: b.y,
+      vx: b.vx, vz: b.vz, vy: b.vy,
+      dirX: b.dirX, dirZ: b.dirZ,
+      r: b.r, m: b.m, grow: b.grow,
+      alive: b.alive,
+      airborne: b.airborne,
+      charging: b.charging,
+      chargeT: b.chargeT,
+      holding: b.holding,
+      pendingCharge: b.pendingCharge,
+      aimMag: b.aimMag,
+      v3Goal: b.v3Goal,
+      v3Preview: b.v3Preview,
+      v3Pending: b.v3Pending,
+      inX: b.inX, inZ: b.inZ,
+      buffSizeT: b.buffSizeT,
+      buffShieldT: b.buffShieldT,
+      buffChargeT: b.buffChargeT,
+      rageSize: b.rageSize,
+      rageCharge: b.rageCharge,
+      squatFlash: b.squatFlash,
+      fxHit: b.fxHit,
+      fxSquash: b.fxSquash,
+      hitTier: b.hitTier,
+      roll: b.roll,
+      tumble: b.tumble,
+      spin: b.spin,
+      kind: b.kind || "bug",
+      ownerId: b.ownerId,
+      lifeT: b.lifeT,
+      atkCd: b.atkCd,
+    };
+  }
+
+  function netSendState() {
+    if (netRole !== "host") return;
+    netSend({
+      type: "state",
+      phase,
+      countT,
+      matchT,
+      paused,
+      inputVersion,
+      hudLive: hudLive ? hudLive.textContent : "",
+      hudClock: hudClock ? hudClock.textContent : "",
+      rage: !!(phoneEl && phoneEl.classList.contains("rage")),
+      resultTitle: resultTitle ? resultTitle.textContent : "",
+      resultSub: resultSub ? resultSub.textContent : "",
+      bugs: bugs.map(packBug),
+      hearts: hearts.map((h) => ({ x: h.x, z: h.z, r: h.r, alive: h.alive, phase: h.phase })),
+      items: items.map((it) => ({ kind: it.kind, x: it.x, z: it.z, r: it.r, alive: it.alive, phase: it.phase })),
+      nests: nests.map((n) => ({ x: n.x, z: n.z, r: n.r, hp: n.hp, maxHp: n.maxHp, alive: n.alive })),
+      eggs: eggs.map((e) => ({
+        x: e.x, z: e.z, vx: e.vx, vz: e.vz, r: e.r, m: e.m,
+        alive: e.alive, hatchT: e.hatchT, hatchMax: e.hatchMax, ownerId: e.ownerId,
+      })),
+      babies: babies.map(packBug),
+    });
+  }
+
+  function netSendInput(extra) {
+    const inp = playerInput();
+    const msg = {
+      type: "input",
+      holding: inp.holding,
+      x: inp.x,
+      z: inp.z,
+      mag: inp.mag,
+      ver: inputVersion,
+    };
+    if (extra && extra.v3) msg.v3 = extra.v3;
+    netSend(msg);
+  }
+
+  function lerpNum(a, b, u) {
+    if (!Number.isFinite(a)) return b;
+    if (!Number.isFinite(b)) return a;
+    return a + (b - a) * u;
+  }
+
+  function fillFromSnap(dst, src, prev, u, lerpPos) {
+    Object.assign(dst, src);
+    if (lerpPos && prev) {
+      dst.x = lerpNum(prev.x, src.x, u);
+      dst.z = lerpNum(prev.z, src.z, u);
+      dst.y = lerpNum(prev.y, src.y, u);
+    }
+  }
+
+  function syncSnapList(arr, snaps, prevs, u, make, lerpPos) {
+    const list = snaps || [];
+    const prevMap = new Map();
+    if (prevs) {
+      for (const p of prevs) {
+        const key = p.id != null ? p.id : (p.x + "," + p.z);
+        prevMap.set(key, p);
+      }
+    }
+    while (arr.length < list.length) arr.push(make(arr.length));
+    arr.length = list.length;
+    for (let i = 0; i < list.length; i++) {
+      const src = list[i];
+      const key = src.id != null ? src.id : (src.x + "," + src.z);
+      fillFromSnap(arr[i], src, prevMap.get(key), u, lerpPos);
+    }
+  }
+
+  function applyNetOverlays(snap) {
+    if (!snap) return;
+    if (hudLive && snap.hudLive != null) hudLive.textContent = snap.hudLive;
+    if (hudClock && snap.hudClock != null) hudClock.textContent = snap.hudClock;
+    if (phoneEl) phoneEl.classList.toggle("rage", !!snap.rage);
+    if (snap.phase === "countdown") {
+      overlayStart.classList.add("hidden");
+      hideNetOverlays();
+      overlayResult.classList.add("hidden");
+      overlayCount.classList.remove("hidden");
+      const n = Math.ceil(snap.countT);
+      if (countNum) countNum.textContent = n > 0 ? String(n) : "斗";
+    } else if (snap.phase === "play") {
+      overlayStart.classList.add("hidden");
+      hideNetOverlays();
+      overlayCount.classList.add("hidden");
+      overlayResult.classList.add("hidden");
+    } else if (snap.phase === "result") {
+      overlayCount.classList.add("hidden");
+      const firstResult = overlayResult.classList.contains("hidden");
+      overlayResult.classList.remove("hidden");
+      if (resultTitle) resultTitle.textContent = snap.resultTitle || "这一罐";
+      if (resultSub) resultSub.textContent = snap.resultSub || "";
+      if (firstResult) openTune();
+    }
+  }
+
+  function applySnap(snap, prev) {
+    if (!snap) return;
+    const u = prev ? clamp((performance.now() - snapAt) / 50, 0, 1) : 1;
+    const localHold = playerInput();
+    phase = snap.phase;
+    countT = snap.countT;
+    matchT = snap.matchT;
+    if (typeof snap.inputVersion === "number") setInputVersion(snap.inputVersion, { silent: true, persist: false });
+    syncSnapList(bugs, snap.bugs, prev && prev.bugs, u, (i) => makeBug(i, 0, 0, i === mySeat, null), true);
+    for (const b of bugs) {
+      b.isPlayer = b.id === mySeat;
+      b.remote = false;
+      b.ai = null;
+      refreshBody(b);
+    }
+    syncSnapList(hearts, snap.hearts, prev && prev.hearts, u, () => ({ x: 0, z: 0, r: HEART_R, alive: false, phase: 0 }), true);
+    syncSnapList(items, snap.items, prev && prev.items, u, () => ({ kind: "shield", x: 0, z: 0, r: 0.7, alive: false, phase: 0 }), true);
+    syncSnapList(nests, snap.nests, prev && prev.nests, u, () => ({ x: 0, z: 0, r: 1, hp: 0, maxHp: 1, alive: false, touching: {} }), true);
+    syncSnapList(eggs, snap.eggs, prev && prev.eggs, u, () => ({ x: 0, z: 0, vx: 0, vz: 0, r: 0.5, m: 0.4, alive: false, hatchT: 1, hatchMax: 1, ownerId: -1 }), true);
+    syncSnapList(babies, snap.babies, prev && prev.babies, u, (i) => {
+      const b = makeBug(100 + i, 0, 0, false, null);
+      b.kind = "baby";
+      b.ownerId = -1;
+      return b;
+    }, true);
+    for (const b of babies) {
+      b.isPlayer = false;
+      b.kind = "baby";
+      if (!b.pal || !b.pal.body) {
+        const owner = bugs.find((p) => p.id === b.ownerId);
+        b.pal = (owner && owner.pal) || BABY_PAL;
+      }
+    }
+    const me = playerBug();
+    if (me && phase === "play" && inputVersion !== 3) {
+      me.holding = localHold.holding;
+      if (localHold.holding && hypot(localHold.x, localHold.z) > 0.01) {
+        me.dirX = localHold.x;
+        me.dirZ = localHold.z;
+        me.inX = localHold.x;
+        me.inZ = localHold.z;
+      }
+    }
+    applyNetOverlays(snap);
+  }
+
+  function pumpGuest(dt) {
+    netInputAcc += dt;
+    if (netInputAcc >= 0.05) {
+      netInputAcc = 0;
+      netSendInput();
+    }
+    if (lastSnap) applySnap(lastSnap, prevSnap);
+    if (bannerT > 0) {
+      bannerT -= dt;
+      if (bannerT <= 0 && banner) banner.textContent = "";
+    }
+  }
+
+  function onNetMessage(msg) {
+    if (!msg || typeof msg !== "object") return;
+    if (msg.type === "created") {
+      netRole = "host";
+      mySeat = 0;
+      netCode = String(msg.code || "");
+      const codeEl = document.getElementById("net-code");
+      if (codeEl) codeEl.textContent = netCode;
+      overlayStart.classList.add("hidden");
+      if (overlayNetJoin) overlayNetJoin.classList.add("hidden");
+      if (overlayNetWait) overlayNetWait.classList.remove("hidden");
+      setNetWaitStatus("等待对手加入…");
+      return;
+    }
+    if (msg.type === "joined") {
+      netRole = "guest";
+      mySeat = 1;
+      netCode = String(msg.code || "");
+      setJoinStatus("已加入，等房主开罐…");
+      return;
+    }
+    if (msg.type === "peer") {
+      netPeerOk = true;
+      setNetWaitStatus("对手已到，开罐");
+      solo = false;
+      beginMatch();
+      netSend({
+        type: "start",
+        seat: 1,
+        inputVersion,
+        knobs: snapshotSettings(),
+      });
+      netSendState();
+      return;
+    }
+    if (msg.type === "start") {
+      if (msg.knobs) applySettings(msg.knobs, { persist: false });
+      if (msg.inputVersion) setInputVersion(msg.inputVersion, { silent: true, persist: false });
+      mySeat = 1;
+      netRole = "guest";
+      netPeerOk = true;
+      solo = false;
+      hideNetOverlays();
+      beginMatch();
+      flash("联机对打");
+      return;
+    }
+    if (msg.type === "state") {
+      prevSnap = lastSnap;
+      lastSnap = msg;
+      snapAt = performance.now();
+      applySnap(lastSnap, prevSnap);
+      return;
+    }
+    if (msg.type === "input") {
+      remoteInput = {
+        holding: !!msg.holding,
+        x: Number(msg.x) || 0,
+        z: Number(msg.z) || 0,
+        mag: Number(msg.mag) || 0,
+      };
+      if (msg.v3) {
+        remoteV3 = {
+          mag: Number(msg.v3.mag) || 0,
+          dirX: Number(msg.v3.dirX) || 0,
+          dirZ: Number(msg.v3.dirZ) || 0,
+        };
+      }
+      return;
+    }
+    if (msg.type === "peer-left") {
+      netPeerOk = false;
+      flash("对手离开");
+      if (phase === "play" || phase === "countdown") {
+        finishMatch("对手离开", "这一罐不算。");
+      } else if (overlayNetWait && !overlayNetWait.classList.contains("hidden")) {
+        setNetWaitStatus("对手离开了，继续等待或取消");
+      }
+      return;
+    }
+    if (msg.type === "error") {
+      const text = msg.message === "full" ? "房间已满" : msg.message === "no room" ? "没有这个房号" : (msg.message || "联机失败");
+      flash(text);
+      setJoinStatus(text);
+      if (netRole === "guest" && !netPeerOk) {
+        /* stay on join */
+      }
+      return;
+    }
+  }
+
+  function netDisconnect() {
+    const ws = netWs;
+    netWs = null;
+    netPeerOk = false;
+    netRole = null;
+    mySeat = 0;
+    netCode = "";
+    lastSnap = null;
+    prevSnap = null;
+    remoteV3 = null;
+    remoteInput = { holding: false, x: 0, z: 0, mag: 0 };
+    if (ws) {
+      try { ws.onclose = null; ws.onerror = null; ws.onmessage = null; ws.close(); } catch (_) { /* ignore */ }
+    }
+  }
+
+  function netConnect(onOpen) {
+    const url = netUrl();
+    if (!url) {
+      flash("联机请先运行 node save-server.js");
+      return;
+    }
+    netDisconnect();
+    let ws;
+    try { ws = new WebSocket(url); }
+    catch (err) {
+      flash("联机失败");
+      return;
+    }
+    netWs = ws;
+    ws.onopen = () => { if (netWs === ws && onOpen) onOpen(); };
+    ws.onmessage = (ev) => {
+      try { onNetMessage(JSON.parse(String(ev.data || ""))); } catch (_) { /* ignore */ }
+    };
+    ws.onerror = () => {
+      if (netWs === ws) flash("联机通道出错");
+    };
+    ws.onclose = () => {
+      if (netWs !== ws) return;
+      netWs = null;
+      const was = netRole;
+      netPeerOk = false;
+      if (was && (phase === "play" || phase === "countdown")) {
+        finishMatch("连接断开", "同一 Wi-Fi，用同一条地址。");
+      } else if (was) {
+        flash("连接断开");
+      }
+      netRole = was === "host" || was === "guest" ? was : null;
+      if (phase !== "play" && phase !== "countdown" && phase !== "result") {
+        netRole = null;
+        mySeat = 0;
+      }
+    };
+  }
+
+  function beginHostPvp() {
+    if (isNestTest()) return;
+    netConnect(() => netSend({ type: "create" }));
+  }
+
+  function beginJoinPvp(code) {
+    const digits = String(code || "").replace(/\D/g, "").slice(0, 4);
+    if (digits.length !== 4) {
+      setJoinStatus("请输入 4 位房号");
+      return;
+    }
+    netConnect(() => netSend({ type: "join", code: digits }));
+  }
+
+  function cancelNet() {
+    netDisconnect();
+    hideNetOverlays();
+    overlayStart.classList.remove("hidden");
+    setJoinStatus("");
+    phase = "ready";
+  }
+
   function beginMatch() {
     overlayStart.classList.add("hidden");
     overlayResult.classList.add("hidden");
     overlaySpectate.classList.add("hidden");
     overlayCount.classList.add("hidden");
+    hideNetOverlays();
     userPaused = false;
     awaitingQuit = false;
     spectating = false;
@@ -3495,17 +4059,73 @@
 
   function restart() {
     overlayResult.classList.add("hidden");
+    if (netRole === "guest") {
+      flash("等待房主再开");
+      return;
+    }
+    if (netRole === "host") {
+      if (!netPeerOk) {
+        flash("对手已离开");
+        return;
+      }
+      beginMatch();
+      netSend({
+        type: "start",
+        seat: 1,
+        inputVersion,
+        knobs: snapshotSettings(),
+      });
+      netSendState();
+      return;
+    }
     beginMatch();
   }
 
   document.getElementById("btn-start").onclick = () => {
+    netDisconnect();
     solo = false;
     beginMatch();
   };
   document.getElementById("btn-solo").onclick = () => {
+    netDisconnect();
     solo = true;
     beginMatch();
   };
+  const btnHost = document.getElementById("btn-host");
+  if (btnHost) btnHost.onclick = () => beginHostPvp();
+  const btnJoin = document.getElementById("btn-join");
+  if (btnJoin) {
+    btnJoin.onclick = () => {
+      overlayStart.classList.add("hidden");
+      if (overlayNetJoin) overlayNetJoin.classList.remove("hidden");
+      setJoinStatus("");
+      const inp = document.getElementById("join-code");
+      if (inp) {
+        inp.value = "";
+        inp.focus();
+      }
+    };
+  }
+  const btnJoinGo = document.getElementById("btn-join-go");
+  if (btnJoinGo) {
+    btnJoinGo.onclick = () => {
+      const inp = document.getElementById("join-code");
+      beginJoinPvp(inp ? inp.value : "");
+    };
+  }
+  const joinCodeEl = document.getElementById("join-code");
+  if (joinCodeEl) {
+    joinCodeEl.addEventListener("keydown", (e) => {
+      if (e.code === "Enter" || e.key === "Enter") {
+        e.preventDefault();
+        beginJoinPvp(joinCodeEl.value);
+      }
+    });
+  }
+  const btnJoinCancel = document.getElementById("btn-join-cancel");
+  if (btnJoinCancel) btnJoinCancel.onclick = () => cancelNet();
+  const btnNetCancel = document.getElementById("btn-net-cancel");
+  if (btnNetCancel) btnNetCancel.onclick = () => cancelNet();
   document.getElementById("btn-watch").onclick = continueWatch;
   document.getElementById("btn-quit").onclick = quitMatch;
   document.getElementById("btn-again").onclick = restart;
@@ -3695,6 +4315,7 @@
   }
 
   async function postShippedFile(text) {
+    let denied = false;
     for (const url of saveEndpoints()) {
       try {
         const res = await fetch(url, {
@@ -3702,15 +4323,17 @@
           headers: { "Content-Type": "text/plain; charset=utf-8" },
           body: text,
         });
-        if (res.ok) return true;
+        if (res.ok) return { ok: true };
+        if (res.status === 403) denied = true;
       } catch (_) { /* try next */ }
     }
-    return false;
+    return { ok: false, denied };
   }
 
   async function saveToFile() {
     const text = shippedFileText();
-    if (await postShippedFile(text)) {
+    const result = await postShippedFile(text);
+    if (result.ok) {
       markSaved();
       flash("已保存到 defaults.js");
       return;
@@ -3718,7 +4341,8 @@
     filePersistOk = false;
     persistDirty = true;
     updatePersistStatus();
-    flash("没写上 defaults.js。先在本目录运行 node save-server.js，再用它打开本页");
+    if (result.denied) flash("保存只能在这台电脑上，请用本机地址打开");
+    else flash("没写上 defaults.js。先在本目录运行 node save-server.js，再用它打开本页");
   }
 
   function exportSettings() {
@@ -3821,12 +4445,36 @@
     layoutCamera();
   }
 
+  function isLocalHostName() {
+    const h = location.hostname;
+    return h === "127.0.0.1" || h === "localhost" || h === "[::1]" || h === "::1";
+  }
+
+  async function showLanHint() {
+    const el = document.getElementById("lan-hint");
+    if (!el || !isLocalHostName() || location.protocol === "file:") return;
+    try {
+      const res = await fetch(new URL("/__lan", location.href).href, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const phones = ((data && data.urls) || []).filter((u) => u && u.label === "手机" && u.href);
+      if (!phones.length) {
+        el.textContent = "手机请与电脑同一 Wi-Fi。终端若没有「手机」地址，开热点或检查防火墙。";
+        el.classList.remove("hidden");
+        return;
+      }
+      el.textContent = "手机打开：" + phones.map((u) => u.href).join("  ");
+      el.classList.remove("hidden");
+    } catch (_) { /* server not this page */ }
+  }
+
   function boot() {
     bakeSand();
     fitCanvas();
     loadSettings();
     spawnMatch();
     phase = "ready";
+    showLanHint();
     syncKnobsToUi();
     if (isNestTest()) closeTune();
     else openTune();

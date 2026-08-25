@@ -129,9 +129,35 @@ html, body {
   margin-top: 8px;
 }
 .btn-row button { margin-top: 18px; }
-#btn-quit, #btn-solo {
+#btn-quit, #btn-solo, #btn-join, #btn-join-cancel, #btn-net-cancel {
   border-color: rgba(168, 150, 118, 0.45);
   color: #d4cbb8;
+}
+#net-code {
+  font-size: 56px;
+  letter-spacing: 0.28em;
+  text-indent: 0.28em;
+  color: #f0ead8;
+  margin: 8px 0 10px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#join-code {
+  margin-top: 18px;
+  width: 168px;
+  padding: 10px 12px;
+  font-size: 28px;
+  letter-spacing: 0.28em;
+  text-align: center;
+  color: #f0ead8;
+  background: rgba(16, 18, 16, 0.72);
+  border: 1px solid rgba(196, 165, 116, 0.45);
+  border-radius: 10px;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 #count-num {
   font-size: 88px;
@@ -146,6 +172,15 @@ html, body {
   font-size: 13px;
   margin-top: 8px;
 }
+#lan-hint, .lan-hint {
+  user-select: text;
+  -webkit-user-select: text;
+  pointer-events: auto;
+  cursor: text;
+  word-break: break-all;
+  color: #d8c48a;
+}
+#lan-hint.hidden { display: none; }
 .start-mark {
   font-size: 34px;
   letter-spacing: 0.28em;

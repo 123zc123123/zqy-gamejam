@@ -34,7 +34,31 @@
           <button id="btn-start" type="button">开罐</button>
           <button id="btn-solo" type="button">自己练</button>
         </div>
-        <p class="start-hint">先调旋钮（含三版交互），再开罐或自己练。滑长：从大圆盘圆心拉出，松手后跑完加速再跳。</p>
+        <div class="btn-row">
+          <button id="btn-host" type="button">开房对打</button>
+          <button id="btn-join" type="button">加入</button>
+        </div>
+        <p class="start-hint">先调旋钮（含三版交互），再开罐或自己练。两人 PVP：同一 Wi-Fi 打开同一地址，一人开房，一人加入。</p>
+        <p id="lan-hint" class="start-hint lan-hint hidden"></p>
+      </div>
+
+      <div id="net-wait" class="overlay hidden">
+        <div class="start-mark">房号</div>
+        <div id="net-code">----</div>
+        <p class="start-sub">把房号发给对手。两人必须打开<strong>同一条</strong>服务器地址。</p>
+        <p id="net-wait-status" class="start-hint">等待对手加入…</p>
+        <button id="btn-net-cancel" type="button">取消</button>
+      </div>
+
+      <div id="net-join" class="overlay hidden">
+        <div class="start-mark">加入房间</div>
+        <p class="start-sub">输入 4 位房号</p>
+        <input id="join-code" type="text" inputmode="numeric" maxlength="4" autocomplete="off" spellcheck="false" placeholder="0000" />
+        <div class="btn-row">
+          <button id="btn-join-go" type="button">进入</button>
+          <button id="btn-join-cancel" type="button">返回</button>
+        </div>
+        <p id="join-status" class="start-hint"></p>
       </div>
 
       <div id="result" class="overlay hidden">
