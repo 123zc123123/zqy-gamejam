@@ -183,6 +183,88 @@ const knobs = R.mergeKnobs();
   eq("over phase", R.matchClock(s).phase, "over");
 }
 
+{
+  const state = R.createMatchState(knobs);
+  state.t = 24.9;
+  eq("nest not before firstT", R.shouldSpawnNest(state, 0), false);
+  state.t = 25;
+  eq("nest first at 25", R.shouldSpawnNest(state, 0), true);
+  eq("nest cap blocks", R.shouldSpawnNest(state, 1), false);
+  R.markNestCleared(state);
+  eq("cleared stamps time", state.lastNestClearAt, 25);
+  eq("gap blocks immediately", R.shouldSpawnNest(state, 0), false);
+  state.t = 37;
+  eq("after gap can spawn", R.shouldSpawnNest(state, 0), true);
+  state.t = 90;
+  eq("rage no new nest", R.shouldSpawnNest(state, 0), false);
+}
+
+{
+  eq("slide no nest hit", R.isNewNestContact(false, -1e-5), false);
+  eq("fresh approach hits", R.isNewNestContact(false, -0.4), true);
+  eq("still touching no hit", R.isNewNestContact(true, -0.8), false);
+  const a = R.resolveNestHits(4, [{ id: 0, vn: -1 }, { id: 1, vn: -0.5 }]);
+  eq("two hits not last", a.exploded, false);
+  eq("two hits hp 2", a.hp, 2);
+  const b = R.resolveNestHits(1, [{ id: 0, vn: -0.4 }, { id: 1, vn: -1.2 }]);
+  eq("last hit faster owns", b.ownerId, 1);
+  eq("last hit explodes", b.exploded, true);
+  const c = R.resolveNestHits(1, [{ id: 0, vn: -1 }, { id: 1, vn: -1 }]);
+  eq("tied last hit unowned", c.ownerId, -1);
+  eq("tied still explodes", c.exploded, true);
+}
+
+{
+  const eggs = R.scatterEggs({
+    n: 5, x: 0, z: 0, speed: 4.5, spread: 0.6, pad: 0.3,
+    rand: (() => { let i = 0; const u = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]; return () => u[i++] || 0.4; })(),
+    clamp: (x, z, pad) => ({ x: Math.max(-10, Math.min(10, x)), z: Math.max(-10, Math.min(10, z)), pad }),
+  });
+  eq("scatter count", eggs.length, 5);
+  eq("scatter has speed", eggs.every((e) => Math.hypot(e.vx, e.vz) > 1), true);
+}
+
+{
+  const times = R.eggHatchTimes(5, { eggHatchT: 3, eggHatchGap: 0.25, eggHatchJitter: 0 }, () => 0);
+  eq("hatch count", times.length, 5);
+  const sorted = times.slice().sort((a, b) => a - b);
+  approx("hatch first slot", sorted[0], 3, 1e-9);
+  approx("hatch last slot", sorted[4], 4, 1e-9);
+  eq("hatch all different", new Set(times.map((t) => t.toFixed(3))).size, 5);
+  const same = R.eggHatchTimes(5, { eggHatchT: 3, eggHatchGap: 0, eggHatchJitter: 0 }, () => 0);
+  eq("gap 0 can sync", same.every((t) => t === 3), true);
+}
+
+{
+  const baby = { grow: 0 };
+  R.refreshBabyBody(knobs, baby);
+  approx("baby r", baby.r, 1.8 * 0.4, 1e-9);
+  approx("baby m", baby.m, 0.35, 1e-9);
+  baby.grow = 2;
+  R.refreshBabyBody(knobs, baby);
+  const g = 1 + 2 * 0.16;
+  approx("baby grow r", baby.r, 1.8 * 0.4 * g, 1e-6);
+  eq("loot default off", R.babyCanLoot(knobs), false);
+  eq("loot on", R.babyCanLoot({ babyCanLoot: 1 }), true);
+  const stats = R.babyChargeStats(knobs);
+  approx("baby A1", stats.vRate, 23 * 0.4, 1e-9);
+  approx("baby tMax", stats.tMax, 0.16, 1e-9);
+  eq("player credit", R.hitCreditId({ id: 1 }), 1);
+  eq("baby credit owner", R.hitCreditId({ kind: "baby", id: 100, ownerId: 0 }), 0);
+  eq("unowned baby credit", R.hitCreditId({ kind: "baby", id: 101, ownerId: -1 }), -1);
+}
+
+{
+  approx("baby atk cd default", R.babyAttackCd(knobs), 0.8, 1e-9);
+  const baby = { atkCd: 0.8 };
+  eq("cd blocks charge", R.canBabyCharge(baby), false);
+  R.tickBabyAtkCd(baby, 0.3);
+  approx("cd ticks", baby.atkCd, 0.5, 1e-9);
+  R.tickBabyAtkCd(baby, 0.5);
+  eq("cd done can charge", R.canBabyCharge(baby), true);
+  eq("fresh hatch can charge", R.canBabyCharge({ atkCd: 0 }), true);
+}
+
 if (failed) {
   console.error(`\n${failed} failed`);
   process.exit(1);

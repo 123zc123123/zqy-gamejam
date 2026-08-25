@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>斗蛐蛐 · 道具与加时</title>
+  <title>斗蛐蛐 · 巢穴测试</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -13,8 +13,8 @@
       <canvas id="view" width="390" height="844"></canvas>
 
       <header id="hud">
-        <div class="hud-kicker">第三版 · 道具与加时</div>
-        <div id="hud-title">斗蛐蛐</div>
+        <div class="hud-kicker">巢穴测试 · Tab 切换控制</div>
+        <div id="hud-title">砸房子</div>
         <div id="hud-live">对战中</div>
         <div id="hud-clock"></div>
       </header>
@@ -27,14 +27,14 @@
       </div>
 
       <div id="start" class="overlay">
-        <div class="start-mark">一罐蛐蛐</div>
-        <p class="start-line">摇杆蓄力起跳，把人撞出圈。</p>
-        <p class="start-sub">抛物线飞出 · 踩道具 · 1:30 后狂暴加时</p>
+        <div class="start-mark">巢穴测试</div>
+        <p class="start-line">中间开场就有小房子。没在控制的那只站着不跳。</p>
+        <p class="start-sub">键盘 Tab 切换控制谁。砸房子 → 踢卵 / 等孵化 → 看崽</p>
         <div class="btn-row">
-          <button id="btn-start" type="button">开罐</button>
-          <button id="btn-solo" type="button">自己练</button>
+          <button id="btn-start" type="button">开始测试</button>
+          <button id="btn-solo" type="button" style="display:none">自己练</button>
         </div>
-        <p class="start-hint">先调旋钮（含三版交互），再开罐或自己练。滑长：从大圆盘圆心拉出，松手后跑完加速再跳。</p>
+        <p class="start-hint">Tab 切换当前控制的蟋蟀。要调房子血量和崽力度，先开右上角旋钮。</p>
       </div>
 
       <div id="result" class="overlay hidden">
@@ -111,6 +111,9 @@
           <label>满速抵抗 <span id="v-rMax">0.60</span>
             <input id="k-rMax" type="range" min="0.4" max="2" step="0.05" value="0.6" />
           </label>
+          <label>蓄力抵抗 λ <span id="v-rChargeScale">0.50</span>
+            <input id="k-rChargeScale" type="range" min="0" max="1" step="0.05" value="0.5" />
+          </label>
           <label>可控 μ 倍率 <span id="v-muCtrlScale">1.50</span>
             <input id="k-muCtrlScale" type="range" min="1" max="2" step="0.05" value="1.5" />
           </label>
@@ -132,10 +135,38 @@
           <label>加时秒 <span id="v-otTime">30</span>
             <input id="k-otTime" type="range" min="10" max="45" step="5" value="30" />
           </label>
+          <label>房子血量 <span id="v-nestHP">4</span>
+            <input id="k-nestHP" type="range" min="2" max="8" step="1" value="4" />
+          </label>
+          <label>散落卵数 <span id="v-nestEggN">5</span>
+            <input id="k-nestEggN" type="range" min="3" max="8" step="1" value="5" />
+          </label>
+          <label>卵孵化秒 <span id="v-eggHatchT">3.0</span>
+            <input id="k-eggHatchT" type="range" min="1.5" max="5" step="0.1" value="3" />
+          </label>
+          <label>孵化错开秒 <span id="v-eggHatchGap">0.28</span>
+            <input id="k-eggHatchGap" type="range" min="0" max="1" step="0.02" value="0.28" />
+          </label>
+          <label>崽寿命秒 <span id="v-babyLifeT">8.0</span>
+            <input id="k-babyLifeT" type="range" min="4" max="12" step="0.5" value="8" />
+          </label>
+          <label>崽质量 <span id="v-babyMass">0.35</span>
+            <input id="k-babyMass" type="range" min="0.15" max="0.8" step="0.05" value="0.35" />
+          </label>
+          <label>崽 A1 倍率 <span id="v-babyA1Scale">0.40</span>
+            <input id="k-babyA1Scale" type="range" min="0.2" max="0.8" step="0.05" value="0.4" />
+          </label>
+          <label>崽蓄力秒 <span id="v-babyChargeT">0.16</span>
+            <input id="k-babyChargeT" type="range" min="0.08" max="0.4" step="0.01" value="0.16" />
+          </label>
+          <label>崽攻击 CD <span id="v-babyAtkCd">0.80</span>
+            <input id="k-babyAtkCd" type="range" min="0" max="2" step="0.05" value="0.8" />
+          </label>
         </div>
         <div class="tune-row">
           <label class="check"><input id="k-slow" type="checkbox" /> 0.5× 慢放</label>
           <label class="check"><input id="k-vel" type="checkbox" /> 速度线</label>
+          <label class="check"><input id="k-babyCanLoot" type="checkbox" /> 小蟋蟀吃粮</label>
         </div>
         <div class="tune-row">
           <button id="btn-save-file" type="button">保存</button>
@@ -147,12 +178,13 @@
           <button id="btn-import" type="button">导入设定</button>
           <input id="file-import" type="file" accept="application/json,.json" hidden />
         </div>
-        <p id="persist-status" class="tune-note">改完点右上角「保存」，直接写入本目录 defaults.js。</p>
-        <p class="tune-note">蓄力只加水平速度，仰角由 θ 决定。飞出先走抛物线（水平不减速），落地再按 μ 匀减速。撞人用当前速度；撞后按抵抗分三档改 μ，只影响这一段滑多远。</p>
+        <p id="persist-status" class="tune-note">改完点右上角「保存」，直接覆盖本目录 defaults.js。</p>
+        <p class="tune-note">蓄力只加水平速度，仰角由 θ 决定。飞出先走抛物线（水平不减速），落地再按 μ 匀减速。撞人换速用当前速度；抵抗按本次初始速度分三档改 μ。站着蓄力时按蓄力速度 × λ 打折。</p>
       </aside>
     </div>
-    <p id="desk-hint">桌面：点按画面召出摇杆，WASD / 方向键也可蓄力。空格暂停 · R 重开。手机请竖屏。</p>
+    <p id="desk-hint">巢穴测试：开场房子在场心。Tab 切换控制。WASD / 摇杆蓄力。空格暂停 · R 重开。</p>
   </div>
+  <script>window.DOU_QUQU_TEST = { nestDummy: true };</script>
   <script src="./defaults.js"></script>
   <script src="./match-rules.js"></script>
   <script src="./game.js"></script>

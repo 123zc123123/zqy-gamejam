@@ -51,6 +51,7 @@
     mu: 0.5,
     rStand: 0.1,
     rMax: 1,
+    rChargeScale: 0.5,
     muCtrlScale: 1.3,
     muSlipScale: 0.65,
     growPer: 0.16,
@@ -70,6 +71,27 @@
     itemCap: 3,
     heartGap: 7,
     heartGapOt: 5,
+    nestHP: 4,
+    nestMass: 3.0,
+    nestR: 2.4,
+    nestEggN: 5,
+    eggHatchT: 3,
+    eggHatchGap: 0.28,
+    eggHatchJitter: 0.15,
+    eggScatterV: 8,
+    eggR: 0.55,
+    eggMass: 0.2,
+    babyLifeT: 8,
+    babyRScale: 0.40,
+    babyMass: 0.35,
+    babyA1Scale: 0.40,
+    babyChargeT: 0.16,
+    babyAtkCd: 0.8,
+    babyCanLoot: 0,
+    babyDMin: 0,
+    nestCap: 1,
+    nestFirstT: 25,
+    nestGap: 12,
   };
 
   const DEFAULTS = {
@@ -83,6 +105,7 @@
     mu: 1.8,
     rStand: 0.4,
     rMax: 0.6,
+    rChargeScale: 0.5,
     muCtrlScale: 1.5,
     muSlipScale: 0.3,
     growPer: 0.16,
@@ -102,6 +125,27 @@
     itemCap: 3,
     heartGap: 7,
     heartGapOt: 5,
+    nestHP: 4,
+    nestMass: 3.0,
+    nestR: 2.4,
+    nestEggN: 5,
+    eggHatchT: 3,
+    eggHatchGap: 0.28,
+    eggHatchJitter: 0.15,
+    eggScatterV: 8,
+    eggR: 0.55,
+    eggMass: 0.2,
+    babyLifeT: 8,
+    babyRScale: 0.40,
+    babyMass: 0.35,
+    babyA1Scale: 0.40,
+    babyChargeT: 0.16,
+    babyAtkCd: 0.8,
+    babyCanLoot: 0,
+    babyDMin: 0,
+    nestCap: 1,
+    nestFirstT: 25,
+    nestGap: 12,
   };
   const shipped = globalThis.DOU_QUQU_SHIPPED;
   if (shipped && shipped.knobs && typeof shipped.knobs === "object") {
@@ -138,6 +182,10 @@
       gleam: "#e8d4a8",
     },
   ];
+
+  function isNestTest() {
+    return !!(globalThis.DOU_QUQU_TEST && globalThis.DOU_QUQU_TEST.nestDummy);
+  }
 
   let phase = "boot";
   let solo = false;
@@ -181,6 +229,21 @@
   const bugs = [];
   const hearts = [];
   const items = [];
+  const nests = [];
+  const eggs = [];
+  const babies = [];
+  let nextBabyId = 100;
+  const BABY_PAL = {
+    body: "#5c4a34",
+    belly: "#d2b48a",
+    head: "#3a2c20",
+    outline: null,
+    leg: "#1a120c",
+    wing: "#c4a86a",
+    eye: "#100806",
+    stripe: "#3a3020",
+    gleam: "#efe0b8",
+  };
   let matchState = null;
   let matchT = 0;
 
@@ -211,6 +274,7 @@
     g.closePath();
   }
   function norm(x, z) {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return { x: 0, z: 0, d: 0 };
     const d = hypot(x, z);
     if (d < 1e-6) return { x: 0, z: 0, d: 0 };
     return { x: x / d, z: z / d, d };
@@ -319,6 +383,7 @@
       ai: personality,
       x, z, px: x, pz: z, y: 0, vy: 0,
       vx: 0, vz: 0,
+      vInit: 0,
       dirX: -x, dirZ: -z,
       r: BUG_R,
       m: knobs.m,
@@ -359,7 +424,8 @@
   }
 
   function refreshBody(b) {
-    R.refreshBody(knobs, b);
+    if (b.kind === "baby") R.refreshBabyBody(knobs, b);
+    else R.refreshBody(knobs, b);
   }
 
   function syncRuleKnobs() {
@@ -376,6 +442,12 @@
     }
     for (const b of bugs) {
       if (hypot(b.x - x, b.z - z) < 2.8) return true;
+    }
+    for (const n of nests) {
+      if (n.alive && hypot(n.x - x, n.z - z) < 2.2) return true;
+    }
+    for (const e of eggs) {
+      if (e.alive && hypot(e.x - x, e.z - z) < 1.8) return true;
     }
     return false;
   }
@@ -433,6 +505,10 @@
     bugs.length = 0;
     hearts.length = 0;
     items.length = 0;
+    nests.length = 0;
+    eggs.length = 0;
+    babies.length = 0;
+    nextBabyId = 100;
     matchState = R.createMatchState(knobs);
     matchState.knobs.bugR = BUG_R;
     matchT = 0;
@@ -442,7 +518,9 @@
     ];
     const brains = [
       null,
-      { chargeMul: 1.2, react: 0.28, lead: 0.22, name: "贪蓄" },
+      isNestTest()
+        ? { idle: true, name: "木桩" }
+        : { chargeMul: 1.2, react: 0.28, lead: 0.22, name: "贪蓄" },
     ];
     const n = solo ? 1 : 2;
     for (let i = 0; i < n; i++) {
@@ -458,6 +536,7 @@
       bugs.push(b);
       refreshBody(b);
     }
+    if (isNestTest()) spawnHouse({ x: 0, z: 0 }, { silent: true });
     spawnHearts();
     phoneEl.classList.remove("rage");
     time = 0;
@@ -478,6 +557,12 @@
     if (!hudLive) return;
     if (solo) {
       hudLive.textContent = "独自练习";
+      if (hudClock) hudClock.textContent = matchT > 0 ? fmtClock(matchT) : "";
+      return;
+    }
+    if (isNestTest()) {
+      const me = playerBug();
+      hudLive.textContent = me ? "控制 " + me.name + " · Tab 切换" : "巢穴测试";
       if (hudClock) hudClock.textContent = matchT > 0 ? fmtClock(matchT) : "";
       return;
     }
@@ -532,15 +617,26 @@
   }
 
   function chargeDeltaV(b) {
+    if (b.kind === "baby") return R.babyChargeDeltaV(knobs, b);
     return R.chargeDeltaV(knobs, b);
   }
 
   function chargeTMax(b) {
+    if (b.kind === "baby") return R.babyChargeStats(knobs).tMax;
     return R.effectiveCharge(knobs, b).tMax;
   }
 
+  function jumpSpeedMinFor(b) {
+    if (b.kind !== "baby") return jumpSpeedMin();
+    const dMin = knobs.babyDMin || 0;
+    if (dMin <= 0) return 0;
+    const t = tanTheta();
+    const denom = 2 * t + 1 / (2 * Math.max(1e-4, knobs.mu));
+    return Math.sqrt(Math.max(0, dMin) * gravity() / Math.max(1e-6, denom));
+  }
+
   function jumpDeltaV(b) {
-    return Math.max(jumpSpeedMin(), chargeDeltaV(b));
+    return Math.max(jumpSpeedMinFor(b), chargeDeltaV(b));
   }
 
   function jumpRange(dvx) {
@@ -563,6 +659,7 @@
     if (spd < SETTLE_SPEED) {
       b.vx = 0;
       b.vz = 0;
+      b.vInit = 0;
       b.tumble = 0;
       b.hitTier = null;
       return;
@@ -572,6 +669,7 @@
     if (next <= SETTLE_SPEED) {
       b.vx = 0;
       b.vz = 0;
+      b.vInit = 0;
       b.tumble = 0;
       b.hitTier = null;
       return;
@@ -607,6 +705,14 @@
   }
 
   function interrupt(b) {
+    if (b.kind === "baby") {
+      if (!b.charging) return;
+      b.charging = false;
+      b.chargeT = 0;
+      b.pendingCharge = true;
+      b.squatFlash = 1;
+      return;
+    }
     if (!b.charging && !b.v3Pending && b.v3Goal == null) return;
     b.pendingCharge = b.holding && inputVersion !== 3;
     b.charging = false;
@@ -625,6 +731,7 @@
     b.dirZ = d.z;
     b.vx = d.x * dvx;
     b.vz = d.z * dvx;
+    b.vInit = dvx;
     b.vy = dvy;
     b.y = 0.02;
     b.airborne = true;
@@ -639,6 +746,7 @@
     b.roll = 0;
     spawnDust(b.x, b.z, 14, 0.85);
     spawnDust(b.x, b.z, 6, 0.55, "spark");
+    if (b.kind === "baby") b.atkCd = R.babyAttackCd(knobs);
   }
 
   function tryRelease(b) {
@@ -769,7 +877,7 @@
   }
 
   function knockoutAim(me, t) {
-    const lead = me.ai.lead;
+    const lead = Number.isFinite(me.ai && me.ai.lead) ? me.ai.lead : 0;
     const px = t.x + t.vx * lead;
     const pz = t.z + t.vz * lead;
     const outward = arenaGradient(px, pz);
@@ -800,8 +908,12 @@
   }
 
   function updateAI(b, dt) {
-    if (!b.ai || !b.alive || phase !== "play") {
-      if (b.ai) b.holding = false;
+    if (!b || !b.alive || b.isPlayer || !b.ai || phase !== "play") {
+      if (b && b.ai && (b.isPlayer || b.ai.idle)) b.holding = false;
+      return;
+    }
+    if (b.ai.idle) {
+      b.holding = false;
       return;
     }
     b.ai.timer -= dt;
@@ -874,7 +986,8 @@
         b.holding = true;
         b.ai.target = target;
         const gap = hypot(target.x - b.x, target.z - b.z);
-        let t = (0.32 + gap * 0.16) * b.ai.chargeMul;
+        const chargeMul = Number.isFinite(b.ai.chargeMul) ? b.ai.chargeMul : 1;
+        let t = (0.32 + gap * 0.16) * chargeMul;
         if (target.charging) t = Math.min(t, 0.55 + Math.random() * 0.15);
         if (Math.random() < 0.12) t = chargeTMax(b) * (0.85 + Math.random() * 0.12);
         b.ai.releaseAt = clamp(t, knobs.tMin + 0.04, chargeTMax(b) * 0.98);
@@ -898,7 +1011,8 @@
       }
       if (b.chargeT >= b.ai.releaseAt) {
         b.holding = false;
-        b.ai.timer = b.ai.react + Math.random() * 0.35;
+        const react = Number.isFinite(b.ai.react) ? b.ai.react : 0.28;
+        b.ai.timer = react + Math.random() * 0.35;
       }
     }
   }
@@ -929,6 +1043,37 @@
     return null;
   }
 
+  function switchNestControl() {
+    if (!isNestTest()) return;
+    if (phase !== "play" && phase !== "countdown") return;
+    const live = [];
+    for (const b of bugs) if (b.alive) live.push(b);
+    if (live.length < 2) {
+      flash("没有可切换的蟋蟀");
+      return;
+    }
+    const cur = playerBug();
+    let i = cur ? live.indexOf(cur) : 0;
+    if (i < 0) i = 0;
+    const next = live[(i + 1) % live.length];
+    for (const b of bugs) {
+      const take = b === next;
+      b.isPlayer = take;
+      if (take) {
+        b.ai = null;
+        continue;
+      }
+      b.ai = { idle: true, name: (b.ai && b.ai.name) || "木桩" };
+      b.holding = false;
+      interrupt(b);
+      clearV3Lock(b);
+    }
+    clearStick();
+    stealPlayFocus();
+    flash("控制 " + next.name + " · Tab 再切");
+    liveHud();
+  }
+
   function v3Pull() {
     const n = hypot(stick.x, stick.y);
     if (n < 0.12) return null;
@@ -944,6 +1089,10 @@
 
   function stepCharge(b, dt) {
     if (!b.alive) return;
+    if (b.kind === "baby") {
+      stepBabyCharge(b, dt);
+      return;
+    }
     if (b.isPlayer && inputVersion === 3 && (b.v3Goal != null || b.v3Pending) && !isSettled(b)) {
       interrupt(b);
       return;
@@ -1072,6 +1221,7 @@
     b.vy = 0;
     b.vx = 0;
     b.vz = 0;
+    b.vInit = 0;
     b.airborne = false;
     b.charging = false;
     b.chargeT = 0;
@@ -1143,7 +1293,7 @@
       h.phase += dt;
       if (!h.alive) continue;
       if (phase !== "play") continue;
-      for (const b of bugs) {
+      for (const b of lootActors()) {
         if (!b.alive) continue;
         if (hypot(b.x - h.x, b.z - h.z) < b.r + h.r) {
           eatHeart(b, h);
@@ -1169,6 +1319,12 @@
       if (!it.alive) continue;
       if (hypot(it.x - x, it.z - z) < 2.0) return true;
     }
+    for (const n of nests) {
+      if (n.alive && hypot(n.x - x, n.z - z) < 2.2) return true;
+    }
+    for (const e of eggs) {
+      if (e.alive && hypot(e.x - x, e.z - z) < 1.8) return true;
+    }
     return false;
   }
 
@@ -1182,6 +1338,12 @@
     }
     for (const it of items) {
       if (it.alive) blockers.push({ x: it.x, z: it.z, min: 2.0 });
+    }
+    for (const n of nests) {
+      if (n.alive) blockers.push({ x: n.x, z: n.z, min: 2.2 });
+    }
+    for (const e of eggs) {
+      if (e.alive) blockers.push({ x: e.x, z: e.z, min: 1.8 });
     }
     for (let n = 0; n < 8; n++) {
       const p = R.placePoint(rand, blockers, {
@@ -1231,13 +1393,581 @@
       it.phase += dt;
       if (!it.alive) continue;
       for (const b of bugs) {
-        if (!b.alive) continue;
+        if (!b.alive || b.kind === "baby") continue;
         if (hypot(b.x - it.x, b.z - it.z) < b.r + it.r) {
           eatItem(b, it);
           break;
         }
       }
     }
+  }
+
+  function lootActors() {
+    const out = [];
+    for (const b of bugs) if (b.alive) out.push(b);
+    if (R.babyCanLoot(knobs)) {
+      for (const b of babies) if (b.alive) out.push(b);
+    }
+    return out;
+  }
+
+  function movers() {
+    const out = [];
+    for (const b of bugs) if (b.alive) out.push(b);
+    for (const b of babies) if (b.alive) out.push(b);
+    return out;
+  }
+
+  function nestChainLive() {
+    for (const n of nests) if (n.alive) return true;
+    for (const e of eggs) if (e.alive) return true;
+    for (const b of babies) if (b.alive) return true;
+    return false;
+  }
+
+  function nestLiveCount() {
+    return nestChainLive() ? 1 : 0;
+  }
+
+  function clampInArena(x, z, pad) {
+    let cx = x;
+    let cz = z;
+    const p = pad == null ? 0.4 : pad;
+    for (let i = 0; i < 48; i++) {
+      const s = arenaSDF(cx, cz);
+      if (s <= -p) break;
+      const g = arenaGradient(cx, cz);
+      const len = hypot(g.x, g.z) || 1;
+      const step = Math.max(0.04, s + p);
+      cx -= (g.x / len) * step;
+      cz -= (g.z / len) * step;
+    }
+    return { x: cx, z: cz };
+  }
+
+  function nestBlocked(x, z) {
+    if (arenaSDF(x, z) > -2.4) return true;
+    for (const b of bugs) {
+      if (b.alive && hypot(b.x - x, b.z - z) < 3.0) return true;
+    }
+    for (const h of hearts) {
+      if (h.alive && hypot(h.x - x, h.z - z) < 1.6) return true;
+    }
+    for (const it of items) {
+      if (it.alive && hypot(it.x - x, it.z - z) < 1.6) return true;
+    }
+    return false;
+  }
+
+  function placeNest() {
+    const blockers = [];
+    for (const b of bugs) {
+      if (b.alive) blockers.push({ x: b.x, z: b.z, min: 3.0 });
+    }
+    for (const h of hearts) {
+      if (h.alive) blockers.push({ x: h.x, z: h.z, min: 1.6 });
+    }
+    for (const it of items) {
+      if (it.alive) blockers.push({ x: it.x, z: it.z, min: 1.6 });
+    }
+    for (let n = 0; n < 10; n++) {
+      const p = R.placePoint(rand, blockers, {
+        sdf: arenaSDF,
+        minEdge: 2.4,
+        ringMin: 6,
+        ringMax: 12,
+        hw: ARENA_HW,
+        hd: ARENA_HD,
+      });
+      if (!nestBlocked(p.x, p.z)) return p;
+    }
+    return R.placePoint(rand, blockers, {
+      sdf: arenaSDF,
+      minEdge: 2.4,
+      ringMin: 6,
+      ringMax: 12,
+    });
+  }
+
+  function spawnHouse(at, opts) {
+    const p = at || placeNest();
+    nests.push({
+      x: p.x,
+      z: p.z,
+      r: knobs.nestR,
+      m: knobs.nestMass,
+      hp: knobs.nestHP,
+      maxHp: knobs.nestHP,
+      alive: true,
+      touching: {},
+    });
+    if (!opts || !opts.silent) flash("小房子出现了");
+    spawnDust(p.x, p.z, 12, 0.7);
+  }
+
+  function ownerName(id) {
+    const b = bugs.find((x) => x.id === id);
+    return b ? b.name : "无主";
+  }
+
+  function explodeNest(nest, ownerId) {
+    nest.alive = false;
+    nest.hp = 0;
+    const pad = (knobs.eggR || 0.55) + 0.08;
+    const laid = R.scatterEggs({
+      n: knobs.nestEggN,
+      x: nest.x,
+      z: nest.z,
+      speed: knobs.eggScatterV,
+      spread: Math.max(0.45, nest.r * 0.45),
+      pad,
+      rand,
+      clamp: (x, z, p) => clampInArena(x, z, p),
+    });
+    const hatches = R.eggHatchTimes(laid.length, knobs, rand);
+    for (let i = 0; i < laid.length; i++) {
+      const e = laid[i];
+      const hatchMax = hatches[i];
+      eggs.push({
+        x: e.x,
+        z: e.z,
+        px: e.x,
+        pz: e.z,
+        vx: e.vx,
+        vz: e.vz,
+        r: knobs.eggR,
+        m: knobs.eggMass,
+        alive: true,
+        hatchT: hatchMax,
+        hatchMax,
+        ownerId: ownerId == null ? -1 : ownerId,
+        phase: rand() * 6,
+      });
+    }
+    spawnDust(nest.x, nest.z, 22, 1.15, "spark");
+    spawnRing(nest.x, nest.z, 1.4, 1.4, "rgba(210, 150, 70, 0.9)");
+    if (ownerId == null || ownerId < 0) flash("房子碎了 · 无主的卵");
+    else flash(`${ownerName(ownerId)} 砸开了房子`);
+  }
+
+  function makeBaby(egg) {
+    const owner = bugs.find((b) => b.id === egg.ownerId);
+    const b = makeBug(nextBabyId, egg.x, egg.z, false, null);
+    nextBabyId += 1;
+    b.kind = "baby";
+    b.ownerId = egg.ownerId == null ? -1 : egg.ownerId;
+    b.name = "小蟋蟀";
+    b.pal = owner && owner.pal ? owner.pal : BABY_PAL;
+    b.ai = null;
+    b.lifeT = knobs.babyLifeT;
+    b.atkCd = 0;
+    b.vx = egg.vx * 0.25;
+    b.vz = egg.vz * 0.25;
+    b.vInit = hypot(b.vx, b.vz);
+    refreshBody(b);
+    return b;
+  }
+
+  function babyTarget(b) {
+    const foes = [];
+    for (const p of bugs) {
+      if (!p.alive) continue;
+      if (b.ownerId >= 0 && p.id === b.ownerId) continue;
+      foes.push(p);
+    }
+    if (!foes.length) return null;
+    let best = foes[0];
+    let bestD = hypot(best.x - b.x, best.z - b.z);
+    for (let i = 1; i < foes.length; i++) {
+      const d = hypot(foes[i].x - b.x, foes[i].z - b.z);
+      if (d < bestD) {
+        best = foes[i];
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  function stepBabyCharge(b, dt) {
+    const enemy = babyTarget(b);
+    if (!R.canBabyCharge(b)) {
+      if (b.charging) interrupt(b);
+      return;
+    }
+    if (!isSettled(b)) {
+      if (b.charging) interrupt(b);
+      return;
+    }
+    if (enemy) {
+      const d = norm(enemy.x - b.x, enemy.z - b.z);
+      if (d.d > 1e-5) {
+        b.dirX = d.x;
+        b.dirZ = d.z;
+      }
+    } else if (hypot(b.dirX, b.dirZ) < 1e-5) {
+      const a = rand() * Math.PI * 2;
+      b.dirX = Math.cos(a);
+      b.dirZ = Math.sin(a);
+    }
+    if (!b.charging) beginCharge(b);
+    b.chargeT = Math.min(chargeTMax(b), b.chargeT + dt);
+    if (b.chargeT >= chargeTMax(b) - 1e-4) doJump(b);
+  }
+
+  function killBaby(b, reason) {
+    if (!b.alive) return;
+    b.alive = false;
+    b.charging = false;
+    b.airborne = true;
+    spawnDust(b.x, b.z, 8, 0.55);
+    if (reason) flash(reason);
+  }
+
+  function markBabyOut(b) {
+    if (!b.alive) return;
+    if (b.lifeT <= 0 || !inArena(b.x, b.z)) killBaby(b, null);
+  }
+
+  function collidePairs(list) {
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i];
+        const b = list[j];
+        if (!a.alive || !b.alive) continue;
+        if (a.kind === "baby" && b.id === a.ownerId) continue;
+        if (b.kind === "baby" && a.id === b.ownerId) continue;
+        if (a.kind === "baby" && b.kind === "baby") {
+          resolveBabyOverlap(a, b);
+          continue;
+        }
+        resolveMoverHit(a, b);
+      }
+    }
+  }
+
+  function resolveBabyOverlap(a, b) {
+    const minD = a.r + b.r;
+    let dx = b.x - a.x;
+    let dz = b.z - a.z;
+    let dist = hypot(dx, dz);
+    let nx;
+    let nz;
+    if (dist < minD) {
+      const hit = separatePair(a, b);
+      if (!hit) return;
+      nx = hit.nx;
+      nz = hit.nz;
+    } else {
+      const pax = a.px - b.px;
+      const paz = a.pz - b.pz;
+      const vx = (a.x - a.px) - (b.x - b.px);
+      const vz = (a.z - a.pz) - (b.z - b.pz);
+      const aa = vx * vx + vz * vz;
+      if (aa < 1e-10) return;
+      const bb = 2 * (pax * vx + paz * vz);
+      const cc = pax * pax + paz * paz - minD * minD;
+      const disc = bb * bb - 4 * aa * cc;
+      if (disc < 0) return;
+      const tHit = (-bb - Math.sqrt(disc)) / (2 * aa);
+      if (tHit < 0 || tHit > 1) return;
+      a.x = a.px + (a.x - a.px) * tHit;
+      a.z = a.pz + (a.z - a.pz) * tHit;
+      b.x = b.px + (b.x - b.px) * tHit;
+      b.z = b.pz + (b.z - b.pz) * tHit;
+      dx = b.x - a.x;
+      dz = b.z - a.z;
+      dist = hypot(dx, dz) || 1;
+      nx = dx / dist;
+      nz = dz / dist;
+      separatePair(a, b);
+    }
+    const invA = 1 / a.m;
+    const invB = 1 / b.m;
+    const inv = invA + invB;
+    const rvx = b.vx - a.vx;
+    const rvz = b.vz - a.vz;
+    const vn = rvx * nx + rvz * nz;
+    if (vn >= -1e-4) return;
+    const jImp = -(1 + ELASTIC) * vn / inv;
+    a.vx -= (jImp * invA) * nx;
+    a.vz -= (jImp * invA) * nz;
+    b.vx += (jImp * invB) * nx;
+    b.vz += (jImp * invB) * nz;
+    a.vInit = hypot(a.vx, a.vz);
+    b.vInit = hypot(b.vx, b.vz);
+  }
+
+  function resolveMoverHit(a, b) {
+    const minD = a.r + b.r;
+    let dx = b.x - a.x;
+    let dz = b.z - a.z;
+    let dist = hypot(dx, dz);
+    let nx;
+    let nz;
+    if (dist < minD) {
+      const hit = separatePair(a, b);
+      if (!hit) return;
+      nx = hit.nx;
+      nz = hit.nz;
+    } else {
+      const pax = a.px - b.px;
+      const paz = a.pz - b.pz;
+      const vx = (a.x - a.px) - (b.x - b.px);
+      const vz = (a.z - a.pz) - (b.z - b.pz);
+      const aa = vx * vx + vz * vz;
+      if (aa < 1e-10) return;
+      const bb = 2 * (pax * vx + paz * vz);
+      const cc = pax * pax + paz * paz - minD * minD;
+      const disc = bb * bb - 4 * aa * cc;
+      if (disc < 0) return;
+      const tHit = (-bb - Math.sqrt(disc)) / (2 * aa);
+      if (tHit < 0 || tHit > 1) return;
+      a.x = a.px + (a.x - a.px) * tHit;
+      a.z = a.pz + (a.z - a.pz) * tHit;
+      b.x = b.px + (b.x - b.px) * tHit;
+      b.z = b.pz + (b.z - b.pz) * tHit;
+      dx = b.x - a.x;
+      dz = b.z - a.z;
+      dist = hypot(dx, dz) || 1;
+      nx = dx / dist;
+      nz = dz / dist;
+      separatePair(a, b);
+    }
+    const jImp = bouncePair(a, b, nx, nz);
+    if (jImp) {
+      const punchMul = (a.hitTier === "slip" || b.hitTier === "slip") ? 3.3
+        : (a.hitTier === "ctrl" && b.hitTier === "ctrl") ? 0.7 : 1.9;
+      const punch = clamp(Math.abs(jImp) * punchMul, 0, 14);
+      camPunch.x += nx * punch;
+      camPunch.y += -nz * punch * 0.4;
+      hitstop = Math.max(hitstop, Math.max(tierHitStop(a.hitTier, jImp), tierHitStop(b.hitTier, jImp)));
+    }
+  }
+
+  function separateFromStatic(bug, sx, sz, sr) {
+    let dx = bug.x - sx;
+    let dz = bug.z - sz;
+    let dist = hypot(dx, dz);
+    const minD = bug.r + sr;
+    if (dist >= minD) return null;
+    if (dist < 1e-6) { dx = 1; dz = 0; dist = 1; }
+    const nx = dx / dist;
+    const nz = dz / dist;
+    const overlap = minD - dist;
+    bug.x += nx * overlap;
+    bug.z += nz * overlap;
+    return { nx: -nx, nz: -nz };
+  }
+
+  function bounceStatic(bug, nest, nx, nz) {
+    const ox = nest.x;
+    const oz = nest.z;
+    const dummy = {
+      id: -8,
+      name: "房子",
+      x: nest.x,
+      z: nest.z,
+      vx: 0,
+      vz: 0,
+      vInit: 0,
+      m: nest.m,
+      r: nest.r,
+      charging: false,
+      grow: 0,
+      kind: "nest",
+      dirX: nx,
+      dirZ: nz,
+      hitTier: null,
+      fxHit: 0,
+      fxSquash: 0,
+      tumble: 0,
+      spin: 0,
+      roll: 0,
+      lastHitId: -1,
+    };
+    const jImp = bouncePair(bug, dummy, nx, nz);
+    nest.x = ox;
+    nest.z = oz;
+    return jImp;
+  }
+
+  function collideNests() {
+    for (const nest of nests) {
+      if (!nest.alive) continue;
+      const hits = [];
+      const nowTouch = {};
+      for (const b of bugs) {
+        if (!b.alive || b.kind === "baby") continue;
+        const minD = b.r + nest.r;
+        let dx = nest.x - b.x;
+        let dz = nest.z - b.z;
+        let dist = hypot(dx, dz);
+        let nx;
+        let nz;
+        let overlapped = dist < minD;
+        if (!overlapped) {
+          const pax = b.px - nest.x;
+          const paz = b.pz - nest.z;
+          const vx = b.x - b.px;
+          const vz = b.z - b.pz;
+          const aa = vx * vx + vz * vz;
+          if (aa >= 1e-10) {
+            const bb = 2 * (pax * vx + paz * vz);
+            const cc = pax * pax + paz * paz - minD * minD;
+            const disc = bb * bb - 4 * aa * cc;
+            if (disc >= 0) {
+              const tHit = (-bb - Math.sqrt(disc)) / (2 * aa);
+              if (tHit >= 0 && tHit <= 1) {
+                b.x = b.px + (b.x - b.px) * tHit;
+                b.z = b.pz + (b.z - b.pz) * tHit;
+                dx = nest.x - b.x;
+                dz = nest.z - b.z;
+                dist = hypot(dx, dz) || 1;
+                overlapped = true;
+              }
+            }
+          }
+        }
+        if (!overlapped) continue;
+        nowTouch[b.id] = true;
+        const sep = separateFromStatic(b, nest.x, nest.z, nest.r);
+        if (!sep) continue;
+        nx = sep.nx;
+        nz = sep.nz;
+        const vn = (0 - b.vx) * nx + (0 - b.vz) * nz;
+        bounceStatic(b, nest, nx, nz);
+        nest.x = nest.x;
+        nest.z = nest.z;
+        if (R.isNewNestContact(!!nest.touching[b.id], vn)) {
+          hits.push({ id: b.id, vn });
+        }
+      }
+      nest.touching = nowTouch;
+      if (!hits.length) continue;
+      const res = R.resolveNestHits(nest.hp, hits);
+      nest.hp = res.hp;
+      if (res.exploded) explodeNest(nest, res.ownerId);
+    }
+  }
+
+  function collideEggs() {
+    for (const egg of eggs) {
+      if (!egg.alive) continue;
+      for (const b of bugs) {
+        if (!b.alive || b.kind === "baby") continue;
+        const minD = b.r + egg.r;
+        let dx = egg.x - b.x;
+        let dz = egg.z - b.z;
+        let dist = hypot(dx, dz);
+        if (dist >= minD) {
+          const pax = b.px - egg.px;
+          const paz = b.pz - egg.pz;
+          const vx = (b.x - b.px) - (egg.x - egg.px);
+          const vz = (b.z - b.pz) - (egg.z - egg.pz);
+          const aa = vx * vx + vz * vz;
+          if (aa < 1e-10) continue;
+          const bb = 2 * (pax * vx + paz * vz);
+          const cc = pax * pax + paz * paz - minD * minD;
+          const disc = bb * bb - 4 * aa * cc;
+          if (disc < 0) continue;
+          const tHit = (-bb - Math.sqrt(disc)) / (2 * aa);
+          if (tHit < 0 || tHit > 1) continue;
+          b.x = b.px + (b.x - b.px) * tHit;
+          b.z = b.pz + (b.z - b.pz) * tHit;
+          egg.x = egg.px + (egg.x - egg.px) * tHit;
+          egg.z = egg.pz + (egg.z - egg.pz) * tHit;
+          dx = egg.x - b.x;
+          dz = egg.z - b.z;
+          dist = hypot(dx, dz) || 1;
+        }
+        if (dist < 1e-6) { dx = 1; dz = 0; dist = 1; }
+        const nx = dx / dist;
+        const nz = dz / dist;
+        const dummy = {
+          id: -9,
+          x: egg.x,
+          z: egg.z,
+          vx: egg.vx,
+          vz: egg.vz,
+          vInit: hypot(egg.vx, egg.vz),
+          m: egg.m,
+          r: egg.r,
+          charging: false,
+          grow: 0,
+          kind: "egg",
+          dirX: nx,
+          dirZ: nz,
+          hitTier: null,
+          fxHit: 0,
+          fxSquash: 0,
+          tumble: 0,
+          spin: 0,
+          roll: 0,
+          lastHitId: -1,
+        };
+        separatePair(b, dummy);
+        bouncePair(b, dummy, nx, nz);
+        egg.x = dummy.x;
+        egg.z = dummy.z;
+        egg.vx = dummy.vx;
+        egg.vz = dummy.vz;
+        dummy.charging = false;
+      }
+    }
+  }
+
+  function stepEggs(dt) {
+    const a = frictionAccel(knobs.mu);
+    for (const egg of eggs) {
+      if (!egg.alive) continue;
+      egg.px = egg.x;
+      egg.pz = egg.z;
+      const spd = hypot(egg.vx, egg.vz);
+      if (spd > 1e-5) {
+        const drop = Math.min(spd, a * dt);
+        egg.vx -= (egg.vx / spd) * drop;
+        egg.vz -= (egg.vz / spd) * drop;
+      } else {
+        egg.vx = 0;
+        egg.vz = 0;
+      }
+      egg.x += egg.vx * dt;
+      egg.z += egg.vz * dt;
+      egg.hatchT -= dt;
+      if (!inArena(egg.x, egg.z)) {
+        egg.alive = false;
+        spawnDust(egg.x, egg.z, 6, 0.4);
+        continue;
+      }
+      if (egg.hatchT <= 0) {
+        egg.alive = false;
+        const baby = makeBaby(egg);
+        babies.push(baby);
+        spawnDust(egg.x, egg.z, 10, 0.6, "spark");
+      }
+    }
+  }
+
+  function stepBabies(dt) {
+    for (const b of babies) {
+      if (!b.alive) continue;
+      b.lifeT -= dt;
+      R.tickBabyAtkCd(b, dt);
+      if (b.lifeT <= 0) killBaby(b, null);
+    }
+  }
+
+  function stepNests() {
+    if (!matchState || phase !== "play") return;
+    syncRuleKnobs();
+    matchState.t = matchT;
+    const live = nestChainLive();
+    if (live) matchState.nestActive = true;
+    else if (matchState.nestActive) {
+      R.markNestCleared(matchState);
+      matchState.nestActive = false;
+    }
+    if (R.shouldSpawnNest(matchState, nestLiveCount())) spawnHouse();
   }
 
   function stepMatchClock(dt) {
@@ -1257,20 +1987,40 @@
     liveHud();
   }
 
+  function motionInitSpeed(b) {
+    if (typeof b.vInit === "number" && Number.isFinite(b.vInit)) return Math.max(0, b.vInit);
+    return hypot(b.vx || 0, b.vz || 0);
+  }
+
+  function resistInitSpeed(b) {
+    if (isSettled(b) && b.charging) {
+      return Math.max(0, chargeDeltaV(b)) * Math.max(0, knobs.rChargeScale);
+    }
+    return motionInitSpeed(b);
+  }
+
   function resistOf(b) {
     const vmax = vMax();
     const V0 = knobs.rStand * vmax;
     const K = knobs.rMax;
-    const v = clamp(hypot(b.vx, b.vz), 0, vmax);
+    const v = clamp(resistInitSpeed(b), 0, vmax);
     const t = vmax < 1e-6 ? 0 : v / vmax;
     return V0 * b.m + t * (K * b.m * vmax - V0 * b.m);
+  }
+
+  function initNormalSpeed(b, nx, nz) {
+    const spd = hypot(b.vx || 0, b.vz || 0);
+    if (spd < 1e-8) return 0;
+    return motionInitSpeed(b) * ((b.vx * nx + b.vz * nz) / spd);
   }
 
   function hitTierFor(me, other, nx, nz) {
     const vMeN = me.vx * nx + me.vz * nz;
     const vOtN = other.vx * nx + other.vz * nz;
     if (Math.abs(vMeN) + 1e-9 >= Math.abs(vOtN)) return "ctrl";
-    const dP = other.m * (-vOtN) - me.m * vMeN;
+    const iMeN = initNormalSpeed(me, nx, nz);
+    const iOtN = initNormalSpeed(other, nx, nz);
+    const dP = other.m * (-iOtN) - me.m * iMeN;
     if (dP <= resistOf(me)) return "base";
     return "slip";
   }
@@ -1343,12 +2093,16 @@
     a.vz -= (jImp * invA) * nz;
     b.vx += (jImp * invB) * nx;
     b.vz += (jImp * invB) * nz;
+    a.vInit = hypot(a.vx, a.vz);
+    b.vInit = hypot(b.vx, b.vz);
     faceVelocity(a);
     faceVelocity(b);
     interrupt(a);
     interrupt(b);
-    a.lastHitId = b.id;
-    b.lastHitId = a.id;
+    if (a.kind !== "nest" && a.kind !== "egg" && b.kind !== "nest" && b.kind !== "egg") {
+      a.lastHitId = R.hitCreditId(b);
+      b.lastHitId = R.hitCreditId(a);
+    }
     applyHitSlide(a, tierA, jImp);
     applyHitSlide(b, tierB, -jImp);
     a.hitNx = -nx;
@@ -1357,7 +2111,9 @@
     b.hitNz = nz;
     playHitFx(a, nx, nz, jImp, tierA);
     playHitFx(b, -nx, -nz, jImp, tierB);
-    flash(`${a.name} ${tierLabel(tierA)} · ${b.name} ${tierLabel(tierB)}`);
+    if (a.kind !== "nest" && b.kind !== "nest" && a.kind !== "egg" && b.kind !== "egg") {
+      flash(`${a.name} ${tierLabel(tierA)} · ${b.name} ${tierLabel(tierB)}`);
+    }
     return jImp;
   }
 
@@ -1382,57 +2138,9 @@
   }
 
   function collide() {
-    for (let i = 0; i < bugs.length; i++) {
-      for (let j = i + 1; j < bugs.length; j++) {
-        const a = bugs[i];
-        const b = bugs[j];
-        if (!a.alive || !b.alive) continue;
-        const minD = a.r + b.r;
-        let dx = b.x - a.x;
-        let dz = b.z - a.z;
-        let dist = hypot(dx, dz);
-        let nx;
-        let nz;
-        if (dist < minD) {
-          const hit = separatePair(a, b);
-          if (!hit) continue;
-          nx = hit.nx;
-          nz = hit.nz;
-        } else {
-          const pax = a.px - b.px;
-          const paz = a.pz - b.pz;
-          const vx = (a.x - a.px) - (b.x - b.px);
-          const vz = (a.z - a.pz) - (b.z - b.pz);
-          const aa = vx * vx + vz * vz;
-          if (aa < 1e-10) continue;
-          const bb = 2 * (pax * vx + paz * vz);
-          const cc = pax * pax + paz * paz - minD * minD;
-          const disc = bb * bb - 4 * aa * cc;
-          if (disc < 0) continue;
-          const tHit = (-bb - Math.sqrt(disc)) / (2 * aa);
-          if (tHit < 0 || tHit > 1) continue;
-          a.x = a.px + (a.x - a.px) * tHit;
-          a.z = a.pz + (a.z - a.pz) * tHit;
-          b.x = b.px + (b.x - b.px) * tHit;
-          b.z = b.pz + (b.z - b.pz) * tHit;
-          dx = b.x - a.x;
-          dz = b.z - a.z;
-          dist = hypot(dx, dz) || 1;
-          nx = dx / dist;
-          nz = dz / dist;
-          separatePair(a, b);
-        }
-        const jImp = bouncePair(a, b, nx, nz);
-        if (jImp) {
-          const punchMul = (a.hitTier === "slip" || b.hitTier === "slip") ? 3.3
-            : (a.hitTier === "ctrl" && b.hitTier === "ctrl") ? 0.7 : 1.9;
-          const punch = clamp(Math.abs(jImp) * punchMul, 0, 14);
-          camPunch.x += nx * punch;
-          camPunch.y += -nz * punch * 0.4;
-          hitstop = Math.max(hitstop, Math.max(tierHitStop(a.hitTier, jImp), tierHitStop(b.hitTier, jImp)));
-        }
-      }
-    }
+    collidePairs(movers());
+    collideNests();
+    collideEggs();
   }
 
   function stepParticles(dt) {
@@ -1533,14 +2241,20 @@
     const sdt = dt / sub;
     for (let s = 0; s < sub; s++) {
       for (const b of bugs) stepMotion(b, sdt);
+      for (const b of babies) stepMotion(b, sdt);
       collide();
     }
     for (const b of bugs) markOut(b);
+    for (const b of babies) markBabyOut(b);
     if (phase === "play") {
       stepMatchClock(dt);
       stepHearts(dt);
       stepItems(dt);
+      stepEggs(dt);
+      stepBabies(dt);
+      stepNests();
       for (const b of bugs) stepCharge(b, dt);
+      for (const b of babies) stepCharge(b, dt);
     }
     stepParticles(dt);
     camPunch.x *= 0.84;
@@ -1700,6 +2414,7 @@
     const pz = d.x;
     const start = worldToScreen(b.x, b.z, 0);
     const tip = worldToScreen(b.x + d.x * dist, b.z + d.z * dist, 0);
+    if (![start.x, start.y, tip.x, tip.y].every(Number.isFinite)) return;
     const peak = full >= 1 ? 0.36 : 0.16 + full * 0.16;
     const rgb = full >= 1 ? "232, 176, 72" : "196, 124, 40";
     const edgeRgb = full >= 1 ? "255, 220, 140" : "90, 48, 16";
@@ -1833,6 +2548,109 @@
     ctx.beginPath();
     ctx.ellipse(-rad * 0.28, -rad * 0.3, rad * 0.28, rad * 0.18, -0.4, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+
+  function drawNest(n) {
+    if (!n.alive) return;
+    const gnd = worldToScreen(n.x, n.z, 0);
+    const hpN = clamp(n.hp / Math.max(1, n.maxHp), 0, 1);
+    const s = n.r * CAM_SCALE;
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = "#1a1008";
+    ctx.beginPath();
+    ctx.ellipse(gnd.x, gnd.y + 6, s * 1.05, s * 0.46 * COS_P, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(gnd.x, gnd.y);
+    ctx.scale(1, COS_P);
+    ctx.translate(0, -s * 0.35);
+    const wall = hpN > 0.75 ? "#c4a06a" : hpN > 0.5 ? "#b89058" : hpN > 0.25 ? "#9a7048" : "#7a5438";
+    ctx.fillStyle = wall;
+    ctx.strokeStyle = "#4a3018";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.85, s * 0.15);
+    ctx.lineTo(-s * 0.85, -s * 0.35);
+    ctx.lineTo(0, -s * 0.95);
+    ctx.lineTo(s * 0.85, -s * 0.35);
+    ctx.lineTo(s * 0.85, s * 0.15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = hpN > 0.5 ? "#8a3a22" : "#5a2818";
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.92, -s * 0.28);
+    ctx.lineTo(0, -s * 1.08);
+    ctx.lineTo(s * 0.92, -s * 0.28);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#3a2414";
+    ctx.fillRect(-s * 0.18, -s * 0.08, s * 0.36, s * 0.22);
+    if (hpN < 0.99) {
+      ctx.strokeStyle = `rgba(40, 20, 10, ${0.35 + (1 - hpN) * 0.5})`;
+      ctx.lineWidth = 1.2 + (1 - hpN);
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.2, -s * 0.55);
+      ctx.lineTo(-s * 0.05, -s * 0.1);
+      ctx.lineTo(-s * 0.28, s * 0.08);
+      if (hpN < 0.6) {
+        ctx.moveTo(s * 0.12, -s * 0.7);
+        ctx.lineTo(s * 0.32, -s * 0.15);
+      }
+      if (hpN < 0.35) {
+        ctx.moveTo(s * 0.4, -s * 0.2);
+        ctx.lineTo(s * 0.15, s * 0.12);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEgg(e) {
+    if (!e.alive) return;
+    const left = clamp(e.hatchT / Math.max(1e-6, e.hatchMax || knobs.eggHatchT), 0, 1);
+    const bob = 0.06 + Math.sin(time * 3.1 + e.phase) * 0.03;
+    const gnd = worldToScreen(e.x, e.z, 0);
+    const p = worldToScreen(e.x, e.z, bob);
+    const rad = pickupScreenR(e.r || knobs.eggR);
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = "#1a1008";
+    ctx.beginPath();
+    ctx.ellipse(gnd.x, gnd.y + 3, rad * 0.85, rad * 0.38 * COS_P, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(-0.12);
+    const shell = ctx.createRadialGradient(-rad * 0.2, -rad * 0.35, rad * 0.08, 0, 0, rad * 1.1);
+    shell.addColorStop(0, "#fff6e0");
+    shell.addColorStop(0.55, "#e8d2a4");
+    shell.addColorStop(1, "#c4a06a");
+    ctx.fillStyle = shell;
+    ctx.strokeStyle = "#7a5a32";
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rad * 0.72, rad * 1.02, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    if (left < 0.55) {
+      ctx.strokeStyle = `rgba(70, 40, 16, ${0.35 + (1 - left) * 0.5})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-rad * 0.1, -rad * 0.55);
+      ctx.lineTo(rad * 0.05, -rad * 0.05);
+      ctx.lineTo(-rad * 0.18, rad * 0.4);
+      if (left < 0.28) {
+        ctx.moveTo(rad * 0.22, -rad * 0.2);
+        ctx.lineTo(rad * 0.02, rad * 0.35);
+      }
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -2296,7 +3114,11 @@
     for (const h of heartOrder) drawHeart(h);
     const itemOrder = items.slice().sort((a, b) => b.z - a.z);
     for (const it of itemOrder) drawItem(it);
-    const order = bugs.slice().sort((a, b) => b.z - a.z);
+    const nestOrder = nests.slice().sort((a, b) => b.z - a.z);
+    for (const n of nestOrder) drawNest(n);
+    const eggOrder = eggs.slice().sort((a, b) => b.z - a.z);
+    for (const e of eggOrder) drawEgg(e);
+    const order = bugs.concat(babies).sort((a, b) => b.z - a.z);
     for (const b of order) drawShadow(b);
     for (const b of order) drawArc(b);
     drawParticles();
@@ -2447,7 +3269,27 @@
   window.addEventListener("pointerup", onPointerEnd);
   window.addEventListener("pointercancel", onPointerEnd);
 
+  function stealPlayFocus() {
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && ae !== canvas && ae.blur) ae.blur();
+    if (!canvas) return;
+    if (canvas.tabIndex < 0) canvas.tabIndex = 0;
+    try { canvas.focus({ preventScroll: true }); }
+    catch (_) { try { canvas.focus(); } catch (__) { /* ignore */ } }
+  }
+
+  function isNestTab(e) {
+    return (e.code === "Tab" || e.key === "Tab") && isNestTest() && (phase === "play" || phase === "countdown");
+  }
+
   window.addEventListener("keydown", (e) => {
+    if (isNestTab(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if (!e.repeat) switchNestControl();
+      return;
+    }
     keys.add(e.code);
     if (inputVersion === 3) {
       const inp = playerInput();
@@ -2466,8 +3308,14 @@
     if (e.code === "KeyR") restart();
     if (/Arrow|Space/.test(e.code)) e.preventDefault();
     updateStickVisual();
-  });
+  }, true);
   window.addEventListener("keyup", (e) => {
+    if (isNestTab(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      return;
+    }
     const wasHeld = keyHeld();
     keys.delete(e.code);
     if (inputVersion === 3 && wasHeld && !keyHeld() && stick.pointerId == null) {
@@ -2579,6 +3427,15 @@
       refreshStickMode();
       return;
     }
+    if (isNestTest()) {
+      phase = "play";
+      countT = 0;
+      flash("中间有房子 · 对面不会跳");
+      syncPause();
+      refreshStickMode();
+      stealPlayFocus();
+      return;
+    }
     phase = "countdown";
     countT = 3;
     countNum.textContent = "3";
@@ -2619,6 +3476,7 @@
     ["mu", "k-mu", "v-mu", 2],
     ["rStand", "k-rStand", "v-rStand", 2],
     ["rMax", "k-rMax", "v-rMax", 2],
+    ["rChargeScale", "k-rChargeScale", "v-rChargeScale", 2],
     ["muCtrlScale", "k-muCtrlScale", "v-muCtrlScale", 2],
     ["muSlipScale", "k-muSlipScale", "v-muSlipScale", 2],
     ["growPer", "k-growPer", "v-growPer", 2],
@@ -2626,6 +3484,15 @@
     ["chargeScale", "k-chargeScale", "v-chargeScale", 2],
     ["regTime", "k-regTime", "v-regTime", 0],
     ["otTime", "k-otTime", "v-otTime", 0],
+    ["nestHP", "k-nestHP", "v-nestHP", 0],
+    ["nestEggN", "k-nestEggN", "v-nestEggN", 0],
+    ["eggHatchT", "k-eggHatchT", "v-eggHatchT", 1],
+    ["eggHatchGap", "k-eggHatchGap", "v-eggHatchGap", 2],
+    ["babyLifeT", "k-babyLifeT", "v-babyLifeT", 1],
+    ["babyMass", "k-babyMass", "v-babyMass", 2],
+    ["babyA1Scale", "k-babyA1Scale", "v-babyA1Scale", 2],
+    ["babyChargeT", "k-babyChargeT", "v-babyChargeT", 2],
+    ["babyAtkCd", "k-babyAtkCd", "v-babyAtkCd", 2],
   ];
 
   function snapshotSettings() {
@@ -2677,7 +3544,7 @@
     } else if (knobsMatchShipped()) {
       persistStatusEl.textContent = "当前就是文件里的数。再改请点「保存」。";
     } else {
-      persistStatusEl.textContent = "只存在这台电脑。点右上角「保存」，写入本目录 defaults.js。";
+      persistStatusEl.textContent = "只存在这台电脑。点右上角「保存」会直接覆盖 defaults.js。若没写上，先运行 node save-server.js。";
     }
   }
 
@@ -2692,8 +3559,11 @@
     }
     if (typeof data.slowmo === "boolean") slowmo = data.slowmo;
     if (typeof data.showVel === "boolean") showVel = data.showVel;
+    if (typeof src.babyCanLoot === "number" && Number.isFinite(src.babyCanLoot)) knobs.babyCanLoot = src.babyCanLoot;
     document.getElementById("k-slow").checked = slowmo;
     document.getElementById("k-vel").checked = showVel;
+    const lootEl = document.getElementById("k-babyCanLoot");
+    if (lootEl) lootEl.checked = knobs.babyCanLoot > 0;
     syncKnobsToUi();
     syncInputUi();
     if (!opts || opts.persist !== false) saveSettings();
@@ -2779,7 +3649,7 @@
       try {
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "text/javascript; charset=utf-8" },
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
           body: text,
         });
         if (res.ok) return true;
@@ -2795,26 +3665,10 @@
       flash("已保存到 defaults.js");
       return;
     }
-    try {
-      if (!shippedHandle && window.showSaveFilePicker) {
-        shippedHandle = await window.showSaveFilePicker({
-          suggestedName: "defaults.js",
-          types: [{ description: "JavaScript", accept: { "text/javascript": [".js"] } }],
-        });
-      }
-      if (shippedHandle && await writeShippedHandle()) {
-        flash("已保存到 defaults.js");
-        updatePersistStatus();
-        return;
-      }
-    } catch (err) {
-      if (err && err.name === "AbortError") return;
-      shippedHandle = null;
-      filePersistOk = false;
-    }
-    downloadText("defaults.js", text, "text/javascript");
-    markSaved();
-    flash("已下载 defaults.js，请覆盖原型目录里的同名文件");
+    filePersistOk = false;
+    persistDirty = true;
+    updatePersistStatus();
+    flash("没写上 defaults.js。先在本目录运行 node save-server.js，再用它打开本页");
   }
 
   function exportSettings() {
@@ -2860,6 +3714,8 @@
     inputVersion = 1;
     document.getElementById("k-slow").checked = false;
     document.getElementById("k-vel").checked = false;
+    const lootEl = document.getElementById("k-babyCanLoot");
+    if (lootEl) lootEl.checked = knobs.babyCanLoot > 0;
     syncKnobsToUi();
     syncInputUi();
     saveSettings();
@@ -2871,6 +3727,10 @@
   document.getElementById("btn-save-file").onclick = () => { saveToFile(); };
   document.getElementById("k-slow").onchange = (e) => { slowmo = e.target.checked; saveSettings(); };
   document.getElementById("k-vel").onchange = (e) => { showVel = e.target.checked; saveSettings(); };
+  document.getElementById("k-babyCanLoot").onchange = (e) => {
+    knobs.babyCanLoot = e.target.checked ? 1 : 0;
+    saveSettings();
+  };
   document.getElementById("btn-export").onclick = exportSettings;
   document.getElementById("btn-import").onclick = () => document.getElementById("file-import").click();
   document.getElementById("file-import").onchange = (e) => {
@@ -2895,7 +3755,8 @@
         }
       }
     }
-    render();
+    try { render(); }
+    catch (err) { console.warn("render skipped", err); }
     requestAnimationFrame(loop);
   }
 
@@ -2917,7 +3778,37 @@
     spawnMatch();
     phase = "ready";
     syncKnobsToUi();
-    openTune();
+    if (isNestTest()) closeTune();
+    else openTune();
+    if (isNestTest()) {
+      globalThis.__DQ_DEBUG__ = () => {
+        const me = playerBug();
+        return {
+          phase,
+          paused,
+          userPaused,
+          matchT,
+          tuneOpen: isTuneOpen(),
+          playerId: me ? me.id : null,
+          playerName: me ? me.name : null,
+          bugs: bugs.map((b) => ({
+            id: b.id,
+            name: b.name,
+            isPlayer: !!b.isPlayer,
+            hasAi: !!b.ai,
+            aiIdle: !!(b.ai && b.ai.idle),
+            charging: !!b.charging,
+            holding: !!b.holding,
+            finiteDir: Number.isFinite(b.dirX) && Number.isFinite(b.dirZ),
+            x: b.x,
+            z: b.z,
+          })),
+          nestHp: nests.filter((n) => n.alive).map((n) => n.hp),
+          eggs: eggs.filter((e) => e.alive).length,
+          babies: babies.filter((b) => b.alive).length,
+        };
+      };
+    }
     updateStickVisual();
     window.addEventListener("resize", () => {
       fitCanvas();

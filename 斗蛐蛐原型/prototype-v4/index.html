@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>斗蛐蛐 · 道具与加时</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="phone">
+      <canvas id="view" width="390" height="844"></canvas>
+
+      <header id="hud">
+        <div class="hud-kicker">第三版 · 道具与加时</div>
+        <div id="hud-title">斗蛐蛐</div>
+        <div id="hud-live">对战中</div>
+        <div id="hud-clock"></div>
+      </header>
+
+      <div id="banner"></div>
+
+      <div id="countdown" class="overlay hidden">
+        <div id="count-num">3</div>
+        <div class="count-sub">看场、看虫、看摇杆</div>
+      </div>
+
+      <div id="start" class="overlay">
+        <div class="start-mark">一罐蛐蛐</div>
+        <p class="start-line">摇杆蓄力起跳，把人撞出圈。</p>
+        <p class="start-sub">抛物线飞出 · 踩道具 · 1:30 后狂暴加时</p>
+        <div class="btn-row">
+          <button id="btn-start" type="button">开罐</button>
+          <button id="btn-solo" type="button">自己练</button>
+        </div>
+        <p class="start-hint">先调旋钮（含三版交互），再开罐或自己练。滑长：从大圆盘圆心拉出，松手后跑完加速再跳。</p>
+      </div>
+
+      <div id="result" class="overlay hidden">
+        <div id="result-kicker">这一罐</div>
+        <div id="result-title">——</div>
+        <div id="result-sub"></div>
+        <button id="btn-again" type="button">再来一罐</button>
+        <p class="start-hint">可先改下方旋钮再开下一罐</p>
+      </div>
+
+      <div id="spectate" class="overlay hidden">
+        <div class="start-mark">你出圈了</div>
+        <p class="start-sub">要直接退出本局，还是留下来看完？</p>
+        <div class="btn-row">
+          <button id="btn-watch" type="button">继续看</button>
+          <button id="btn-quit" type="button">退出本局</button>
+        </div>
+      </div>
+
+      <div id="pause-tag" class="hidden">暂停 · 调参中</div>
+
+      <div id="stick" class="hidden" aria-label="蓄力摇杆">
+        <div id="stick-base">
+          <div id="stick-center"></div>
+          <div id="stick-knob"></div>
+        </div>
+      </div>
+      <p id="stick-hint">点按屏幕召出摇杆 · 停稳后蓄力</p>
+
+      <div id="hud-actions">
+        <button id="btn-save" type="button" title="写入本目录 defaults.js">保存</button>
+        <button id="btn-tune" type="button" title="物理旋钮">旋钮</button>
+      </div>
+      <aside id="tune" class="hidden" aria-label="物理旋钮">
+        <div class="tune-head">
+          <strong>开局前可调 · 局内会暂停</strong>
+          <button id="btn-tune-close" type="button">收起</button>
+        </div>
+        <div class="tune-row input-modes">
+          <span class="input-label">交互</span>
+          <button id="btn-input-1" type="button" data-input="1" class="active">现版</button>
+          <button id="btn-input-2" type="button" data-input="2">反弹</button>
+          <button id="btn-input-3" type="button" data-input="3">滑长</button>
+        </div>
+        <p id="input-hint" class="tune-note">点按召出摇杆 · 按住时间蓄力 · 推向要去的方向</p>
+        <div class="tune-grid">
+          <label>T_min 最小蓄力 <span id="v-tMin">0.00</span>s
+            <input id="k-tMin" type="range" min="0" max="1" step="0.05" value="0" />
+          </label>
+          <label>T_max 蓄满 <span id="v-tMax">0.80</span>s
+            <input id="k-tMax" type="range" min="0.25" max="3" step="0.05" value="0.8" />
+          </label>
+          <label>最低跳速(距) <span id="v-dMin">7.00</span>
+            <input id="k-dMin" type="range" min="0.2" max="10" step="0.1" value="7" />
+          </label>
+          <label>A1 Δvx/秒 <span id="v-vRate">50.00</span>
+            <input id="k-vRate" type="range" min="2" max="100" step="0.5" value="50" />
+          </label>
+          <label>θ 仰角 <span id="v-theta">15</span>°
+            <input id="k-theta" type="range" min="10" max="70" step="1" value="15" />
+          </label>
+          <label>m 质量 <span id="v-m">1.00</span>
+            <input id="k-m" type="range" min="0.5" max="2.5" step="0.05" value="1" />
+          </label>
+          <label>g 重力 <span id="v-g">80.00</span>
+            <input id="k-g" type="range" min="6" max="100" step="1" value="80" />
+          </label>
+          <label>μ 地面摩擦 <span id="v-mu">1.80</span>
+            <input id="k-mu" type="range" min="0.08" max="1.8" step="0.01" value="1.8" />
+          </label>
+          <label>站立抵抗 <span id="v-rStand">0.40</span>
+            <input id="k-rStand" type="range" min="0" max="0.4" step="0.01" value="0.4" />
+          </label>
+          <label>满速抵抗 <span id="v-rMax">0.60</span>
+            <input id="k-rMax" type="range" min="0.4" max="2" step="0.05" value="0.6" />
+          </label>
+          <label>蓄力抵抗 λ <span id="v-rChargeScale">0.50</span>
+            <input id="k-rChargeScale" type="range" min="0" max="1" step="0.05" value="0.5" />
+          </label>
+          <label>可控 μ 倍率 <span id="v-muCtrlScale">1.50</span>
+            <input id="k-muCtrlScale" type="range" min="1" max="2" step="0.05" value="1.5" />
+          </label>
+          <label>失衡 μ 倍率 <span id="v-muSlipScale">0.30</span>
+            <input id="k-muSlipScale" type="range" min="0.3" max="1" step="0.05" value="0.3" />
+          </label>
+          <label>每心成长 <span id="v-growPer">0.16</span>
+            <input id="k-growPer" type="range" min="0.02" max="0.5" step="0.01" value="0.16" />
+          </label>
+          <label>增大倍率 <span id="v-sizeScale">1.30</span>
+            <input id="k-sizeScale" type="range" min="1.1" max="1.6" step="0.05" value="1.3" />
+          </label>
+          <label>蓄力倍率 <span id="v-chargeScale">1.25</span>
+            <input id="k-chargeScale" type="range" min="1.1" max="1.5" step="0.05" value="1.25" />
+          </label>
+          <label>正赛秒 <span id="v-regTime">90</span>
+            <input id="k-regTime" type="range" min="20" max="120" step="5" value="90" />
+          </label>
+          <label>加时秒 <span id="v-otTime">30</span>
+            <input id="k-otTime" type="range" min="10" max="45" step="5" value="30" />
+          </label>
+          <label>房子血量 <span id="v-nestHP">4</span>
+            <input id="k-nestHP" type="range" min="2" max="8" step="1" value="4" />
+          </label>
+          <label>散落卵数 <span id="v-nestEggN">5</span>
+            <input id="k-nestEggN" type="range" min="3" max="8" step="1" value="5" />
+          </label>
+          <label>卵孵化秒 <span id="v-eggHatchT">3.0</span>
+            <input id="k-eggHatchT" type="range" min="1.5" max="5" step="0.1" value="3" />
+          </label>
+          <label>孵化错开秒 <span id="v-eggHatchGap">0.28</span>
+            <input id="k-eggHatchGap" type="range" min="0" max="1" step="0.02" value="0.28" />
+          </label>
+          <label>崽寿命秒 <span id="v-babyLifeT">8.0</span>
+            <input id="k-babyLifeT" type="range" min="4" max="12" step="0.5" value="8" />
+          </label>
+          <label>崽质量 <span id="v-babyMass">0.35</span>
+            <input id="k-babyMass" type="range" min="0.15" max="0.8" step="0.05" value="0.35" />
+          </label>
+          <label>崽 A1 倍率 <span id="v-babyA1Scale">0.40</span>
+            <input id="k-babyA1Scale" type="range" min="0.2" max="0.8" step="0.05" value="0.4" />
+          </label>
+          <label>崽蓄力秒 <span id="v-babyChargeT">0.16</span>
+            <input id="k-babyChargeT" type="range" min="0.08" max="0.4" step="0.01" value="0.16" />
+          </label>
+          <label>崽攻击 CD <span id="v-babyAtkCd">0.80</span>
+            <input id="k-babyAtkCd" type="range" min="0" max="2" step="0.05" value="0.8" />
+          </label>
+        </div>
+        <div class="tune-row">
+          <label class="check"><input id="k-slow" type="checkbox" /> 0.5× 慢放</label>
+          <label class="check"><input id="k-vel" type="checkbox" /> 速度线</label>
+          <label class="check"><input id="k-babyCanLoot" type="checkbox" /> 小蟋蟀吃粮</label>
+        </div>
+        <div class="tune-row">
+          <button id="btn-save-file" type="button">保存</button>
+          <button id="btn-defaults" type="button">恢复草案默认</button>
+          <button id="btn-reset" type="button">重开本罐</button>
+        </div>
+        <div class="tune-row">
+          <button id="btn-export" type="button">导出设定</button>
+          <button id="btn-import" type="button">导入设定</button>
+          <input id="file-import" type="file" accept="application/json,.json" hidden />
+        </div>
+        <p id="persist-status" class="tune-note">改完点右上角「保存」，直接覆盖本目录 defaults.js。</p>
+        <p class="tune-note">蓄力只加水平速度，仰角由 θ 决定。飞出先走抛物线（水平不减速），落地再按 μ 匀减速。撞人换速用当前速度；抵抗按本次初始速度分三档改 μ。站着蓄力时按蓄力速度 × λ 打折。</p>
+      </aside>
+    </div>
+    <p id="desk-hint">桌面：点按画面召出摇杆，WASD / 方向键也可蓄力。空格暂停 · R 重开。手机请竖屏。</p>
+  </div>
+  <script src="./defaults.js"></script>
+  <script src="./match-rules.js"></script>
+  <script src="./game.js"></script>
+</body>
+</html>

@@ -11,6 +11,7 @@ const knobs = {
   mu: 0.5,
   rStand: 0.1,
   rMax: 1,
+  rChargeScale: 0.5,
   muCtrlScale: 1.3,
   muSlipScale: 0.65,
   growPer: 0.16,
@@ -46,19 +47,42 @@ function jumpRange(dvx) {
   const tg = dvx / (mu * g);
   return { air, ground, total: air + ground, height, ty, tg, T: ty + tg };
 }
+function isSettled(b) {
+  return !b.airborne && (b.y == null || b.y <= 0) && hypot(b.vx || 0, b.vz || 0) < SETTLE_SPEED;
+}
+function chargeDeltaV(b) {
+  return Math.max(0, knobs.vRate) * clamp(b.chargeT || 0, 0, Math.max(0, knobs.tMax));
+}
+function motionInitSpeed(b) {
+  if (typeof b.vInit === "number" && Number.isFinite(b.vInit)) return Math.max(0, b.vInit);
+  return hypot(b.vx || 0, b.vz || 0);
+}
+function resistInitSpeed(b) {
+  if (isSettled(b) && b.charging) {
+    return Math.max(0, chargeDeltaV(b)) * Math.max(0, knobs.rChargeScale);
+  }
+  return motionInitSpeed(b);
+}
 function resistOf(b) {
   const vmax = vMax();
   const V0 = knobs.rStand * vmax;
   const K = knobs.rMax;
-  const v = clamp(hypot(b.vx, b.vz), 0, vmax);
+  const v = clamp(resistInitSpeed(b), 0, vmax);
   const t = vmax < 1e-6 ? 0 : v / vmax;
   return V0 * b.m + t * (K * b.m * vmax - V0 * b.m);
+}
+function initNormalSpeed(b, nx, nz) {
+  const spd = hypot(b.vx || 0, b.vz || 0);
+  if (spd < 1e-8) return 0;
+  return motionInitSpeed(b) * ((b.vx * nx + b.vz * nz) / spd);
 }
 function hitTierFor(me, other, nx, nz) {
   const vMeN = me.vx * nx + me.vz * nz;
   const vOtN = other.vx * nx + other.vz * nz;
   if (Math.abs(vMeN) + 1e-9 >= Math.abs(vOtN)) return "ctrl";
-  const dP = other.m * (-vOtN) - me.m * vMeN;
+  const iMeN = initNormalSpeed(me, nx, nz);
+  const iOtN = initNormalSpeed(other, nx, nz);
+  const dP = other.m * (-iOtN) - me.m * iMeN;
   if (dP <= resistOf(me)) return "base";
   return "slip";
 }
@@ -70,10 +94,10 @@ function muForTier(tier) {
 
 function applyGroundFriction(b, dt) {
   const spd = hypot(b.vx, b.vz);
-  if (spd < SETTLE_SPEED) { b.vx = 0; b.vz = 0; return; }
+  if (spd < SETTLE_SPEED) { b.vx = 0; b.vz = 0; b.vInit = 0; return; }
   const a = frictionAccel(b.slideMu);
   const next = spd - a * dt;
-  if (next <= SETTLE_SPEED) { b.vx = 0; b.vz = 0; return; }
+  if (next <= SETTLE_SPEED) { b.vx = 0; b.vz = 0; b.vInit = 0; return; }
   const k = next / spd;
   b.vx *= k;
   b.vz *= k;
@@ -115,6 +139,8 @@ function bouncePair(a, b, nx, nz) {
   a.vz -= (jImp * invA) * nz;
   b.vx += (jImp * invB) * nx;
   b.vz += (jImp * invB) * nz;
+  a.vInit = hypot(a.vx, a.vz);
+  b.vInit = hypot(b.vx, b.vz);
   a.airborne = false; a.y = 0; a.vy = 0; a.slideMu = muForTier(tierA); a.hitTier = tierA;
   b.airborne = false; b.y = 0; b.vy = 0; b.slideMu = muForTier(tierB); b.hitTier = tierB;
   return { j: jImp, tierA, tierB };
@@ -201,9 +227,15 @@ eq("standing defender slip", hitTierFor(B, A, -1, 0), "slip");
 eq("attacker ctrl vs standing", hitTierFor(A, B, 1, 0), "ctrl");
 eq("fat does not wall a faster A", hitTierFor({ m: 1, vx: vmax, vz: 0 }, { m: 8, vx: 0, vz: 0 }, 1, 0), "ctrl");
 
-const half = { m: 1, vx: vmax * 0.5, vz: 0 };
-const fullB = { m: 1, vx: -vmax, vz: 0 };
+const half = { m: 1, vx: vmax * 0.5, vz: 0, vInit: vmax * 0.5 };
+const fullB = { m: 1, vx: -vmax, vz: 0, vInit: vmax };
 eq("half speed vs full head-on → default", hitTierFor(half, fullB, 1, 0), "base");
+const coast = { m: 1, vx: vmax * 0.2, vz: 0, vInit: vmax };
+eq("decayed current but full init vs full head-on → default", hitTierFor(coast, fullB, 1, 0), "base");
+const faded = { m: 1, vx: vmax * 0.15, vz: 0, vInit: vmax };
+eq("Δp uses init so faded full-jump stays default", hitTierFor(faded, fullB, 1, 0), "base");
+const weakNow = { m: 1, vx: vmax * 0.15, vz: 0, vInit: vmax * 0.15 };
+eq("weak init still slips vs full", hitTierFor(weakNow, fullB, 1, 0), "slip");
 
 const light = { m: 1, vx: 11, vz: 0 };
 const heavy = { m: 2, vx: -12, vz: 0 };
@@ -236,12 +268,27 @@ const grazeA = { m: 1, vx: vmax, vz: 0 };
 const grazeB = { m: 1, vx: 0, vz: 0 };
 eq("side graze: A still faster on tiny normal", hitTierFor(grazeA, grazeB, 0, 1) === "ctrl" || hitTierFor(grazeA, grazeB, 0.02, 0.9996) === "ctrl", true);
 
-const R0 = resistOf({ m: 1, vx: 0, vz: 0 });
+const R0 = resistOf({ m: 1, vx: 0, vz: 0, vInit: 0 });
 approx("R stand", R0, 0.1 * vmax, 1e-6);
-const Rmax = resistOf({ m: 1, vx: vmax, vz: 0 });
+const Rmax = resistOf({ m: 1, vx: vmax, vz: 0, vInit: vmax });
 approx("R full", Rmax, 1 * vmax, 1e-6);
-const Rhalf = resistOf({ m: 1, vx: vmax * 0.5, vz: 0 });
+const Rhalf = resistOf({ m: 1, vx: vmax * 0.5, vz: 0, vInit: vmax * 0.5 });
 approx("R half linear", Rhalf, 0.1 * vmax + 0.5 * (vmax - 0.1 * vmax), 1e-6);
+const Rkept = resistOf({ m: 1, vx: vmax * 0.2, vz: 0, vInit: vmax });
+approx("R uses vInit not remaining speed", Rkept, 1 * vmax, 1e-6);
+const Rcharge0 = resistOf({ m: 1, vx: 0, vz: 0, charging: true, chargeT: 0 });
+approx("R charge just started", Rcharge0, 0.1 * vmax, 1e-6);
+const RchargeFull = resistOf({ m: 1, vx: 0, vz: 0, charging: true, chargeT: knobs.tMax });
+approx("R stand charging full * λ", RchargeFull, 0.1 * vmax + 0.5 * (vmax - 0.1 * vmax), 1e-6);
+const chargingStand = { m: 1, vx: 0, vz: 0, charging: true, chargeT: knobs.tMax, airborne: false, y: 0 };
+const savedL = knobs.rChargeScale;
+knobs.rChargeScale = 0;
+approx("R charge λ=0 same as stand", resistOf(chargingStand), 0.1 * vmax, 1e-6);
+knobs.rChargeScale = 1;
+approx("R charge λ=1 same as airborne full", resistOf(chargingStand), 1 * vmax, 1e-6);
+knobs.rChargeScale = savedL;
+const RflyCharge = resistOf({ m: 1, vx: vmax * 0.2, vz: 0, vInit: vmax, charging: true, chargeT: knobs.tMax, airborne: true, y: 1 });
+approx("R airborne ignores charge λ", RflyCharge, 1 * vmax, 1e-6);
 
 const grow = 1 + 6 * 0.16;
 approx("full grow scale", grow, 1.96, 1e-9);
@@ -354,12 +401,32 @@ for (const [, key, kid, vid] of knobIds) {
 }
 eq("html dropped jumpT", html.includes("k-jumpT"), false);
 eq("html dropped hitT", html.includes("k-hitT"), false);
-eq("settings key v2", js.includes("dou-ququ-knobs-v2"), true);
+eq("settings key v3", js.includes("dou-ququ-knobs-v3"), true);
+eq("html loads match-rules", html.includes("match-rules.js"), true);
+eq("html loads defaults", html.includes("defaults.js"), true);
+eq("has save-to-file", html.includes("btn-save-file") && js.includes("async function saveToFile"), true);
+eq("has hud save", html.includes("id=\"btn-save\"") && js.includes("postShippedFile"), true);
+eq("save has no file picker", js.includes("showSaveFilePicker"), false);
+eq("save has no download overwrite", js.includes("请覆盖原型目录"), false);
+eq("factory reset kept", js.includes("const FACTORY") && js.includes("Object.assign(knobs, FACTORY)"), true);
+eq("html has hud-clock", html.includes("id=\"hud-clock\""), true);
 eq("drawArc preview uses chargeDeltaV", /function drawArc\(b\) \{[\s\S]{0,500}chargeDeltaV\(b\)/.test(js), true);
-eq("charge waits until settled", /function stepCharge\(b, dt\) \{[\s\S]{0,250}!isSettled\(b\)/.test(js), true);
+eq("charge waits until settled", /function stepCharge\(b, dt\) \{[\s\S]{0,1200}!isSettled\(b\)/.test(js), true);
+eq("baby charge waits until settled", /function stepBabyCharge\(b, dt\) \{[\s\S]{0,250}!isSettled\(b\)/.test(js), true);
 eq("own-slide does not plant to charge", !/function plant\(b\)/.test(js) && !/function canStartCharge\(b\)/.test(js), true);
 eq("hit fx split by tier", /function playHitFx\(/.test(js) && /function spawnHitSpray\(/.test(js), true);
 eq("slip sets roll", /b\.roll = 1/.test(js), true);
+{
+  const testHtml = fs.readFileSync(path.join(__dirname, "test-nest.html"), "utf8");
+  eq("nest test page flag", testHtml.includes("nestDummy: true"), true);
+  eq("nest test idle AI", /ai\.idle/.test(js) && /isNestTest\(\)/.test(js), true);
+eq("nest test Tab swaps control", /function switchNestControl\(/.test(js) && /e\.code === "Tab"/.test(js), true);
+eq("tab take clears ai", /if \(take\) \{\s*b\.ai = null;/.test(js), true);
+eq("AI skips player", /function updateAI\(b, dt\) \{\s*if \(!b \|\| !b\.alive \|\| b\.isPlayer/.test(js), true);
+eq("drawArc rejects NaN", /!\[start\.x, start\.y, tip\.x, tip\.y\]\.every\(Number\.isFinite\)/.test(js), true);
+eq("render cannot kill loop", /try \{ render\(\); \}/.test(js) && /requestAnimationFrame\(loop\)/.test(js), true);
+eq("babies do not pass through", /function resolveBabyOverlap\(/.test(js) && !/a\.kind === "baby" && b\.kind === "baby"\) continue/.test(js), true);
+}
 
 if (failed) {
   console.error(`\n${failed} failed`);

@@ -40,6 +40,27 @@
       heartMinBug: 1.3,
       heartMinHeart: 1.25,
       shieldPad: 0.08,
+      nestHP: 4,
+      nestMass: 3.0,
+      nestR: 1.2,
+      nestEggN: 5,
+      eggHatchT: 3,
+      eggHatchGap: 0.28,
+      eggHatchJitter: 0.15,
+      eggScatterV: 4.5,
+      eggR: 0.28,
+      eggMass: 0.2,
+      babyLifeT: 8,
+      babyRScale: 0.40,
+      babyMass: 0.35,
+      babyA1Scale: 0.40,
+      babyChargeT: 0.16,
+      babyAtkCd: 0.8,
+      babyCanLoot: 0,
+      babyDMin: 0,
+      nestCap: 1,
+      nestFirstT: 25,
+      nestGap: 12,
     };
   }
 
@@ -55,6 +76,7 @@
       nextItemIndex: 0,
       lastItemKind: null,
       lastHeartAt: -1e9,
+      lastNestClearAt: -1,
     };
   }
 
@@ -120,6 +142,145 @@
     bug.r = bugR * g * s;
     bug.m = Math.max(0.08, knobs.m) * g * s;
     return bug;
+  }
+
+  function babyCanLoot(knobs) {
+    return !!(knobs && knobs.babyCanLoot);
+  }
+
+  function refreshBabyBody(knobs, baby) {
+    const bugR = knobs.bugR == null ? 1.8 : knobs.bugR;
+    const scale = knobs.babyRScale == null ? 0.4 : knobs.babyRScale;
+    const grow = 1 + (baby.grow || 0) * Math.max(0, knobs.growPer);
+    baby.r = bugR * scale * grow;
+    baby.m = Math.max(0.05, knobs.babyMass == null ? 0.35 : knobs.babyMass) * grow;
+    return baby;
+  }
+
+  function babyChargeStats(knobs) {
+    const a1 = Math.max(0, knobs.vRate) * Math.max(0, knobs.babyA1Scale == null ? 0.4 : knobs.babyA1Scale);
+    const tMax = Math.max(0.02, knobs.babyChargeT == null ? 0.16 : knobs.babyChargeT);
+    return { vRate: a1, tMax };
+  }
+
+  function babyChargeDeltaV(knobs, baby) {
+    const e = babyChargeStats(knobs);
+    return e.vRate * clamp(baby.chargeT || 0, 0, e.tMax);
+  }
+
+  function babyAttackCd(knobs) {
+    return Math.max(0, knobs.babyAtkCd == null ? 0.8 : knobs.babyAtkCd);
+  }
+
+  function tickBabyAtkCd(baby, dt) {
+    if (!baby) return 0;
+    baby.atkCd = Math.max(0, (baby.atkCd || 0) - dt);
+    return baby.atkCd;
+  }
+
+  function canBabyCharge(baby) {
+    return !baby || !(baby.atkCd > 1e-6);
+  }
+
+  function hitCreditId(hitter) {
+    if (!hitter) return -1;
+    if (hitter.kind === "baby") {
+      return hitter.ownerId == null ? -1 : hitter.ownerId;
+    }
+    return hitter.id;
+  }
+
+  function nestFieldCap(state) {
+    return Math.max(1, state.knobs.nestCap == null ? 1 : state.knobs.nestCap);
+  }
+
+  function shouldSpawnNest(state, liveCount) {
+    if (isRage(state)) return false;
+    const first = state.knobs.nestFirstT == null ? 25 : state.knobs.nestFirstT;
+    if (state.t + 1e-9 < first) return false;
+    const live = liveCount == null ? 0 : liveCount;
+    if (live >= nestFieldCap(state)) return false;
+    if (state.lastNestClearAt < 0) return true;
+    const gap = state.knobs.nestGap == null ? 12 : state.knobs.nestGap;
+    return state.t - state.lastNestClearAt + 1e-9 >= gap;
+  }
+
+  function markNestCleared(state) {
+    state.lastNestClearAt = state.t;
+  }
+
+  function isNewNestContact(wasTouching, vn) {
+    return !wasTouching && vn < -1e-4;
+  }
+
+  function resolveNestHits(hp, hits) {
+    const start = Math.max(0, hp | 0);
+    if (!hits || !hits.length || start <= 0) {
+      return { hp: start, ownerId: null, exploded: false };
+    }
+    const ranked = hits.slice().sort((a, b) => a.vn - b.vn || a.id - b.id);
+    let remaining = start;
+    let ownerId = null;
+    let exploded = false;
+    for (let i = 0; i < ranked.length; i++) {
+      if (remaining <= 0) break;
+      remaining -= 1;
+      if (remaining === 0) {
+        exploded = true;
+        const vn = ranked[i].vn;
+        const tied = ranked.filter((h) => Math.abs(h.vn - vn) <= 1e-9);
+        ownerId = tied.length > 1 ? -1 : ranked[i].id;
+        break;
+      }
+    }
+    return { hp: remaining, ownerId, exploded };
+  }
+
+  function scatterEggs(spec) {
+    const n = Math.max(0, spec.n | 0);
+    const rand = spec.rand || Math.random;
+    const speed = spec.speed == null ? 4.5 : spec.speed;
+    const spread = spec.spread == null ? 0.55 : spec.spread;
+    const pad = spec.pad == null ? 0.36 : spec.pad;
+    const out = [];
+    const baseAng = rand() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const jitter = (rand() - 0.5) * 0.4;
+      const ang = baseAng + (n === 0 ? 0 : (i * Math.PI * 2) / n) + jitter;
+      let x = spec.x + Math.cos(ang) * spread;
+      let z = spec.z + Math.sin(ang) * spread;
+      if (spec.clamp) {
+        const p = spec.clamp(x, z, pad);
+        x = p.x;
+        z = p.z;
+      }
+      out.push({
+        x,
+        z,
+        vx: Math.cos(ang) * speed,
+        vz: Math.sin(ang) * speed,
+      });
+    }
+    return out;
+  }
+
+  function eggHatchTimes(n, knobs, rand) {
+    const count = Math.max(0, n | 0);
+    const base = knobs.eggHatchT == null ? 3 : knobs.eggHatchT;
+    const gap = Math.max(0, knobs.eggHatchGap == null ? 0.28 : knobs.eggHatchGap);
+    const jitter = Math.max(0, knobs.eggHatchJitter == null ? 0.15 : knobs.eggHatchJitter);
+    const roll = rand || Math.random;
+    const slots = [];
+    for (let i = 0; i < count; i++) {
+      slots.push(base + i * gap + roll() * jitter);
+    }
+    for (let i = count - 1; i > 0; i--) {
+      const j = Math.floor(roll() * (i + 1)) % (i + 1);
+      const tmp = slots[i];
+      slots[i] = slots[j];
+      slots[j] = tmp;
+    }
+    return slots;
   }
 
   function pickItemKind(state, rand) {
@@ -310,6 +471,21 @@
     panelVMax,
     chargeDeltaV,
     refreshBody,
+    refreshBabyBody,
+    babyCanLoot,
+    babyChargeStats,
+    babyChargeDeltaV,
+    babyAttackCd,
+    tickBabyAtkCd,
+    canBabyCharge,
+    hitCreditId,
+    nestFieldCap,
+    shouldSpawnNest,
+    markNestCleared,
+    isNewNestContact,
+    resolveNestHits,
+    scatterEggs,
+    eggHatchTimes,
     pickItemKind,
     itemFieldCap,
     dueItemSpawns,
