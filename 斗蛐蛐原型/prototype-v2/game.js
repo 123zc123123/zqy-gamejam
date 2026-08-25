@@ -858,7 +858,7 @@
   }
 
   function eatHeart(b, h) {
-    addGrow(b, `${b.name} 吃到心`);
+    addGrow(b, `${b.name} 吃到饲料`);
     h.alive = false;
     h.respawn = HEART_RESPAWN;
     spawnDust(h.x, h.z, 10, 0.55);
@@ -1389,29 +1389,27 @@
     const bob = 0.12 + Math.sin(time * 2.6 + h.phase) * 0.07;
     const gnd = worldToScreen(h.x, h.z, 0);
     const p = worldToScreen(h.x, h.z, bob);
+    const rad = Math.max(2.6, HEART_R * CAM_SCALE * 0.95);
     ctx.save();
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = "#1a1008";
     ctx.beginPath();
-    ctx.ellipse(gnd.x, gnd.y + 3, 7, 3.5 * COS_P, 0, 0, Math.PI * 2);
+    ctx.ellipse(gnd.x, gnd.y + 3, rad * 0.95, rad * 0.42 * COS_P, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+    const ball = ctx.createRadialGradient(-rad * 0.28, -rad * 0.32, rad * 0.08, 0, 0, rad);
+    ball.addColorStop(0, "#ffe9a0");
+    ball.addColorStop(0.45, "#f0c44a");
+    ball.addColorStop(1, "#c48a18");
     ctx.save();
     ctx.translate(p.x, p.y);
-    const s = CAM_SCALE * 0.42;
-    ctx.scale(s / 20, s / 20);
-    ctx.fillStyle = "#e45b6b";
-    ctx.strokeStyle = "rgba(255, 210, 214, 0.55)";
-    ctx.lineWidth = 0.8;
     ctx.beginPath();
-    ctx.moveTo(0, 7);
-    ctx.bezierCurveTo(-12, -1, -8, -12, 0, -5);
-    ctx.bezierCurveTo(8, -12, 12, -1, 0, 7);
+    ctx.arc(0, 0, rad, 0, Math.PI * 2);
+    ctx.fillStyle = ball;
     ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.fillStyle = "rgba(255, 250, 220, 0.55)";
     ctx.beginPath();
-    ctx.ellipse(-3, -3, 2.2, 1.4, -0.5, 0, Math.PI * 2);
+    ctx.ellipse(-rad * 0.28, -rad * 0.3, rad * 0.28, rad * 0.18, -0.4, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }

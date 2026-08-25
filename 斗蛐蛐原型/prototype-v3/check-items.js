@@ -89,10 +89,13 @@ const knobs = R.mergeKnobs();
   eq("first wave count", a.length, 3);
   seq.push(a[0]);
   state.t = 42;
-  const b = R.dueItemSpawns(state, rand);
-  eq("second wave count", b.length, 3);
-  seq.push(b[0]);
-  eq("second batch added not replaced", a.length + b.length, 6);
+  const b = R.dueItemSpawns(state, rand, 3);
+  eq("second wave at cap holds", b.length, 0);
+  eq("cap does not consume slot", state.nextItemIndex, 1);
+  const b2 = R.dueItemSpawns(state, rand, 2);
+  eq("second wave fills room", b2.length, 1);
+  seq.push(b2[0]);
+  eq("second batch added not replaced", a.length + b2.length, 4);
   const mid = [];
   for (const t of [60, 74, 85]) {
     state.t = t;
@@ -117,22 +120,26 @@ const knobs = R.mergeKnobs();
 {
   const state = R.createMatchState(knobs);
   state.t = 10;
-  eq("probe no heart", R.shouldRefillHeart(state), false);
+  eq("probe no heart", R.shouldRefillHeart(state, 4), false);
   state.t = 20;
   eq("open burst", R.heartBurstFill(state), true);
-  eq("open refill", R.shouldRefillHeart(state), true);
+  eq("open refill", R.shouldRefillHeart(state, 4), true);
+  eq("open wave is one", R.heartWaveSize(state, 4), 1);
+  eq("open at cap no refill", R.shouldRefillHeart(state, 6), false);
+  eq("open at cap wave 0", R.heartWaveSize(state, 6), 0);
   R.markHeartFilled(state);
   eq("burst once marked no gap skip if still last<0? marked", state.lastHeartAt, 20);
-  eq("after mark need gap", R.shouldRefillHeart(state), false);
+  eq("after mark need gap", R.shouldRefillHeart(state, 4), false);
   state.t = 27;
-  eq("after 7s refill", R.shouldRefillHeart(state), true);
+  eq("after 7s refill", R.shouldRefillHeart(state, 4), true);
+  eq("after 7s at cap", R.shouldRefillHeart(state, 6), false);
   state.t = 90;
   state.lastHeartAt = 88;
-  eq("rage 2s not enough", R.shouldRefillHeart(state), false);
+  eq("rage 2s not enough", R.shouldRefillHeart(state, 4), false);
   state.t = 93;
-  eq("rage 5s enough", R.shouldRefillHeart(state), true);
-  eq("full field still adds batch", R.shouldRefillHeart(state), true);
-  eq("heart wave size", R.heartWaveSize(state), 6);
+  eq("rage 5s enough", R.shouldRefillHeart(state, 4), true);
+  eq("full field no refill", R.shouldRefillHeart(state, 6), false);
+  eq("heart wave size", R.heartWaveSize(state, 4), 1);
 }
 
 {

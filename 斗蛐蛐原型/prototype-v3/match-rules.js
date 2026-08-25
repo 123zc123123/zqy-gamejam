@@ -15,12 +15,13 @@
       shieldT: 8,
       chargeScale: 1.25,
       chargeBuffT: 5,
-      itemR: 0.95,
+      itemR: 1.35,
       itemTimes: [20, 42, 60, 74, 85, 94, 102, 110],
       heartStart: 4,
       heartCap: 6,
       heartBatch: 6,
       itemBatch: 3,
+      itemCap: 3,
       heartGap: 7,
       heartGapOt: 5,
       heartOpenAt: 20,
@@ -133,12 +134,23 @@
     return kind;
   }
 
-  function dueItemSpawns(state, rand) {
+  function itemFieldCap(state) {
+    return Math.max(0, state.knobs.itemCap == null ? 3 : state.knobs.itemCap);
+  }
+
+  function dueItemSpawns(state, rand, fieldCount) {
     const times = state.knobs.itemTimes;
     const batch = Math.max(1, state.knobs.itemBatch || 1);
+    const cap = itemFieldCap(state);
+    const live = fieldCount == null ? 0 : fieldCount;
     const out = [];
+    let placed = 0;
     while (state.nextItemIndex < times.length && state.t + 1e-9 >= times[state.nextItemIndex]) {
-      for (let i = 0; i < batch; i++) out.push(pickItemKind(state, rand));
+      const room = cap - live - placed;
+      if (room <= 0) break;
+      const n = Math.min(batch, room);
+      for (let i = 0; i < n; i++) out.push(pickItemKind(state, rand));
+      placed += n;
       state.nextItemIndex += 1;
     }
     return out;
@@ -148,12 +160,19 @@
     return state.lastHeartAt < 0 && state.t + 1e-9 >= state.knobs.heartOpenAt;
   }
 
-  function heartWaveSize(state) {
-    return Math.max(1, state.knobs.heartBatch || state.knobs.heartCap || 6);
+  function heartFieldCap(state) {
+    return Math.max(0, state.knobs.heartCap == null ? 6 : state.knobs.heartCap);
   }
 
-  function shouldRefillHeart(state) {
+  function heartWaveSize(state, fieldCount) {
+    const cap = heartFieldCap(state);
+    const live = fieldCount == null ? 0 : fieldCount;
+    return Math.max(0, cap - live) > 0 ? 1 : 0;
+  }
+
+  function shouldRefillHeart(state, fieldCount) {
     if (state.t + 1e-9 < state.knobs.heartOpenAt) return false;
+    if (heartWaveSize(state, fieldCount) <= 0) return false;
     if (heartBurstFill(state)) return true;
     const gap = isRage(state) ? state.knobs.heartGapOt : state.knobs.heartGap;
     return state.t - state.lastHeartAt + 1e-9 >= gap;
@@ -292,8 +311,10 @@
     chargeDeltaV,
     refreshBody,
     pickItemKind,
+    itemFieldCap,
     dueItemSpawns,
     heartBurstFill,
+    heartFieldCap,
     heartWaveSize,
     shouldRefillHeart,
     markHeartFilled,

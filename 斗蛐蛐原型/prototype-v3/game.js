@@ -17,6 +17,8 @@
   const stickKnob = document.getElementById("stick-knob");
   const STICK_SIZE = 128;
   const STICK_VISUAL = 38;
+  const STICK_FIXED = 220;
+  const STICK_FIXED_VISUAL = 78;
 
   const PITCH = 16 * Math.PI / 180;
   const COS_P = Math.cos(PITCH);
@@ -38,7 +40,7 @@
   let W = 390;
   let H = 844;
 
-  const DEFAULTS = {
+  const FACTORY = {
     tMin: 0,
     tMax: 0.55,
     dMin: 1.2,
@@ -58,16 +60,53 @@
     shieldT: 8,
     chargeScale: 1.25,
     chargeBuffT: 5,
-    itemR: 0.95,
+    itemR: 1.35,
     regTime: 90,
     otTime: 30,
     heartStart: 4,
     heartCap: 6,
     heartBatch: 6,
     itemBatch: 3,
+    itemCap: 3,
     heartGap: 7,
     heartGapOt: 5,
   };
+
+  const DEFAULTS = {
+    tMin: 0,
+    tMax: 0.8,
+    dMin: 7,
+    vRate: 50,
+    theta: 15,
+    m: 1,
+    g: 80,
+    mu: 1.8,
+    rStand: 0.4,
+    rMax: 0.6,
+    muCtrlScale: 1.5,
+    muSlipScale: 0.3,
+    growPer: 0.16,
+    bugR: 1.8,
+    sizeScale: 1.3,
+    sizeT: 6,
+    shieldT: 8,
+    chargeScale: 1.25,
+    chargeBuffT: 5,
+    itemR: 1.35,
+    regTime: 90,
+    otTime: 30,
+    heartStart: 4,
+    heartCap: 6,
+    heartBatch: 6,
+    itemBatch: 3,
+    itemCap: 3,
+    heartGap: 7,
+    heartGapOt: 5,
+  };
+  const shipped = globalThis.DOU_QUQU_SHIPPED;
+  if (shipped && shipped.knobs && typeof shipped.knobs === "object") {
+    Object.assign(DEFAULTS, shipped.knobs);
+  }
 
   const knobs = { ...DEFAULTS };
   const SETTINGS_KEY = "dou-ququ-knobs-v3";
@@ -125,6 +164,18 @@
 
   const keys = new Set();
   const stick = { x: 0, y: 0, active: false, pointerId: null, originX: 0, originY: 0 };
+  const lastAim = { x: 0, z: 1 };
+  const INPUT_HINTS = {
+    1: "点按召出摇杆 · 按住时间蓄力 · 推向要去的方向",
+    2: "往后拉 · 反方向弹出 · 仍按住时间蓄力",
+    3: "从圆心拉出 · 长度=加速时间 · 松手后跑完再跳",
+  };
+  const STICK_HINTS = {
+    1: "点按屏幕召出摇杆 · 停稳后蓄力",
+    2: "往后拉 · 反方向弹出 · 停稳后蓄力",
+    3: "从圆心拉出 · 松手后跑完这段加速再跳",
+  };
+  let inputVersion = 1;
   const particles = [];
   const rings = [];
   const bugs = [];
@@ -286,6 +337,10 @@
       tumble: 0,
       charging: false,
       chargeT: 0,
+      aimMag: 0,
+      v3Goal: null,
+      v3Preview: 0,
+      v3Pending: null,
       holding: false,
       pendingCharge: false,
       inX: 0, inZ: 0,
@@ -350,9 +405,22 @@
     });
   }
 
+  function liveHearts() {
+    let n = 0;
+    for (const h of hearts) if (h.alive) n += 1;
+    return n;
+  }
+
+  function liveItems() {
+    let n = 0;
+    for (const it of items) if (it.alive) n += 1;
+    return n;
+  }
+
   function spawnHearts() {
     hearts.length = 0;
-    const n = knobs.heartStart || 4;
+    const cap = knobs.heartCap || 6;
+    const n = Math.min(knobs.heartStart || 4, cap);
     for (let i = 0; i < n; i++) {
       const p = placeHeart(null);
       pushHeart(p.x, p.z);
@@ -532,12 +600,19 @@
     b.pendingCharge = false;
   }
 
+  function clearV3Lock(b) {
+    b.v3Goal = null;
+    b.v3Pending = null;
+    b.v3Preview = 0;
+  }
+
   function interrupt(b) {
-    if (!b.charging) return;
-    b.pendingCharge = b.holding;
+    if (!b.charging && !b.v3Pending && b.v3Goal == null) return;
+    b.pendingCharge = b.holding && inputVersion !== 3;
     b.charging = false;
     b.chargeT = 0;
     b.squatFlash = 1;
+    clearV3Lock(b);
   }
 
   function doJump(b) {
@@ -558,6 +633,7 @@
     b.charging = false;
     b.chargeT = 0;
     b.pendingCharge = false;
+    clearV3Lock(b);
     b.fxSquash = 0.35;
     b.tumble = 0;
     b.roll = 0;
@@ -567,6 +643,7 @@
 
   function tryRelease(b) {
     if (!b.charging) return;
+    if (b.v3Goal != null) return;
     if (b.chargeT < knobs.tMin - 1e-4) {
       b.charging = false;
       b.chargeT = 0;
@@ -664,20 +741,31 @@
     });
   }
 
+  function keyHeld() {
+    return keys.has("KeyW") || keys.has("KeyS") || keys.has("KeyA") || keys.has("KeyD")
+      || keys.has("ArrowUp") || keys.has("ArrowDown") || keys.has("ArrowLeft") || keys.has("ArrowRight");
+  }
+
   function playerInput() {
     let sx = stick.x;
     let sy = stick.y;
+    const usingKeys = keyHeld() && stick.pointerId == null;
     if (keys.has("KeyW") || keys.has("ArrowUp")) sy -= 1;
     if (keys.has("KeyS") || keys.has("ArrowDown")) sy += 1;
     if (keys.has("KeyA") || keys.has("ArrowLeft")) sx -= 1;
     if (keys.has("KeyD") || keys.has("ArrowRight")) sx += 1;
     const n = hypot(sx, sy);
-    const held = stick.active || stick.pointerId != null
-      || keys.has("KeyW") || keys.has("KeyS") || keys.has("KeyA") || keys.has("KeyD")
-      || keys.has("ArrowUp") || keys.has("ArrowDown") || keys.has("ArrowLeft") || keys.has("ArrowRight");
-    if (n >= 0.12) return { holding: true, x: sx / n, z: -sy / n };
-    if (held) return { holding: true, x: 0, z: 0 };
-    return { holding: false, x: 0, z: 0 };
+    const held = stick.active || stick.pointerId != null || keyHeld();
+    if (!held) return { holding: false, x: 0, z: 0, mag: 0 };
+    if (n < 0.12) return { holding: true, x: 0, z: 0, mag: 0 };
+    let x = sx / n;
+    let z = -sy / n;
+    if (inputVersion === 2) {
+      x = -x;
+      z = -z;
+    }
+    const mag = inputVersion === 3 && usingKeys ? 1 : Math.min(1, n);
+    return { holding: true, x, z, mag };
   }
 
   function knockoutAim(me, t) {
@@ -815,8 +903,78 @@
     }
   }
 
+  function startV3Windup(b, mag, dirX, dirZ) {
+    if (!b || !b.alive || !b.isPlayer) return;
+    if (b.v3Goal != null) return;
+    if (mag < 0.12) return;
+    const goal = mag * chargeTMax(b);
+    if (goal < knobs.tMin - 1e-4) return;
+    b.dirX = dirX;
+    b.dirZ = dirZ;
+    b.inX = dirX;
+    b.inZ = dirZ;
+    b.holding = false;
+    b.v3Preview = 0;
+    b.v3Pending = { mag, dirX, dirZ, goal };
+    if (!isSettled(b)) return;
+    b.v3Goal = goal;
+    b.v3Pending = null;
+    beginCharge(b);
+  }
+
+  function playerBug() {
+    for (const b of bugs) {
+      if (b.isPlayer && b.alive) return b;
+    }
+    return null;
+  }
+
+  function v3Pull() {
+    const n = hypot(stick.x, stick.y);
+    if (n < 0.12) return null;
+    return { x: stick.x / n, z: -stick.y / n, mag: Math.min(1, n) };
+  }
+
+  function commitV3FromStick() {
+    if (inputVersion !== 3) return;
+    const pull = v3Pull();
+    if (!pull) return;
+    startV3Windup(playerBug(), pull.mag, pull.x, pull.z);
+  }
+
   function stepCharge(b, dt) {
     if (!b.alive) return;
+    if (b.isPlayer && inputVersion === 3 && (b.v3Goal != null || b.v3Pending) && !isSettled(b)) {
+      interrupt(b);
+      return;
+    }
+
+    if (b.isPlayer && inputVersion === 3) {
+      if (b.v3Pending && isSettled(b) && b.v3Goal == null) {
+        const p = b.v3Pending;
+        b.v3Goal = p.goal;
+        b.dirX = p.dirX;
+        b.dirZ = p.dirZ;
+        b.v3Pending = null;
+        beginCharge(b);
+      }
+      if (b.v3Goal != null) {
+        if (!isSettled(b)) {
+          interrupt(b);
+          return;
+        }
+        if (!b.charging) beginCharge(b);
+        const cap = Math.min(b.v3Goal, chargeTMax(b));
+        b.chargeT = Math.min(cap, b.chargeT + dt);
+        if (b.chargeT >= cap - 1e-4) doJump(b);
+        return;
+      }
+      if (b.charging) {
+        b.charging = false;
+        b.chargeT = 0;
+      }
+      return;
+    }
 
     if (b.holding) {
       if (!isSettled(b)) {
@@ -959,25 +1117,25 @@
   }
 
   function eatHeart(b, h) {
-    addGrow(b, `${b.name} 吃到心`);
+    addGrow(b, `${b.name} 吃到饲料`);
     h.alive = false;
     spawnDust(h.x, h.z, 10, 0.55);
   }
 
   function spawnHeartWave() {
-    const n = R.heartWaveSize(matchState);
+    const n = R.heartWaveSize(matchState, liveHearts());
     for (let i = 0; i < n; i++) {
       const p = placeHeart(null);
       pushHeart(p.x, p.z);
     }
-    R.markHeartFilled(matchState);
+    if (n > 0) R.markHeartFilled(matchState);
   }
 
   function stepHeartEconomy() {
     if (!matchState || phase !== "play") return;
     syncRuleKnobs();
     matchState.t = matchT;
-    if (R.shouldRefillHeart(matchState)) spawnHeartWave();
+    if (R.shouldRefillHeart(matchState, liveHearts())) spawnHeartWave();
   }
 
   function stepHearts(dt) {
@@ -1057,7 +1215,7 @@
     if (!matchState || phase !== "play") return;
     syncRuleKnobs();
     matchState.t = matchT;
-    const kinds = R.dueItemSpawns(matchState, rand);
+    const kinds = R.dueItemSpawns(matchState, rand, liveItems());
     for (const kind of kinds) {
       const p = placeItem();
       items.push({
@@ -1333,6 +1491,7 @@
       if (countT <= 0) {
         overlayCount.classList.add("hidden");
         phase = "play";
+        refreshStickMode();
         flash("随时可跳");
       }
     }
@@ -1341,12 +1500,31 @@
       for (const b of bugs) {
         if (!b.isPlayer) continue;
         const inp = playerInput();
-        b.holding = inp.holding;
-        if (inp.holding && hypot(inp.x, inp.z) > 0.01) {
-          b.inX = inp.x;
-          b.inZ = inp.z;
-          b.dirX = inp.x;
-          b.dirZ = inp.z;
+        b.aimMag = inp.mag || 0;
+        if (inputVersion === 3) {
+          if (b.v3Goal != null || b.v3Pending) {
+            b.holding = false;
+            b.v3Preview = 0;
+          } else {
+            b.holding = false;
+            b.v3Preview = inp.holding ? inp.mag : 0;
+            if (inp.holding && hypot(inp.x, inp.z) > 0.01) {
+              b.inX = inp.x;
+              b.inZ = inp.z;
+              b.dirX = inp.x;
+              b.dirZ = inp.z;
+              lastAim.x = inp.x;
+              lastAim.z = inp.z;
+            }
+          }
+        } else {
+          b.holding = inp.holding;
+          if (inp.holding && hypot(inp.x, inp.z) > 0.01) {
+            b.inX = inp.x;
+            b.inZ = inp.z;
+            b.dirX = inp.x;
+            b.dirZ = inp.z;
+          }
         }
       }
       for (const b of bugs) updateAI(b, dt);
@@ -1501,90 +1679,100 @@
   }
 
   function drawArc(b) {
-    if (!b.charging || !b.alive) return;
+    if (!b.alive) return;
+    const preview = b.v3Preview >= 0.12 && b.v3Goal == null && !b.charging;
+    if (!b.charging && !preview) return;
+    const tMax = Math.max(1e-6, chargeTMax(b));
+    const t = preview ? b.v3Preview * tMax : b.chargeT;
+    const saved = b.chargeT;
+    b.chargeT = t;
     const dvx = chargeDeltaV(b);
+    b.chargeT = saved;
     if (dvx <= 0.01) return;
     const d = norm(b.dirX, b.dirZ);
     if (d.d < 1e-5) return;
     const range = jumpRange(dvx);
     const dist = range.total;
     if (dist <= 0.01) return;
-    const full = clamp(b.chargeT / Math.max(1e-6, chargeTMax(b)), 0, 1);
-    const g = gravity();
-    const dvy = dvx * tanTheta();
-    const ty = range.ty;
-    const airSteps = 18;
-    const gndSteps = 8;
+    const full = clamp(t / tMax, 0, 1);
+    const halfW = Math.max(0.35, b.r);
+    const px = -d.z;
+    const pz = d.x;
+    const start = worldToScreen(b.x, b.z, 0);
+    const tip = worldToScreen(b.x + d.x * dist, b.z + d.z * dist, 0);
+    const peak = full >= 1 ? 0.36 : 0.16 + full * 0.16;
+    const rgb = full >= 1 ? "232, 176, 72" : "196, 124, 40";
+    const edgeRgb = full >= 1 ? "255, 220, 140" : "90, 48, 16";
+    const segs = 18;
 
-    function airPt(i) {
-      const t = (i / airSteps) * ty;
-      const along = dvx * t;
-      const y = Math.max(0, dvy * t - 0.5 * g * t * t);
-      return sampleJumpPoint(b, d, along, y);
-    }
-    function gndPt(i) {
-      const along = range.air + (range.ground * i) / gndSteps;
-      return sampleJumpPoint(b, d, along, 0);
+    function edgePt(side, t) {
+      const along = dist * t;
+      return worldToScreen(
+        b.x + d.x * along + px * halfW * side,
+        b.z + d.z * along + pz * halfW * side,
+        0
+      );
     }
 
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    for (let i = 0; i <= airSteps; i++) {
-      const p = airPt(i);
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    }
-    for (let i = 1; i <= gndSteps; i++) {
-      const p = gndPt(i);
-      ctx.lineTo(p.x, p.y);
-    }
-    ctx.strokeStyle = full >= 1 ? "rgba(40, 22, 10, 0.28)" : "rgba(40, 22, 10, 0.18)";
-    ctx.lineWidth = 7;
-    ctx.stroke();
-
-    ctx.beginPath();
-    for (let i = 0; i <= airSteps; i++) {
-      const p = airPt(i);
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    }
-    ctx.strokeStyle = full >= 1 ? "rgba(240, 196, 96, 0.95)" : `rgba(196, 132, 48, ${0.5 + full * 0.4})`;
-    ctx.lineWidth = 2.6;
-    ctx.stroke();
-
-    ctx.beginPath();
-    const land = gndPt(0);
-    ctx.moveTo(land.x, land.y);
-    for (let i = 1; i <= gndSteps; i++) {
-      const p = gndPt(i);
-      ctx.lineTo(p.x, p.y);
-    }
-    ctx.strokeStyle = full >= 1 ? "rgba(232, 188, 96, 0.8)" : `rgba(196, 132, 48, ${0.35 + full * 0.3})`;
-    ctx.lineWidth = 2.2;
-    ctx.setLineDash([5, 4]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    const landMark = sampleJumpPoint(b, d, range.air, 0);
-    ctx.fillStyle = full >= 1 ? "rgba(240, 196, 96, 0.9)" : "rgba(138, 74, 24, 0.7)";
-    ctx.beginPath();
-    ctx.arc(landMark.x, landMark.y, 2.4, 0, Math.PI * 2);
-    ctx.fill();
-
-    const tip = sampleJumpPoint(b, d, dist, 0);
-    const back = sampleJumpPoint(b, d, dist * 0.86, 0);
-    const ang = Math.atan2(tip.y - back.y, tip.x - back.x);
     ctx.save();
-    ctx.translate(tip.x, tip.y);
-    ctx.rotate(ang);
-    ctx.fillStyle = full >= 1 ? "#f0c45e" : "#8a4a18";
+    const grad = ctx.createLinearGradient(start.x, start.y, tip.x, tip.y);
+    grad.addColorStop(0, `rgba(${rgb}, 0)`);
+    grad.addColorStop(0.16, `rgba(${rgb}, ${peak})`);
+    grad.addColorStop(0.84, `rgba(${rgb}, ${peak})`);
+    grad.addColorStop(1, `rgba(${rgb}, 0)`);
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.moveTo(7, 0);
-    ctx.lineTo(-4, 5);
-    ctx.lineTo(-4, -5);
+    const l0 = edgePt(1, 0);
+    const r0 = edgePt(-1, 0);
+    const l1 = edgePt(1, 1);
+    const r1 = edgePt(-1, 1);
+    ctx.moveTo(l0.x, l0.y);
+    ctx.lineTo(l1.x, l1.y);
+    ctx.lineTo(r1.x, r1.y);
+    ctx.lineTo(r0.x, r0.y);
     ctx.closePath();
     ctx.fill();
+
+    ctx.lineCap = "butt";
+    ctx.lineJoin = "miter";
+    ctx.lineWidth = full >= 1 ? 2.4 : 2;
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < segs; i++) {
+        const t0 = i / segs;
+        const t1 = (i + 1) / segs;
+        const mid = (t0 + t1) * 0.5;
+        const fade = mid < 0.16 ? mid / 0.16 : mid > 0.84 ? (1 - mid) / 0.16 : 1;
+        if (fade <= 0.02) continue;
+        const a = edgePt(side, t0);
+        const c = edgePt(side, t1);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(c.x, c.y);
+        ctx.strokeStyle = `rgba(${edgeRgb}, ${0.2 + fade * 0.75})`;
+        ctx.stroke();
+      }
+    }
+
+    const arrowLen = Math.min(1.15, Math.max(0.55, halfW * 0.85));
+    const arrowW = halfW * 0.42;
+    const gap = Math.max(1.6, arrowLen * 2.1);
+    const first = Math.min(dist * 0.22, gap);
+    for (let along = first; along < dist - arrowLen * 1.2; along += gap) {
+      const cx = b.x + d.x * along;
+      const cz = b.z + d.z * along;
+      const t = along / dist;
+      const fade = t < 0.16 ? t / 0.16 : t > 0.84 ? (1 - t) / 0.16 : 1;
+      const pTip = worldToScreen(cx + d.x * arrowLen, cz + d.z * arrowLen, 0);
+      const pL = worldToScreen(cx - d.x * arrowLen * 0.35 + px * arrowW, cz - d.z * arrowLen * 0.35 + pz * arrowW, 0);
+      const pR = worldToScreen(cx - d.x * arrowLen * 0.35 - px * arrowW, cz - d.z * arrowLen * 0.35 - pz * arrowW, 0);
+      ctx.beginPath();
+      ctx.moveTo(pTip.x, pTip.y);
+      ctx.lineTo(pL.x, pL.y);
+      ctx.lineTo(pR.x, pR.y);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(255, 228, 160, ${0.22 + fade * (full >= 1 ? 0.5 : 0.32)})`;
+      ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -1614,36 +1802,99 @@
     return (b.pal && b.pal.ring) || "rgba(196,165,116,0.8)";
   }
 
+  function pickupScreenR(r) {
+    return Math.max(3.2, r * CAM_SCALE * 0.95);
+  }
+
   function drawHeart(h) {
     if (!h.alive) return;
     const bob = 0.12 + Math.sin(time * 2.6 + h.phase) * 0.07;
     const gnd = worldToScreen(h.x, h.z, 0);
     const p = worldToScreen(h.x, h.z, bob);
+    const rad = pickupScreenR(h.r || HEART_R);
     ctx.save();
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = "#1a1008";
     ctx.beginPath();
-    ctx.ellipse(gnd.x, gnd.y + 8, 21, 10.5 * COS_P, 0, 0, Math.PI * 2);
+    ctx.ellipse(gnd.x, gnd.y + 3, rad * 0.95, rad * 0.42 * COS_P, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+    const ball = ctx.createRadialGradient(-rad * 0.28, -rad * 0.32, rad * 0.08, 0, 0, rad);
+    ball.addColorStop(0, "#ffe9a0");
+    ball.addColorStop(0.45, "#f0c44a");
+    ball.addColorStop(1, "#c48a18");
     ctx.save();
     ctx.translate(p.x, p.y);
-    const s = CAM_SCALE * 1.26;
-    ctx.scale(s / 20, s / 20);
-    ctx.fillStyle = "#e45b6b";
-    ctx.strokeStyle = "rgba(255, 210, 214, 0.55)";
-    ctx.lineWidth = 0.8;
     ctx.beginPath();
-    ctx.moveTo(0, 7);
-    ctx.bezierCurveTo(-12, -1, -8, -12, 0, -5);
-    ctx.bezierCurveTo(8, -12, 12, -1, 0, 7);
+    ctx.arc(0, 0, rad, 0, Math.PI * 2);
+    ctx.fillStyle = ball;
     ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.fillStyle = "rgba(255, 250, 220, 0.55)";
     ctx.beginPath();
-    ctx.ellipse(-3, -3, 2.2, 1.4, -0.5, 0, Math.PI * 2);
+    ctx.ellipse(-rad * 0.28, -rad * 0.3, rad * 0.28, rad * 0.18, -0.4, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+  }
+
+  const SVG_SHIELD = {
+    body: new Path2D("M32 5 L54 13.5 V33.5 C54 47.5 43 56.5 32 60.5 C21 56.5 10 47.5 10 33.5 V13.5 Z"),
+    face: new Path2D("M32 10.5 L48.5 16.5 V33 C48.5 44.5 40.5 52 32 55 C23.5 52 15.5 44.5 15.5 33 V16.5 Z"),
+    ridge: new Path2D("M32 10.5 V55 C40.5 52 48.5 44.5 48.5 33 V16.5 Z"),
+    boss: new Path2D("M32 30 m-5.2 0 a5.2 5.2 0 1 0 10.4 0 a5.2 5.2 0 1 0 -10.4 0"),
+    chevron: new Path2D("M23.5 21.5 L32 16.5 L40.5 21.5"),
+  };
+  const SVG_FIRE = {
+    outer: new Path2D("M32 60 C18 60 13 47 15.5 37 C17.5 43 23 42.5 23 32 C23 19 30.5 11 32 4.5 C36.5 14 48 18.5 48 34 C54 28.5 54.5 40 50.5 48 C46.5 56 40 60 32 60 Z"),
+    mid: new Path2D("M32 55.5 C23 55.5 20.5 46 22.5 40 C24.5 44.5 28.2 44 28.2 36 C28.2 26.5 32 20.5 33 16.5 C36 22.5 42 25 42 36 C46 32 46.2 40 44 46 C41 52 37 55.5 32 55.5 Z"),
+    core: new Path2D("M32 49.5 C27.4 49.5 26.2 44 27.2 41 C28.2 43.4 30.2 43.2 30.2 38.8 C30.2 33.2 32.2 30.2 33 28 C35.2 32 38 33.2 38 38 C40.2 36 40.4 41 39.2 44.6 C37.8 48 35 49.5 32 49.5 Z"),
+  };
+
+  function withSvgView(g, rad, draw) {
+    g.save();
+    g.scale(rad * 2.05 / 64, rad * 2.05 / 64);
+    g.translate(-32, -32);
+    draw();
+    g.restore();
+  }
+
+  function drawSvgShield(g, rad) {
+    withSvgView(g, rad, () => {
+      g.fillStyle = "#5e6c68";
+      g.strokeStyle = "#24302c";
+      g.lineWidth = 2.2;
+      g.lineJoin = "round";
+      g.fill(SVG_SHIELD.body);
+      g.stroke(SVG_SHIELD.body);
+      g.fillStyle = "#b4c2bc";
+      g.fill(SVG_SHIELD.face);
+      g.fillStyle = "#8e9e98";
+      g.fill(SVG_SHIELD.ridge);
+      g.fillStyle = "#e4ece8";
+      g.strokeStyle = "#2c3834";
+      g.lineWidth = 1.4;
+      g.fill(SVG_SHIELD.boss);
+      g.stroke(SVG_SHIELD.boss);
+      g.strokeStyle = "#2c3834";
+      g.lineWidth = 1.8;
+      g.lineCap = "round";
+      g.stroke(SVG_SHIELD.chevron);
+    });
+  }
+
+  function drawSvgFire(g, rad, t) {
+    const flicker = 1 + Math.sin(t * 11) * 0.05 + Math.sin(t * 17.3) * 0.03;
+    g.save();
+    g.scale(1, flicker);
+    g.translate(0, (1 - flicker) * rad * 0.35);
+    withSvgView(g, rad, () => {
+      g.fillStyle = "#b51c12";
+      g.fill(SVG_FIRE.outer);
+      g.fillStyle = "#ef4e14";
+      g.fill(SVG_FIRE.mid);
+      g.fillStyle = "#ffc24a";
+      g.fill(SVG_FIRE.core);
+    });
+    g.restore();
   }
 
   function drawItem(it) {
@@ -1651,19 +1902,19 @@
     const bob = 0.1 + Math.sin(time * 2.4 + it.phase) * 0.06;
     const gnd = worldToScreen(it.x, it.z, 0);
     const p = worldToScreen(it.x, it.z, bob);
-    const s = CAM_SCALE * (it.kind === "size" ? 1.55 : 1.35);
+    const rad = pickupScreenR(it.r || knobs.itemR);
     ctx.save();
     ctx.globalAlpha = 0.24;
     ctx.fillStyle = "#1a1008";
     ctx.beginPath();
-    ctx.ellipse(gnd.x, gnd.y + 5, 16, 8 * COS_P, 0, 0, Math.PI * 2);
+    ctx.ellipse(gnd.x, gnd.y + 5, rad * 1.05, rad * 0.48 * COS_P, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     ctx.save();
     ctx.translate(p.x, p.y);
     if (it.kind === "size") {
       const pulse = 1 + Math.sin(time * 3 + it.phase) * 0.08;
-      ctx.scale((s / 18) * pulse, (s / 18) * pulse);
+      ctx.scale((rad / 9) * pulse, (rad / 9) * pulse);
       ctx.fillStyle = "#c4a060";
       ctx.strokeStyle = "rgba(90, 56, 24, 0.85)";
       ctx.lineWidth = 1.1;
@@ -1676,36 +1927,9 @@
       ctx.ellipse(-3, -1, 3, 2, -0.4, 0, Math.PI * 2);
       ctx.fill();
     } else if (it.kind === "shield") {
-      ctx.scale(s / 18, s / 18);
-      ctx.strokeStyle = "rgba(170, 190, 186, 0.95)";
-      ctx.fillStyle = "rgba(120, 140, 136, 0.35)";
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.ellipse(0, 1, 8.5, 9.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-4, -4);
-      ctx.lineTo(-1, 2);
-      ctx.lineTo(3, -6);
-      ctx.strokeStyle = "rgba(80, 90, 88, 0.7)";
-      ctx.stroke();
+      drawSvgShield(ctx, rad);
     } else {
-      ctx.scale(s / 18, s / 18);
-      ctx.fillStyle = "#c45a28";
-      ctx.beginPath();
-      ctx.ellipse(0, 3, 6, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255, 170, 80, 0.75)";
-      ctx.lineWidth = 1.2;
-      for (let i = 0; i < 3; i++) {
-        const oy = -2 - i * 3.2 - (time * 8 + it.phase) % 3;
-        ctx.globalAlpha = 0.45 + i * 0.15;
-        ctx.beginPath();
-        ctx.moveTo(-3 + i, 2);
-        ctx.quadraticCurveTo(0, oy, 3 - i, 2);
-        ctx.stroke();
-      }
+      drawSvgFire(ctx, rad, time + it.phase);
     }
     ctx.restore();
   }
@@ -1730,7 +1954,9 @@
 
   function drawCricket(b) {
     const p = worldToScreen(b.x, b.z, b.y);
-    const chargeN = b.charging ? clamp(b.chargeT / Math.max(1e-6, chargeTMax(b)), 0, 1) : 0;
+    const chargeN = b.charging
+      ? clamp(b.chargeT / Math.max(1e-6, chargeTMax(b)), 0, 1)
+      : (b.v3Preview >= 0.12 ? b.v3Preview * 0.45 : 0);
     const full = b.charging && b.chargeT >= chargeTMax(b) - 1e-4;
     const jumping = b.airborne && b.y > 0.01;
     const sliding = isMovingOnGround(b);
@@ -1739,7 +1965,7 @@
     const buzzing = !jumping && !b.charging && (hitPose === "slip" || roll > 0.35);
     const hit = b.fxHit;
     const idle = !b.charging && !jumping && !sliding && !hitPose && b.alive;
-    const squat = b.charging ? 1 - 0.32 * chargeN : 1;
+    const squat = (b.charging || b.v3Preview >= 0.12) ? 1 - 0.32 * chargeN : 1;
     let stretch = jumping ? 1.1 + Math.min(0.12, b.y * 0.08) : squat;
     const shake = full ? Math.sin(time * 48) * (1.2 + chargeN)
       : hitPose === "slip" ? Math.sin(time * 110) * (1.4 + hit * 2.2) + Math.sin(time * 23) * 1.1
@@ -2079,6 +2305,14 @@
     drawVignette();
   }
 
+  function stickSize() {
+    return inputVersion === 3 ? STICK_FIXED : STICK_SIZE;
+  }
+
+  function stickVisual() {
+    return inputVersion === 3 ? STICK_FIXED_VISUAL : STICK_VISUAL;
+  }
+
   function updateStickVisual() {
     let x = stick.x;
     let y = stick.y;
@@ -2090,7 +2324,7 @@
       const d = hypot(x, y);
       if (d > 1) { x /= d; y /= d; }
     }
-    stickKnob.style.transform = `translate(${x * STICK_VISUAL}px, ${y * STICK_VISUAL}px)`;
+    stickKnob.style.transform = `translate(${x * stickVisual()}px, ${y * stickVisual()}px)`;
   }
 
   function canSummonStick() {
@@ -2109,6 +2343,22 @@
     return false;
   }
 
+  function layoutFixedStick() {
+    const rect = phoneEl.getBoundingClientRect();
+    const pad = stickSize() * 0.5 + 6;
+    stick.originX = rect.width * 0.5;
+    stick.originY = clamp(rect.height - pad - 8, pad, Math.max(pad, rect.height - pad));
+    stickEl.style.left = stick.originX + "px";
+    stickEl.style.top = stick.originY + "px";
+  }
+
+  function pointerOnDisc(e) {
+    const rect = phoneEl.getBoundingClientRect();
+    const cx = rect.left + stick.originX;
+    const cy = rect.top + stick.originY;
+    return hypot(e.clientX - cx, e.clientY - cy) <= stickSize() * 0.5 + 16;
+  }
+
   function showStickAt(x, y) {
     const rect = phoneEl.getBoundingClientRect();
     const pad = STICK_SIZE * 0.5 + 6;
@@ -2119,11 +2369,25 @@
     stickEl.classList.remove("hidden");
   }
 
+  function refreshStickMode() {
+    stickEl.classList.toggle("fixed", inputVersion === 3);
+    phoneEl.classList.toggle("input-v3", inputVersion === 3);
+    const hint = document.getElementById("stick-hint");
+    if (hint) hint.textContent = STICK_HINTS[inputVersion] || STICK_HINTS[1];
+    const showFixed = inputVersion === 3 && phase === "play" && !paused && !spectating && !awaitingQuit;
+    if (showFixed) {
+      layoutFixedStick();
+      stickEl.classList.remove("hidden");
+    } else if (inputVersion !== 3 && !stick.active && stick.pointerId == null) {
+      stickEl.classList.add("hidden");
+    }
+  }
+
   function setStickFromEvent(e) {
     const rect = phoneEl.getBoundingClientRect();
+    const radius = stickSize() * 0.5;
     const cx = rect.left + stick.originX;
     const cy = rect.top + stick.originY;
-    const radius = STICK_SIZE * 0.5;
     let x = (e.clientX - cx) / radius;
     let y = (e.clientY - cy) / radius;
     const d = hypot(x, y);
@@ -2142,7 +2406,12 @@
     stick.y = 0;
     stick.active = false;
     stick.pointerId = null;
-    stickEl.classList.add("hidden");
+    if (inputVersion === 3 && phase === "play" && !paused && !spectating && !awaitingQuit) {
+      layoutFixedStick();
+      stickEl.classList.remove("hidden");
+    } else {
+      stickEl.classList.add("hidden");
+    }
     updateStickVisual();
   }
 
@@ -2152,7 +2421,13 @@
     if (isStickBlocked(e.target)) return;
     if (!canSummonStick()) return;
     const rect = phoneEl.getBoundingClientRect();
-    showStickAt(e.clientX - rect.left, e.clientY - rect.top);
+    if (inputVersion === 3) {
+      layoutFixedStick();
+      if (!pointerOnDisc(e)) return;
+      stickEl.classList.remove("hidden");
+    } else {
+      showStickAt(e.clientX - rect.left, e.clientY - rect.top);
+    }
     stick.pointerId = e.pointerId;
     try { phoneEl.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
     setStickFromEvent(e);
@@ -2164,6 +2439,7 @@
   });
   function onPointerEnd(e) {
     if (stick.pointerId !== e.pointerId) return;
+    if (e.type === "pointerup") commitV3FromStick();
     clearStick();
   }
   phoneEl.addEventListener("pointerup", onPointerEnd);
@@ -2173,6 +2449,13 @@
 
   window.addEventListener("keydown", (e) => {
     keys.add(e.code);
+    if (inputVersion === 3) {
+      const inp = playerInput();
+      if (inp.mag >= 0.12) {
+        lastAim.x = inp.x;
+        lastAim.z = inp.z;
+      }
+    }
     if (e.code === "Space") {
       e.preventDefault();
       userPaused = !userPaused;
@@ -2185,7 +2468,11 @@
     updateStickVisual();
   });
   window.addEventListener("keyup", (e) => {
+    const wasHeld = keyHeld();
     keys.delete(e.code);
+    if (inputVersion === 3 && wasHeld && !keyHeld() && stick.pointerId == null) {
+      startV3Windup(playerBug(), 1, lastAim.x, lastAim.z);
+    }
     updateStickVisual();
   });
 
@@ -2198,6 +2485,7 @@
     pauseTag.textContent = isTuneOpen() && inMatch ? "暂停 · 调参中" : "暂停";
     phoneEl.classList.toggle("tuning", isTuneOpen());
     phoneEl.classList.toggle("spectating", spectating || awaitingQuit);
+    refreshStickMode();
   }
 
   function offerQuit() {
@@ -2243,6 +2531,36 @@
     syncPause();
   }
 
+  function syncInputUi() {
+    document.querySelectorAll(".input-modes button").forEach((btn) => {
+      btn.classList.toggle("active", Number(btn.dataset.input) === inputVersion);
+    });
+    const hint = document.getElementById("input-hint");
+    if (hint) hint.textContent = INPUT_HINTS[inputVersion] || INPUT_HINTS[1];
+    refreshStickMode();
+  }
+
+  function setInputVersion(n, opts) {
+    n = Number(n);
+    if (n !== 1 && n !== 2 && n !== 3) return;
+    const prev = inputVersion;
+    inputVersion = n;
+    syncInputUi();
+    if (opts && opts.silent) return;
+    if (prev !== n) {
+      for (const b of bugs) {
+        if (b.isPlayer) {
+          b.charging = false;
+          b.chargeT = 0;
+          b.pendingCharge = false;
+          clearV3Lock(b);
+        }
+      }
+      clearStick();
+    }
+    if (!opts || opts.persist !== false) saveSettings();
+  }
+
   function beginMatch() {
     overlayStart.classList.add("hidden");
     overlayResult.classList.add("hidden");
@@ -2258,6 +2576,7 @@
       countT = 0;
       flash("独自练习");
       syncPause();
+      refreshStickMode();
       return;
     }
     phase = "countdown";
@@ -2314,47 +2633,193 @@
       name: "dou-ququ-knobs",
       version: 3,
       knobs: { ...knobs },
+      inputVersion,
       slowmo,
       showVel,
     };
   }
 
-  function applySettings(data) {
+  function shippedFileText() {
+    return "window.DOU_QUQU_SHIPPED = " + JSON.stringify(snapshotSettings(), null, 2) + ";\n";
+  }
+
+  const persistStatusEl = document.getElementById("persist-status");
+  const FILE_FP_KEY = SETTINGS_KEY + "-file";
+  let shippedHandle = null;
+  let filePersistOk = false;
+  let persistDirty = false;
+  let persistTimer = 0;
+
+  function settingsFingerprint(data) {
+    const src = data && data.knobs && typeof data.knobs === "object" ? data.knobs : data || {};
+    return Object.keys(FACTORY).map((k) => k + ":" + Number(src[k])).join("|");
+  }
+
+  function rememberWrittenFile(data) {
+    try { localStorage.setItem(FILE_FP_KEY, settingsFingerprint(data)); }
+    catch (_) { /* private mode */ }
+  }
+
+  function knobsMatchShipped() {
+    const src = (globalThis.DOU_QUQU_SHIPPED && globalThis.DOU_QUQU_SHIPPED.knobs) || DEFAULTS;
+    for (const key of Object.keys(FACTORY)) {
+      if (Number(knobs[key]) !== Number(src[key])) return false;
+    }
+    return true;
+  }
+
+  function updatePersistStatus() {
+    if (!persistStatusEl) return;
+    if (filePersistOk && !persistDirty) {
+      persistStatusEl.textContent = "已保存到 defaults.js · 别人打开这份文件就是这组数。";
+    } else if (filePersistOk && persistDirty) {
+      persistStatusEl.textContent = "有改动尚未保存。点右上角「保存」。";
+    } else if (knobsMatchShipped()) {
+      persistStatusEl.textContent = "当前就是文件里的数。再改请点「保存」。";
+    } else {
+      persistStatusEl.textContent = "只存在这台电脑。点右上角「保存」，写入本目录 defaults.js。";
+    }
+  }
+
+  function applySettings(data, opts) {
     if (!data || typeof data !== "object") return false;
     const src = data.knobs && typeof data.knobs === "object" ? data.knobs : data;
-    for (const key of Object.keys(DEFAULTS)) {
+    for (const key of Object.keys(FACTORY)) {
       if (typeof src[key] === "number" && Number.isFinite(src[key])) knobs[key] = src[key];
+    }
+    if (data.inputVersion === 1 || data.inputVersion === 2 || data.inputVersion === 3) {
+      inputVersion = data.inputVersion;
     }
     if (typeof data.slowmo === "boolean") slowmo = data.slowmo;
     if (typeof data.showVel === "boolean") showVel = data.showVel;
     document.getElementById("k-slow").checked = slowmo;
     document.getElementById("k-vel").checked = showVel;
     syncKnobsToUi();
-    saveSettings();
+    syncInputUi();
+    if (!opts || opts.persist !== false) saveSettings();
+    else updatePersistStatus();
     return true;
+  }
+
+  function downloadText(name, text, type) {
+    const blob = new Blob([text], { type: type || "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  async function writeShippedHandle() {
+    if (!shippedHandle) return false;
+    const writable = await shippedHandle.createWritable();
+    await writable.write(shippedFileText());
+    await writable.close();
+    globalThis.DOU_QUQU_SHIPPED = snapshotSettings();
+    Object.assign(DEFAULTS, knobs);
+    rememberWrittenFile(globalThis.DOU_QUQU_SHIPPED);
+    filePersistOk = true;
+    persistDirty = false;
+    return true;
+  }
+
+  function scheduleFileWrite() {
+    persistDirty = true;
+    if (!shippedHandle) {
+      updatePersistStatus();
+      return;
+    }
+    window.clearTimeout(persistTimer);
+    persistTimer = window.setTimeout(() => {
+      writeShippedHandle().then(updatePersistStatus).catch(() => {
+        filePersistOk = false;
+        updatePersistStatus();
+      });
+    }, 400);
   }
 
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(snapshotSettings())); }
     catch (_) { /* private mode */ }
+    scheduleFileWrite();
   }
 
   function loadSettings() {
+    const shippedData = globalThis.DOU_QUQU_SHIPPED || { knobs: DEFAULTS, slowmo: false, showVel: false };
+    applySettings(shippedData, { persist: false });
+    const fileFp = settingsFingerprint(shippedData);
+    let remembered = "";
+    try { remembered = localStorage.getItem(FILE_FP_KEY) || ""; } catch (_) { /* private mode */ }
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
-      if (!raw) return;
-      applySettings(JSON.parse(raw));
+      if (raw && remembered === fileFp) applySettings(JSON.parse(raw), { persist: false });
     } catch (_) { /* ignore bad cache */ }
+    persistDirty = !knobsMatchShipped();
+    updatePersistStatus();
+  }
+
+  function markSaved() {
+    globalThis.DOU_QUQU_SHIPPED = snapshotSettings();
+    Object.assign(DEFAULTS, knobs);
+    rememberWrittenFile(globalThis.DOU_QUQU_SHIPPED);
+    filePersistOk = true;
+    persistDirty = false;
+    updatePersistStatus();
+  }
+
+  function saveEndpoints() {
+    const urls = [];
+    if (location.protocol !== "file:") urls.push(new URL("/__save", location.href).href);
+    urls.push("http://127.0.0.1:8765/__save");
+    return urls;
+  }
+
+  async function postShippedFile(text) {
+    for (const url of saveEndpoints()) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "text/javascript; charset=utf-8" },
+          body: text,
+        });
+        if (res.ok) return true;
+      } catch (_) { /* try next */ }
+    }
+    return false;
+  }
+
+  async function saveToFile() {
+    const text = shippedFileText();
+    if (await postShippedFile(text)) {
+      markSaved();
+      flash("已保存到 defaults.js");
+      return;
+    }
+    try {
+      if (!shippedHandle && window.showSaveFilePicker) {
+        shippedHandle = await window.showSaveFilePicker({
+          suggestedName: "defaults.js",
+          types: [{ description: "JavaScript", accept: { "text/javascript": [".js"] } }],
+        });
+      }
+      if (shippedHandle && await writeShippedHandle()) {
+        flash("已保存到 defaults.js");
+        updatePersistStatus();
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+      shippedHandle = null;
+      filePersistOk = false;
+    }
+    downloadText("defaults.js", text, "text/javascript");
+    markSaved();
+    flash("已下载 defaults.js，请覆盖原型目录里的同名文件");
   }
 
   function exportSettings() {
     const text = JSON.stringify(snapshotSettings(), null, 2);
-    const blob = new Blob([text], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "dou-ququ-settings.json";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    downloadText("dou-ququ-settings.json", text, "application/json");
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
@@ -2389,14 +2854,21 @@
   }
 
   document.getElementById("btn-defaults").onclick = () => {
-    Object.assign(knobs, DEFAULTS);
+    Object.assign(knobs, FACTORY);
     slowmo = false;
     showVel = false;
+    inputVersion = 1;
     document.getElementById("k-slow").checked = false;
     document.getElementById("k-vel").checked = false;
     syncKnobsToUi();
+    syncInputUi();
     saveSettings();
   };
+  document.querySelectorAll(".input-modes button").forEach((btn) => {
+    btn.addEventListener("click", () => setInputVersion(btn.dataset.input));
+  });
+  document.getElementById("btn-save").onclick = () => { saveToFile(); };
+  document.getElementById("btn-save-file").onclick = () => { saveToFile(); };
   document.getElementById("k-slow").onchange = (e) => { slowmo = e.target.checked; saveSettings(); };
   document.getElementById("k-vel").onchange = (e) => { showVel = e.target.checked; saveSettings(); };
   document.getElementById("btn-export").onclick = exportSettings;
@@ -2447,7 +2919,10 @@
     syncKnobsToUi();
     openTune();
     updateStickVisual();
-    window.addEventListener("resize", fitCanvas);
+    window.addEventListener("resize", () => {
+      fitCanvas();
+      refreshStickMode();
+    });
     document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
     requestAnimationFrame(loop);
   }

@@ -191,6 +191,40 @@ button:active { transform: scale(0.97); background: #3a423c; }
   position: relative;
   box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.42);
 }
+#stick-center {
+  display: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -5px 0 0 -5px;
+  background: #efe6d2;
+  box-shadow: 0 0 0 3px rgba(196, 165, 116, 0.35);
+  pointer-events: none;
+  z-index: 1;
+}
+#stick.fixed {
+  width: 220px;
+  height: 220px;
+  margin: -110px 0 0 -110px;
+}
+#stick.fixed #stick-base {
+  width: 220px;
+  height: 220px;
+  border-color: rgba(196, 165, 116, 0.78);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.42), 0 0 0 2px rgba(196, 165, 116, 0.22);
+}
+#stick.fixed #stick-center { display: block; }
+#stick.fixed #stick-knob {
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+}
+#phone.input-v3 #stick-hint {
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px) + 200px);
+}
 #stick-knob {
   width: 52px;
   height: 52px;
@@ -202,6 +236,27 @@ button:active { transform: scale(0.97); background: #3a423c; }
   background: radial-gradient(circle at 35% 30%, #ece4cc, #8a4a3a 58%, #3a241c);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.42);
   pointer-events: none;
+  z-index: 2;
+}
+.input-modes {
+  margin-top: 2px;
+}
+.input-label {
+  letter-spacing: 0.16em;
+  color: #c4b89a;
+  font-size: 11px;
+}
+.input-modes button {
+  margin: 0;
+  padding: 5px 10px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  opacity: 0.72;
+}
+.input-modes button.active {
+  opacity: 1;
+  background: #3a423c;
+  border-color: #efe6d2;
 }
 #stick-hint {
   position: absolute;
@@ -217,16 +272,25 @@ button:active { transform: scale(0.97); background: #3a423c; }
   white-space: nowrap;
 }
 
-#btn-tune {
+#hud-actions {
   position: absolute;
   right: 12px;
   top: calc(78px + env(safe-area-inset-top, 0px));
   z-index: 32;
+  display: flex;
+  gap: 6px;
+}
+#hud-actions button {
   margin: 0;
   padding: 6px 12px;
   font-size: 12px;
   letter-spacing: 0.08em;
   background: rgba(18, 22, 20, 0.68);
+}
+#btn-save {
+  border-color: #c4a574;
+  color: #efe6d2;
+  background: rgba(58, 46, 28, 0.88);
 }
 #tune {
   position: absolute;
@@ -272,6 +336,7 @@ button:active { transform: scale(0.97); background: #3a423c; }
   flex-wrap: wrap;
 }
 .tune-row button { margin: 0; padding: 6px 12px; font-size: 12px; }
+#btn-save-file { border-color: #c4a574; color: #efe6d2; }
 .check { display: flex !important; align-items: center; gap: 6px; }
 .tune-note {
   margin-top: 8px;
