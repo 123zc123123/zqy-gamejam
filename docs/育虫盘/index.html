@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>斗蛐蛐 · 育虫盘</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="phone">
+      <header id="hud">
+        <div class="hud-kicker">战斗之外 · 育虫</div>
+        <div id="hud-title">虫　盘</div>
+        <p class="hud-sub">点卵落盘 · 同品质进阶 · 出售换钱</p>
+        <button id="wallet" type="button" title="钱，以后在外围买装饰">
+          <span class="coin" aria-hidden="true"></span>
+          <span id="money">0</span>
+        </button>
+      </header>
+
+      <ol id="chain" aria-label="合成链">
+        <li data-stage="0">卵</li>
+        <li class="arrow" aria-hidden="true">→</li>
+        <li data-stage="1">幼虫</li>
+        <li class="arrow" aria-hidden="true">→</li>
+        <li data-stage="2">中虫</li>
+        <li class="arrow" aria-hidden="true">→</li>
+        <li data-stage="3">成虫</li>
+      </ol>
+      <p id="odds">破茧 凡55 良28 精13 极4　·　升阶 凡→良72% 良→精48% 精→极25%　·　失败化卵 3 / 5 / 8</p>
+
+      <section id="cage" aria-label="虫笼">
+        <div class="cage-head">
+          <strong>虫笼</strong>
+          <span id="cage-count">0 / 5</span>
+        </div>
+        <div id="cage-list"></div>
+      </section>
+
+      <div id="board" role="grid" aria-label="育虫棋盘"></div>
+
+      <p id="hint">点左下角虫卵放到空格。把两只相同的拖到一起就能合成。点虫子看详情。</p>
+
+      <nav id="dock">
+        <button id="btn-egg" type="button" aria-label="使用虫卵">
+          <span class="item-art" id="egg-art"></span>
+          <span class="item-name">虫卵</span>
+          <span id="egg-count" class="badge hidden">0</span>
+        </button>
+        <div class="dock-side">
+          <button id="btn-claim" type="button">再领一窝</button>
+          <button id="btn-decor" type="button" class="ghost">装饰</button>
+          <button id="btn-reset" type="button" class="ghost">重置</button>
+        </div>
+      </nav>
+
+      <div id="toast" class="hidden"></div>
+    </div>
+  </div>
+
+  <div id="ghost" class="hidden"></div>
+
+  <div id="sheet" class="hidden" role="dialog" aria-modal="true">
+    <div class="sheet-card">
+      <button id="sheet-close" type="button" class="ghost">关闭</button>
+      <div id="sheet-art"></div>
+      <div id="sheet-title">成虫</div>
+      <div id="sheet-tags"></div>
+      <p id="sheet-blurb"></p>
+      <ul id="sheet-stats"></ul>
+      <p id="sheet-note">战斗参数为占位，正式数值还没定。</p>
+      <p id="sheet-price"></p>
+      <div class="sheet-actions">
+        <button id="sheet-cage" type="button">入笼</button>
+        <button id="sheet-sell" type="button">出售</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="reveal" class="hidden" role="dialog" aria-modal="true">
+    <div class="fx-flash"></div>
+    <div class="fx-rays"></div>
+    <canvas id="fx-canvas"></canvas>
+    <div class="fx-shock" aria-hidden="true"></div>
+    <div class="fx-rings" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="reveal-stage">
+      <div class="reveal-kicker" id="reveal-kicker">破茧</div>
+      <div class="art-wrap">
+        <div class="art-glow"></div>
+        <div id="reveal-art"></div>
+      </div>
+      <div id="reveal-quality">极品</div>
+      <div id="reveal-trait">好斗</div>
+      <p id="reveal-sub">性格影响战斗参数，具体数值还没定。</p>
+      <div class="reveal-actions">
+        <button id="btn-cage" type="button">收入虫笼</button>
+        <button id="btn-reveal" type="button" class="ghost">留在盘上</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./game.js"></script>
+</body>
+</html>
