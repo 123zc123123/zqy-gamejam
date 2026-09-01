@@ -8,4 +8,22 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/DouQuquDemo.unity
     guid: a8e9ca13b3fef2f45a74b70de14b5209
+  - enabled: 1
+    path: Assets/Game/UI/Home/Scenes/CricketHomepage.unity
+    guid: 525e0b01dbd9e4046b5b7fd71ed3728f
+  - enabled: 1
+    path: Assets/Game/UI/AdditionalScreens/Scenes/Screen10_511.unity
+    guid: 48513ebd1a9c2bf44926fa62e094241e
+  - enabled: 1
+    path: Assets/Game/UI/AdditionalScreens/Scenes/Screen10_593.unity
+    guid: 47f8871406d27344888d1eb2d148187c
+  - enabled: 1
+    path: Assets/Game/UI/AdditionalScreens/Scenes/Screen63_5.unity
+    guid: 91f0aabb99cd28140bccd3a1c517f28f
+  - enabled: 1
+    path: Assets/Game/UI/AdditionalScreens/Scenes/Screen10_368.unity
+    guid: a29c968b12e0b394a81193f7d7a73866
+  - enabled: 1
+    path: Assets/Game/UI/BreedingBoard/Scenes/BreedingBoard.unity
+    guid: 2a7cbb2c09bb80b4b88ed1c4d0ec517b
   m_configObjects: {}
