@@ -11,7 +11,7 @@ namespace DouQuqu
         public int id;
         public int cell;
         public int level;
-        // 合成到 3 级后，这个棋子显示抽卡结果而不是数字 3。
+        // 合成到 3 级后会先在这个对象上写入抽卡结果，再将棋子从棋盘移除。
         public bool isDrawResult;
         public int drawA;
         public int drawB;
@@ -186,9 +186,14 @@ namespace DouQuqu
             pieces.Remove(source);
             score += target.level * 10;
             PieceRemoved?.Invoke(source);
-            // 先把最高级的抽卡结果写入目标棋子，再通知合成完成，
-            // 保证表现层或联机同步在事件回调中读取到的是完整状态。
-            if (target.level == HighestMergeLevel) DrawCard(target);
+            // 最高级是一次“产出”而不是常驻棋子：先写入抽卡结果，
+            // 再移除目标棋子。事件监听者仍可从 target 参数读取完整结果并写入图鉴。
+            if (target.level == HighestMergeLevel)
+            {
+                DrawCard(target);
+                pieces.Remove(target);
+                PieceRemoved?.Invoke(target);
+            }
             MergeCompleted?.Invoke(target, source);
             BoardChanged?.Invoke();
             return true;

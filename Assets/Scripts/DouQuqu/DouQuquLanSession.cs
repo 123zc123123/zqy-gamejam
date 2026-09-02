@@ -42,6 +42,7 @@ namespace DouQuqu
         public string playerName;
         public bool connected;
         public bool ready;
+        public bool isBot;
     }
 
     [Serializable]
@@ -50,6 +51,8 @@ namespace DouQuqu
     {
         public int capacity;
         public LanPlayerSlot[] slots;
+        public bool matchStarting;
+        public int matchSeed;
     }
 
     /// <summary>
@@ -80,10 +83,26 @@ namespace DouQuqu
         private int roomCapacity = DouQuquMatchController.MaxPlayers;
         private LanPlayerSlot[] slots = new LanPlayerSlot[DouQuquMatchController.MaxPlayers];
         private bool running;
+        private bool automaticMatchmaking;
+        private float automaticElapsed;
+        private float hostPromotionDelay;
+        private float automaticTimeout = 10f;
+        private bool matchReady;
+        private bool matchReadyEventRaised;
+        private int matchSeed;
+        private bool battlePrepared;
+        private float startBroadcastRemaining;
+        private float startBroadcastTick;
+        private MatchSnapshot pendingSnapshot;
+        private int pendingWelcomePlayerCount;
 
         public bool IsRunning => running;
         public bool IsHost { get; private set; }
         public int LocalPlayerId { get; private set; } = -1;
+        public bool IsAutomaticMatchmaking => automaticMatchmaking && !matchReady;
+        public bool IsMatchReady => matchReady;
+        public float MatchmakingElapsed => automaticElapsed;
+        public float MatchmakingTimeRemaining => Mathf.Max(0f, automaticTimeout - automaticElapsed);
         public string HostAddress => hostEndpoint == null ? string.Empty : hostEndpoint.Address.ToString();
         public IReadOnlyList<LanPlayerSlot> Slots => slots;
         public bool CanStart
@@ -106,11 +125,76 @@ namespace DouQuqu
         public event Action<string> HostDiscovered;
         public event Action<string> NetworkError;
         public event Action<LanLobbySnapshot> LobbyChanged;
+        public event Action MatchReady;
 
         /// <summary>设置下一次 HELLO 数据包中发送的本地玩家名。</summary>
         public void SetLocalPlayerName(string playerName)
         {
             if (!string.IsNullOrWhiteSpace(playerName)) localPlayerName = playerName.Trim();
+        }
+
+        /// <summary>
+        /// 开始一键匹配。先查找局域网房间，短时间没有响应则自动创建主机；
+        /// 房间满四人立即开始，否则总等待十秒后用机器人补齐。
+        /// </summary>
+        public void StartAutomaticMatchmaking(string playerName, float timeoutSeconds = 10f)
+        {
+            SetLocalPlayerName(playerName);
+            StartClient();
+            if (!running) return;
+            automaticMatchmaking = true;
+            automaticElapsed = 0f;
+            automaticTimeout = Mathf.Max(2f, timeoutSeconds);
+            // 使用时间、名字和实例 ID 生成随机抖动，降低多台设备同时创建房间的概率。
+            int jitterSeed = Environment.TickCount ^ GetInstanceID() ^ (localPlayerName == null ? 0 : localPlayerName.GetHashCode());
+            System.Random jitter = new System.Random(jitterSeed);
+            hostPromotionDelay = 0.9f + (float)jitter.NextDouble() * 0.9f;
+            matchReady = false;
+            matchReadyEventRaised = false;
+            battlePrepared = false;
+            matchSeed = 0;
+            startBroadcastRemaining = 0f;
+            pendingSnapshot = null;
+            SendDiscovery();
+            NotifyLobbyChanged();
+        }
+
+        /// <summary>离开匹配界面时取消当前匹配和所有 Socket。</summary>
+        public void CancelAutomaticMatchmaking()
+        {
+            Stop();
+        }
+
+        /// <summary>
+        /// 战斗场景加载后把新场景中的权威控制器接到持久网络会话。
+        /// 主机创建四槽状态并标记真人/机器人，客户端等待并应用主机快照。
+        /// </summary>
+        public void BindMatchController(DouQuquMatchController matchController)
+        {
+            match = matchController;
+            if (match == null || !matchReady) return;
+            if (IsHost)
+            {
+                if (battlePrepared) return;
+                match.Configure(MatchRunMode.Host, roomCapacity);
+                match.ResetMatch(roomCapacity, matchSeed);
+                for (int i = 0; i < roomCapacity && i < slots.Length; i++)
+                    match.SetPlayerHuman(i, slots[i].connected && !slots[i].isBot);
+                match.StartMatch();
+                battlePrepared = true;
+                BroadcastSnapshot();
+            }
+            else
+            {
+                int playerCount = pendingWelcomePlayerCount > 0 ? pendingWelcomePlayerCount : roomCapacity;
+                match.Configure(MatchRunMode.Client, playerCount);
+                if (LocalPlayerId >= 0) match.SetPlayerHuman(LocalPlayerId, true);
+                if (pendingSnapshot != null)
+                {
+                    match.ApplySnapshot(pendingSnapshot);
+                    pendingSnapshot = null;
+                }
+            }
         }
 
         private void Awake()
@@ -132,6 +216,7 @@ namespace DouQuqu
                     SendDiscovery();
                 }
             }
+            TickAutomaticMatchmaking();
             if (IsHost && match != null && match.IsStarted)
             {
                 snapshotTimer -= Time.unscaledDeltaTime;
@@ -141,6 +226,7 @@ namespace DouQuqu
                     BroadcastSnapshot();
                 }
             }
+            TickStartBroadcast();
         }
 
         private void OnDestroy()
@@ -167,6 +253,7 @@ namespace DouQuqu
                 ResetSlots();
                 slots[0].connected = true;
                 slots[0].ready = true;
+                slots[0].isBot = false;
                 slots[0].playerName = string.IsNullOrWhiteSpace(localPlayerName) ? "Host" : localPlayerName;
                 nextPlayerId = 1;
                 lastSnapshotTick = -1;
@@ -243,6 +330,17 @@ namespace DouQuqu
             LocalPlayerId = -1;
             lastSnapshotTick = -1;
             discoveryTimer = 0f;
+            automaticMatchmaking = false;
+            automaticElapsed = 0f;
+            hostPromotionDelay = 0f;
+            matchReady = false;
+            matchReadyEventRaised = false;
+            matchSeed = 0;
+            battlePrepared = false;
+            startBroadcastRemaining = 0f;
+            startBroadcastTick = 0f;
+            pendingSnapshot = null;
+            pendingWelcomePlayerCount = 0;
         }
 
         /// <summary>所有已连接客户端准备后，由主机启动对局。</summary>
@@ -281,6 +379,102 @@ namespace DouQuqu
             {
                 SendEnvelope(sessionSocket, hostEndpoint, "INPUT", JsonUtility.ToJson(frame), LocalPlayerId);
             }
+        }
+
+        /// <summary>推进自动匹配计时、自动建房以及四人满员/超时补机器人逻辑。</summary>
+        private void TickAutomaticMatchmaking()
+        {
+            if (!automaticMatchmaking || matchReady) return;
+            automaticElapsed += Time.unscaledDeltaTime;
+            if (!IsHost)
+            {
+                if (hostEndpoint == null && automaticElapsed >= hostPromotionDelay)
+                    PromoteToAutomaticHost();
+                return;
+            }
+
+            if (ConnectedHumanCount() >= roomCapacity)
+            {
+                CompleteAutomaticMatch(false);
+                return;
+            }
+            if (automaticElapsed >= automaticTimeout) CompleteAutomaticMatch(true);
+        }
+
+        /// <summary>没有发现房间时升为主机；端口已被占用则退回客户端继续发现。</summary>
+        private void PromoteToAutomaticHost()
+        {
+            float elapsed = automaticElapsed;
+            float timeout = automaticTimeout;
+            string playerName = localPlayerName;
+            StartHost(DouQuquMatchController.MaxPlayers);
+            if (!running)
+            {
+                StartClient();
+                if (!running) return;
+                automaticMatchmaking = true;
+                automaticElapsed = elapsed;
+                automaticTimeout = timeout;
+                hostPromotionDelay = elapsed + 1f;
+                SetLocalPlayerName(playerName);
+                return;
+            }
+            automaticMatchmaking = true;
+            automaticElapsed = elapsed;
+            automaticTimeout = timeout;
+            SetLocalPlayerName(playerName);
+            slots[0].playerName = string.IsNullOrWhiteSpace(playerName) ? "Host" : playerName;
+            NotifyLobbyChanged();
+        }
+
+        /// <summary>由主机锁定房间；未连接的槽位按需转成机器人。</summary>
+        private void CompleteAutomaticMatch(bool fillBots)
+        {
+            if (!IsHost || matchReady) return;
+            if (fillBots)
+            {
+                for (int i = 0; i < roomCapacity && i < slots.Length; i++)
+                {
+                    if (slots[i].connected) continue;
+                    slots[i].connected = true;
+                    slots[i].ready = true;
+                    slots[i].isBot = true;
+                    slots[i].playerName = "机器人 " + (i + 1);
+                }
+            }
+            matchSeed = Environment.TickCount;
+            matchReady = true;
+            startBroadcastRemaining = 1.2f;
+            startBroadcastTick = 0f;
+            BroadcastLobby();
+            RaiseMatchReady();
+        }
+
+        private int ConnectedHumanCount()
+        {
+            int count = 0;
+            for (int i = 0; i < roomCapacity && i < slots.Length; i++)
+                if (slots[i].connected && !slots[i].isBot) count++;
+            return count;
+        }
+
+        /// <summary>短时间重复广播开战消息，降低一次 UDP 丢包造成客户端留在匹配页的概率。</summary>
+        private void TickStartBroadcast()
+        {
+            if (!IsHost || !matchReady || startBroadcastRemaining <= 0f) return;
+            startBroadcastRemaining -= Time.unscaledDeltaTime;
+            startBroadcastTick -= Time.unscaledDeltaTime;
+            if (startBroadcastTick > 0f) return;
+            startBroadcastTick = 0.18f;
+            foreach (IPEndPoint endpoint in clients.Values)
+                SendEnvelope(sessionSocket, endpoint, "MATCH_START", matchSeed.ToString(), 0);
+        }
+
+        private void RaiseMatchReady()
+        {
+            if (matchReadyEventRaised) return;
+            matchReadyEventRaised = true;
+            MatchReady?.Invoke();
         }
 
         // 发现流程无状态：客户端可以重复 DISCOVER，主机可以重复 HOST 回复，
@@ -346,6 +540,7 @@ namespace DouQuqu
             string key = endpoint.ToString();
             if (envelope.type == "HELLO")
             {
+                if (matchReady) return;
                 if (!clientIds.ContainsKey(key))
                 {
                     if (clientIds.Count >= roomCapacity - 1) return;
@@ -353,7 +548,8 @@ namespace DouQuqu
                     clients[key] = endpoint;
                     int assigned = clientIds[key];
                     slots[assigned].connected = true;
-                    slots[assigned].ready = false;
+                    slots[assigned].ready = automaticMatchmaking;
+                    slots[assigned].isBot = false;
                     slots[assigned].playerName = string.IsNullOrWhiteSpace(envelope.body) ? "Player " + (assigned + 1) : envelope.body;
                     match?.SetPlayerHuman(assigned, true);
                     PlayerJoined?.Invoke(clientIds[key]);
@@ -362,8 +558,8 @@ namespace DouQuqu
                 LanWelcome welcome = new LanWelcome
                 {
                     playerId = id,
-                    playerCount = match == null ? 0 : match.Bugs.Length,
-                    seed = 0
+                    playerCount = roomCapacity,
+                    seed = matchSeed
                 };
                 SendEnvelope(sessionSocket, endpoint, "WELCOME", JsonUtility.ToJson(welcome), 0);
                 BroadcastLobby();
@@ -392,17 +588,20 @@ namespace DouQuqu
                 LanWelcome welcome = JsonUtility.FromJson<LanWelcome>(envelope.body);
                 if (welcome == null) return;
                 LocalPlayerId = welcome.playerId;
-                match?.Configure(MatchRunMode.Client, welcome.playerCount);
+                pendingWelcomePlayerCount = Mathf.Clamp(welcome.playerCount, 1, DouQuquMatchController.MaxPlayers);
+                if (welcome.seed != 0) matchSeed = welcome.seed;
+                match?.Configure(MatchRunMode.Client, pendingWelcomePlayerCount);
                 if (match != null) match.SetPlayerHuman(LocalPlayerId, true);
                 PlayerJoined?.Invoke(LocalPlayerId);
             }
-            else if (envelope.type == "SNAPSHOT" && match != null)
+            else if (envelope.type == "SNAPSHOT")
             {
                 MatchSnapshot snapshot = JsonUtility.FromJson<MatchSnapshot>(envelope.body);
                 if (snapshot != null && snapshot.tick >= lastSnapshotTick)
                 {
                     lastSnapshotTick = snapshot.tick;
-                    match.ApplySnapshot(snapshot);
+                    if (match != null) match.ApplySnapshot(snapshot);
+                    else pendingSnapshot = snapshot;
                 }
             }
             else if (envelope.type == "LOBBY")
@@ -412,8 +611,21 @@ namespace DouQuqu
                 {
                     roomCapacity = lobby.capacity;
                     slots = lobby.slots;
+                    if (lobby.matchStarting)
+                    {
+                        matchSeed = lobby.matchSeed;
+                        matchReady = true;
+                        RaiseMatchReady();
+                    }
                     LobbyChanged?.Invoke(lobby);
                 }
+            }
+            else if (envelope.type == "MATCH_START")
+            {
+                int parsedSeed;
+                if (int.TryParse(envelope.body, out parsedSeed)) matchSeed = parsedSeed;
+                matchReady = true;
+                RaiseMatchReady();
             }
         }
 
@@ -449,10 +661,17 @@ namespace DouQuqu
                     playerId = source.playerId,
                     playerName = source.playerName,
                     connected = source.connected,
-                    ready = source.ready
+                    ready = source.ready,
+                    isBot = source.isBot
                 };
             }
-            return new LanLobbySnapshot { capacity = roomCapacity, slots = copy };
+            return new LanLobbySnapshot
+            {
+                capacity = roomCapacity,
+                slots = copy,
+                matchStarting = matchReady,
+                matchSeed = matchSeed
+            };
         }
 
         private void NotifyLobbyChanged()
@@ -464,7 +683,14 @@ namespace DouQuqu
         {
             slots = new LanPlayerSlot[DouQuquMatchController.MaxPlayers];
             for (int i = 0; i < slots.Length; i++)
-                slots[i] = new LanPlayerSlot { playerId = i, playerName = "Player " + (i + 1), connected = false, ready = false };
+                slots[i] = new LanPlayerSlot
+                {
+                    playerId = i,
+                    playerName = "Player " + (i + 1),
+                    connected = false,
+                    ready = false,
+                    isBot = false
+                };
         }
 
         private void SendSnapshot(IPEndPoint endpoint)
