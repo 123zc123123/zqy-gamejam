@@ -413,7 +413,22 @@ eq("html has hud-clock", html.includes("id=\"hud-clock\""), true);
 eq("drawArc preview uses chargeDeltaV", /function drawArc\(b\) \{[\s\S]{0,500}chargeDeltaV\(b\)/.test(js), true);
 eq("charge waits until settled", /function stepCharge\(b, dt\) \{[\s\S]{0,1200}!isSettled\(b\)/.test(js), true);
 eq("baby charge waits until settled", /function stepBabyCharge\(b, dt\) \{[\s\S]{0,250}!isSettled\(b\)/.test(js), true);
-eq("own-slide does not plant to charge", !/function plant\(b\)/.test(js) && !/function canStartCharge\(b\)/.test(js), true);
+eq("own-slide does not plant to charge", !/function plant\(b\)/.test(js), true);
+eq("stamina gates charge", /function canStartCharge\(b\)/.test(js) && /R\.canStartCharge\(knobs, b\)/.test(js), true);
+eq("stamina cost scales with charge", /R\.jumpStaminaCost\(knobs, b\)/.test(js), true);
+eq("stamina caps chargeT", /staminaChargeCap\(b\)/.test(js), true);
+
+const Rules = require("./match-rules.js");
+const staminaKnobs = { tMax: 0.4, vRate: 80, staminaCost: 1, staminaMax: 5, chargeScale: 1.25 };
+approx("full charge cost 1", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0.4 }), 1, 1e-9);
+approx("half charge cost 0.5", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0.2 }), 0.5, 1e-9);
+approx("zero charge cost 0", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0 }), 0, 1e-9);
+approx("overfull charge still 1", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0.8 }), 1, 1e-9);
+approx("stamina 2.5 caps at 100%", Rules.staminaChargeTCap(staminaKnobs, { stamina: 2.5 }), 0.4, 1e-9);
+approx("stamina 0.5 caps at 50%", Rules.staminaChargeTCap(staminaKnobs, { stamina: 0.5 }), 0.2, 1e-9);
+eq("cannot start at 0 stamina", Rules.canStartCharge(staminaKnobs, { stamina: 0 }), false);
+eq("can start with remainder", Rules.canStartCharge(staminaKnobs, { stamina: 0.3 }), true);
+eq("baby ignores stamina gate", Rules.canStartCharge(staminaKnobs, { kind: "baby", stamina: 0 }), true);
 eq("hit fx split by tier", /function playHitFx\(/.test(js) && /function spawnHitSpray\(/.test(js), true);
 eq("slip sets roll", /b\.roll = 1/.test(js), true);
 {

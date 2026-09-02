@@ -27,9 +27,9 @@
       heartOpenAt: 20,
       vRate: 23,
       tMax: 0.55,
-      staminaMax: 100,
-      staminaCost: 20,
-      staminaRegen: 12,
+      staminaMax: 5,
+      staminaCost: 1,
+      staminaRegen: 0.6,
       staminaSlots: 5,
       m: 1,
       growPer: 0.16,
@@ -137,6 +137,32 @@
   function chargeDeltaV(knobs, bug) {
     const e = effectiveCharge(knobs, bug);
     return e.vRate * clamp(bug.chargeT || 0, 0, e.tMax);
+  }
+
+  function staminaFullCost(knobs) {
+    return Math.max(0, Number(knobs.staminaCost) || 0);
+  }
+
+  function chargeProgress(knobs, bug) {
+    if (!bug || bug.kind === "baby") return 0;
+    const tMax = Math.max(1e-6, effectiveCharge(knobs, bug).tMax);
+    return clamp((bug.chargeT || 0) / tMax, 0, 1);
+  }
+
+  function jumpStaminaCost(knobs, bug) {
+    return staminaFullCost(knobs) * chargeProgress(knobs, bug);
+  }
+
+  function staminaChargeTCap(knobs, bug) {
+    const tMax = effectiveCharge(knobs, bug).tMax;
+    const full = staminaFullCost(knobs);
+    if (full <= 1e-6) return tMax;
+    return tMax * clamp((bug.stamina || 0) / full, 0, 1);
+  }
+
+  function canStartCharge(knobs, bug) {
+    if (!bug || bug.kind === "baby") return true;
+    return (bug.stamina || 0) > 1e-6;
   }
 
   function refreshBody(knobs, bug) {
@@ -492,6 +518,11 @@
     effectiveCharge,
     panelVMax,
     chargeDeltaV,
+    staminaFullCost,
+    chargeProgress,
+    jumpStaminaCost,
+    staminaChargeTCap,
+    canStartCharge,
     refreshBody,
     refreshBabyBody,
     babyCanLoot,

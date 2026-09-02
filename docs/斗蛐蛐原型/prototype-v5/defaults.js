@@ -4,9 +4,9 @@ window.DOU_QUQU_SHIPPED = {
   "knobs": {
     "tMin": 0,
     "tMax": 0.4,
-    "staminaMax": 100,
-    "staminaCost": 20,
-    "staminaRegen": 12,
+    "staminaMax": 5,
+    "staminaCost": 1,
+    "staminaRegen": 0.6,
     "staminaSlots": 5,
     "dMin": 8,
     "vRate": 80,

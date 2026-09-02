@@ -45,9 +45,9 @@
   const FACTORY = {
     tMin: 0,
     tMax: 0.55,
-    staminaMax: 100,
-    staminaCost: 20,
-    staminaRegen: 12,
+    staminaMax: 5,
+    staminaCost: 1,
+    staminaRegen: 0.6,
     staminaSlots: 5,
     dMin: 1.2,
     vRate: 23,
@@ -103,9 +103,9 @@
   const DEFAULTS = {
     tMin: 0,
     tMax: 0.8,
-    staminaMax: 100,
-    staminaCost: 20,
-    staminaRegen: 12,
+    staminaMax: 5,
+    staminaCost: 1,
+    staminaRegen: 0.6,
     staminaSlots: 5,
     dMin: 7,
     vRate: 50,
@@ -440,7 +440,7 @@
       r: BUG_R,
       m: knobs.m,
       grow: 0,
-      stamina: Math.max(0, Number(knobs.staminaMax) || 100),
+      stamina: Math.max(0, Number(knobs.staminaMax) || 5),
       lastHitId: -1,
       slideMu: knobs.mu,
       hitTier: null,
@@ -766,8 +766,12 @@
   }
 
   function canStartCharge(b) {
-    if (!b || b.kind === "baby") return true;
-    return (b.stamina || 0) + 1e-6 >= Math.max(0, Number(knobs.staminaCost) || 0);
+    return R.canStartCharge(knobs, b);
+  }
+
+  function staminaChargeCap(b) {
+    if (!b || b.kind === "baby") return chargeTMax(b);
+    return R.staminaChargeTCap(knobs, b);
   }
 
   function beginCharge(b) {
@@ -805,7 +809,7 @@
     const d = norm(b.dirX, b.dirZ);
     if (d.d < 1e-5) return;
     if (b.kind !== "baby") {
-      const cost = Math.max(0, Number(knobs.staminaCost) || 0);
+      const cost = R.jumpStaminaCost(knobs, b);
       if ((b.stamina || 0) + 1e-6 < cost) return;
       b.stamina = Math.max(0, (b.stamina || 0) - cost);
     }
@@ -1235,7 +1239,8 @@
           return;
         }
         if (!b.charging) beginCharge(b);
-        const cap = Math.min(b.v3Goal, chargeTMax(b));
+        if (!b.charging) return;
+        const cap = Math.min(b.v3Goal, staminaChargeCap(b));
         b.chargeT = Math.min(cap, b.chargeT + dt);
         if (b.chargeT >= cap - 1e-4) doJump(b);
         return;
@@ -1255,7 +1260,8 @@
       }
       if (!b.charging) beginCharge(b);
       b.pendingCharge = false;
-      b.chargeT = Math.min(chargeTMax(b), b.chargeT + dt);
+      if (!b.charging) return;
+      b.chargeT = Math.min(staminaChargeCap(b), b.chargeT + dt);
     } else if (b.charging) {
       b.pendingCharge = false;
       tryRelease(b);
@@ -1897,7 +1903,7 @@
       r: nest.r,
       charging: false,
       grow: 0,
-      stamina: Math.max(0, Number(knobs.staminaMax) || 100),
+      stamina: Math.max(0, Number(knobs.staminaMax) || 5),
       kind: "nest",
       dirX: nx,
       dirZ: nz,
@@ -2018,7 +2024,7 @@
           r: egg.r,
           charging: false,
           grow: 0,
-      stamina: Math.max(0, Number(knobs.staminaMax) || 100),
+      stamina: Math.max(0, Number(knobs.staminaMax) || 5),
           kind: "egg",
           dirX: nx,
           dirZ: nz,
@@ -3014,8 +3020,10 @@
 
   function drawStaminaRing(b, p, hitPx) {
     if (!b.alive || b.kind === "baby") return;
-    const max = Math.max(1, Number(knobs.staminaMax) || 100);
-    const ratio = clamp((b.stamina == null ? max : b.stamina) / max, 0, 1);
+    const max = Math.max(1, Number(knobs.staminaMax) || 5);
+    const pending = b.charging ? R.jumpStaminaCost(knobs, b) : 0;
+    const shown = Math.max(0, (b.stamina == null ? max : b.stamina) - pending);
+    const ratio = clamp(shown / max, 0, 1);
     const slots = Math.max(3, Math.min(8, Math.round(Number(knobs.staminaSlots) || 5)));
     const radius = hitPx * 1.52; const span = Math.PI * 2 / slots; const gap = 0.1;
     const color = ratio <= 0.2 ? "#e05a45" : ratio <= 0.4 ? "#e5b34f" : "#7bd5a4";
@@ -4188,7 +4196,7 @@
     ["tMin", "k-tMin", "v-tMin", 2],
     ["tMax", "k-tMax", "v-tMax", 2],
     ["staminaMax", "k-staminaMax", "v-staminaMax", 0],
-    ["staminaCost", "k-staminaCost", "v-staminaCost", 0],
+    ["staminaCost", "k-staminaCost", "v-staminaCost", 1],
     ["staminaRegen", "k-staminaRegen", "v-staminaRegen", 2],
     ["staminaSlots", "k-staminaSlots", "v-staminaSlots", 0],
     ["dMin", "k-dMin", "v-dMin", 2],
