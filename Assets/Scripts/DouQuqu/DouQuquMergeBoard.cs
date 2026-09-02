@@ -72,13 +72,13 @@ namespace DouQuqu
     /// </summary>
     public sealed class DouQuquMergeBoard : MonoBehaviour
     {
-        // 当前 Demo 的最高合成等级固定为 3；合成到该等级后触发一次抽卡。
-        private const int HighestMergeLevel = 3;
+        // 育虫盘：幼虫 → 中虫 → 成虫 → 精品虫。精品虫留在棋盘上，不再往上合。
+        private const int HighestMergeLevel = 4;
         private const int DrawOptionCount = 4;
 
         [SerializeField] private int width = 4;
         [SerializeField] private int height = 5;
-        [SerializeField] private int initialPieces = 4;
+        [SerializeField] private int initialPieces = 0;
 
         [Header("3 级合成抽卡")]
         [SerializeField] private int drawPityLimit = 10;
@@ -193,14 +193,6 @@ namespace DouQuqu
             pieces.Remove(source);
             score += target.level * 10;
             PieceRemoved?.Invoke(source);
-            // 最高级是一次“产出”而不是常驻棋子：先写入抽卡结果，
-            // 再移除目标棋子。事件监听者仍可从 target 参数读取完整结果并写入图鉴。
-            if (target.level == HighestMergeLevel)
-            {
-                DrawCard(target);
-                pieces.Remove(target);
-                PieceRemoved?.Invoke(target);
-            }
             MergeCompleted?.Invoke(target, source);
             BoardChanged?.Invoke();
             return true;

@@ -25,6 +25,7 @@ namespace DouQuqu
         private GameObject canvasInstance;
         private Image dragGhost;
         private Text goldText;
+        private Sprite[] phaseSprites;
         private int draggingPieceId = -1;
         private int sourceCell = -1;
 
@@ -48,6 +49,7 @@ namespace DouQuqu
 
         private void Start()
         {
+            LoadPhaseSprites();
             SpawnCanvas();
             BindCells();
             BindHud();
@@ -148,8 +150,10 @@ namespace DouQuqu
             Button registry = FindButtonByLabel("蛐蛐谱");
             if (registry != null) registry.onClick.AddListener(() => DouQuquSceneNames.Load(DouQuquSceneNames.Collection));
 
-            Button backpack = FindButtonByLabel("背包");
-            if (backpack != null) backpack.onClick.AddListener(SpawnOne);
+            BindSpawnButton(FindNamed(canvasInstance.transform, "BreedingBoard_ArenaRing"));
+            BindSpawnButton(FindNamed(canvasInstance.transform, "Ellipse 2"));
+            BindSpawnButton(FindNamed(canvasInstance.transform, "BreedingBoard_ArenaStatus"));
+            BindSpawnButton(FindNamed(canvasInstance.transform, "ArenaStatus"));
 
             goldText = FindTextByName(canvasInstance.transform, "18,450");
             if (goldText == null)
@@ -171,6 +175,50 @@ namespace DouQuqu
             }
         }
 
+        private void LoadPhaseSprites()
+        {
+            if (levelSprites != null && levelSprites.Length > 0) return;
+            phaseSprites = new Sprite[4];
+            phaseSprites[0] = LoadPhase("phase-1");
+            phaseSprites[1] = LoadPhase("phase-2");
+            phaseSprites[2] = LoadPhase("phase-3");
+            phaseSprites[3] = phaseSprites[2];
+        }
+
+        private static Sprite LoadPhase(string name)
+        {
+            Sprite sprite = Resources.Load<Sprite>("DouQuqu/MergePhases/" + name);
+            if (sprite != null) return sprite;
+            Texture2D texture = Resources.Load<Texture2D>("DouQuqu/MergePhases/" + name);
+            if (texture == null) return null;
+            return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        private Sprite SpriteForLevel(int level)
+        {
+            int index = Mathf.Clamp(level - 1, 0, 3);
+            if (levelSprites != null && index < levelSprites.Length && levelSprites[index] != null)
+                return levelSprites[index];
+            if (phaseSprites != null && index < phaseSprites.Length)
+                return phaseSprites[index];
+            return null;
+        }
+
+        private void BindSpawnButton(Transform target)
+        {
+            if (target == null) return;
+            Image image = target.GetComponent<Image>();
+            if (image != null) image.raycastTarget = true;
+            Button button = target.GetComponent<Button>();
+            if (button == null) button = target.gameObject.AddComponent<Button>();
+            if (image != null) button.targetGraphic = image;
+            Navigation nav = button.navigation;
+            nav.mode = Navigation.Mode.None;
+            button.navigation = nav;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(SpawnOne);
+        }
+
         private void RefreshBoard()
         {
             for (int i = 0; i < CellCount; i++)
@@ -184,19 +232,23 @@ namespace DouQuqu
                     continue;
                 }
                 pieceImages[i].enabled = true;
+                Sprite sprite = SpriteForLevel(piece.level);
                 int colorIndex = Mathf.Clamp(piece.level - 1, 0, LevelColors.Length - 1);
-                if (levelSprites != null && colorIndex < levelSprites.Length && levelSprites[colorIndex] != null)
+                if (sprite != null)
                 {
-                    pieceImages[i].sprite = levelSprites[colorIndex];
-                    pieceImages[i].color = Color.white;
+                    pieceImages[i].sprite = sprite;
+                    pieceImages[i].preserveAspect = true;
+                    pieceImages[i].color = piece.level >= 4
+                        ? new Color(1f, 0.86f, 0.35f, 1f)
+                        : Color.white;
+                    if (pieceLabels[i] != null) pieceLabels[i].text = "";
                 }
                 else
                 {
                     pieceImages[i].sprite = null;
                     pieceImages[i].color = LevelColors[colorIndex];
+                    if (pieceLabels[i] != null) pieceLabels[i].text = piece.level.ToString();
                 }
-                if (pieceLabels[i] != null)
-                    pieceLabels[i].text = piece.level.ToString();
             }
         }
 
@@ -234,8 +286,18 @@ namespace DouQuqu
                 rect.sizeDelta = new Vector2(160f, 160f);
             }
             dragGhost.gameObject.SetActive(true);
-            int colorIndex = Mathf.Clamp(piece.level - 1, 0, LevelColors.Length - 1);
-            dragGhost.color = LevelColors[colorIndex];
+            Sprite sprite = SpriteForLevel(piece.level);
+            if (sprite != null)
+            {
+                dragGhost.sprite = sprite;
+                dragGhost.preserveAspect = true;
+                dragGhost.color = piece.level >= 4 ? new Color(1f, 0.86f, 0.35f, 1f) : Color.white;
+            }
+            else
+            {
+                dragGhost.sprite = null;
+                dragGhost.color = LevelColors[Mathf.Clamp(piece.level - 1, 0, LevelColors.Length - 1)];
+            }
             dragGhost.rectTransform.position = screenPosition;
         }
 
@@ -266,6 +328,7 @@ namespace DouQuqu
             rect.offsetMax = Vector2.zero;
             image = go.GetComponent<Image>();
             image.raycastTarget = false;
+            image.preserveAspect = true;
             return image;
         }
 
