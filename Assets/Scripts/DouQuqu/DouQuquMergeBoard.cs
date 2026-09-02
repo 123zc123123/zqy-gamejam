@@ -11,7 +11,7 @@ namespace DouQuqu
         public int id;
         public int cell;
         public int level;
-        // 合成到 3 级后会先在这个对象上写入抽卡结果，再将棋子从棋盘移除。
+        // 精品虫：drawA = 品质 1凡 2灵 3仙 4极，drawB = 性格 1猛攻 2灵巧 3智控 4稳重。
         public bool isDrawResult;
         public int drawA;
         public int drawB;
@@ -80,11 +80,11 @@ namespace DouQuqu
         [SerializeField] private int height = 5;
         [SerializeField] private int initialPieces = 0;
 
-        [Header("3 级合成抽卡")]
+        [Header("成虫合成精品：品质 / 性格")]
         [SerializeField] private int drawPityLimit = 10;
-        // 参数 A：1 的概率 40%，2 的概率 30%，3 的概率 25%，4 的概率 5%。
-        [SerializeField] private float[] weightedDrawWeights = { 40f, 30f, 25f, 5f };
-        // 参数 B：四个结果各 25%。实际抽取时会按总权重归一化。
+        // 品质：凡品 50%，灵品 28%，仙品 17%，极品 5%。连续未出极品会保底。
+        [SerializeField] private float[] weightedDrawWeights = { 50f, 28f, 17f, 5f };
+        // 性格：猛攻、灵巧、智控、稳重各 25%。
         [SerializeField] private float[] uniformDrawWeights = { 25f, 25f, 25f, 25f };
 
         private readonly List<MergePiece> pieces = new List<MergePiece>();
@@ -193,6 +193,8 @@ namespace DouQuqu
             pieces.Remove(source);
             score += target.level * 10;
             PieceRemoved?.Invoke(source);
+            if (target.level >= HighestMergeLevel)
+                DrawCard(target);
             MergeCompleted?.Invoke(target, source);
             BoardChanged?.Invoke();
             return true;
@@ -280,8 +282,8 @@ namespace DouQuqu
         }
 
         /// <summary>
-        /// 触发一次 4×4 抽卡：参数 A 使用 40/30/25/5，参数 B 使用 25/25/25/25。
-        /// 连续 9 次未出现 A=4 时，第 10 次强制 A=4，然后重置保底计数。
+        /// 成虫合成精品：品质按权重抽，性格四选一。
+        /// 连续未出极品达到保底次数时，下一次强制极品。
         /// </summary>
         private void DrawCard(MergePiece resultPiece)
         {

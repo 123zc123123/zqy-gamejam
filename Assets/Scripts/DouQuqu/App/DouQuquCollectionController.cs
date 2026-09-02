@@ -47,15 +47,14 @@ namespace DouQuqu
             List<CricketCollectionEntry> entries = DouQuquPlayerDataService.GetCollectionSnapshot();
             if (entries.Count == 0)
             {
-                collectionText.text = "还没有蟋蟀。\n前往合成界面，将两只二级棋子合成到三级即可获得。";
+                collectionText.text = "还没有蟋蟀。\n把两只成虫合成精品虫即可收入图鉴。";
                 return;
             }
             StringBuilder builder = new StringBuilder();
             for (int i = 0; i < entries.Count; i++)
             {
                 CricketCollectionEntry entry = entries[i];
-                builder.Append('蟋').Append('蟀').Append(' ')
-                    .Append(entry.drawA).Append(',').Append(entry.drawB)
+                builder.Append(DouQuquCricketCatalog.FullName(entry.drawA, entry.drawB))
                     .Append("　× ").Append(entry.count);
                 if (i < entries.Count - 1) builder.AppendLine();
             }

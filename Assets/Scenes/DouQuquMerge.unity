@@ -344,9 +344,9 @@ MonoBehaviour:
   initialPieces: 0
   drawPityLimit: 10
   weightedDrawWeights:
-  - 40
-  - 30
-  - 25
+  - 50
+  - 28
+  - 17
   - 5
   uniformDrawWeights:
   - 25

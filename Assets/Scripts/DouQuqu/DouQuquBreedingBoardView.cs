@@ -72,6 +72,7 @@ namespace DouQuqu
             if (piece == null) return;
             draggingPieceId = piece.id;
             sourceCell = cellIndex;
+            if (pieceImages[cellIndex] != null) pieceImages[cellIndex].enabled = false;
             ShowGhost(piece, eventData.position);
         }
 
@@ -91,9 +92,10 @@ namespace DouQuqu
             int target = HitCell(eventData.position);
             if (target >= 0 && board != null)
                 board.TryMove(draggingPieceId, target);
+            HideGhost();
             draggingPieceId = -1;
             sourceCell = -1;
-            HideGhost();
+            RefreshBoard();
         }
 
         private void SpawnCanvas()
@@ -185,6 +187,38 @@ namespace DouQuqu
             phaseSprites[3] = phaseSprites[2];
         }
 
+        private void ApplyPieceVisual(Image image, Text label, MergePiece piece)
+        {
+            if (image == null || piece == null) return;
+            Sprite sprite = SpriteForLevel(piece.level);
+            image.preserveAspect = true;
+            if (piece.level >= 4 && piece.isDrawResult)
+            {
+                image.sprite = sprite;
+                image.color = piece.drawA >= 4
+                    ? DouQuquCricketCatalog.TemperamentColors[Mathf.Clamp(piece.drawB, 1, 4)]
+                    : Color.Lerp(Color.white, DouQuquCricketCatalog.QualityColors[Mathf.Clamp(piece.drawA, 1, 4)], 0.55f);
+                if (label != null)
+                {
+                    label.text = DouQuquCricketCatalog.ShortLabel(piece.drawA, piece.drawB);
+                    label.fontSize = 22;
+                    label.alignment = TextAnchor.LowerCenter;
+                    label.color = Color.white;
+                }
+                return;
+            }
+            if (sprite != null)
+            {
+                image.sprite = sprite;
+                image.color = Color.white;
+                if (label != null) label.text = "";
+                return;
+            }
+            image.sprite = null;
+            image.color = LevelColors[Mathf.Clamp(piece.level - 1, 0, LevelColors.Length - 1)];
+            if (label != null) label.text = piece.level.ToString();
+        }
+
         private static Sprite LoadPhase(string name)
         {
             Sprite sprite = Resources.Load<Sprite>("DouQuqu/MergePhases/" + name);
@@ -232,23 +266,7 @@ namespace DouQuqu
                     continue;
                 }
                 pieceImages[i].enabled = true;
-                Sprite sprite = SpriteForLevel(piece.level);
-                int colorIndex = Mathf.Clamp(piece.level - 1, 0, LevelColors.Length - 1);
-                if (sprite != null)
-                {
-                    pieceImages[i].sprite = sprite;
-                    pieceImages[i].preserveAspect = true;
-                    pieceImages[i].color = piece.level >= 4
-                        ? new Color(1f, 0.86f, 0.35f, 1f)
-                        : Color.white;
-                    if (pieceLabels[i] != null) pieceLabels[i].text = "";
-                }
-                else
-                {
-                    pieceImages[i].sprite = null;
-                    pieceImages[i].color = LevelColors[colorIndex];
-                    if (pieceLabels[i] != null) pieceLabels[i].text = piece.level.ToString();
-                }
+                ApplyPieceVisual(pieceImages[i], pieceLabels[i], piece);
             }
         }
 
@@ -276,34 +294,37 @@ namespace DouQuqu
         {
             if (dragGhost == null)
             {
-                GameObject go = new GameObject("MergeDragGhost", typeof(RectTransform), typeof(Canvas), typeof(Image));
-                Canvas canvas = go.GetComponent<Canvas>();
+                GameObject root = new GameObject("MergeDragGhostCanvas", typeof(RectTransform), typeof(Canvas));
+                Canvas canvas = root.GetComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.sortingOrder = 500;
-                dragGhost = go.GetComponent<Image>();
+                GameObject icon = new GameObject("GhostIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                icon.transform.SetParent(root.transform, false);
+                dragGhost = icon.GetComponent<Image>();
                 dragGhost.raycastTarget = false;
-                RectTransform rect = dragGhost.rectTransform;
-                rect.sizeDelta = new Vector2(160f, 160f);
-            }
-            dragGhost.gameObject.SetActive(true);
-            Sprite sprite = SpriteForLevel(piece.level);
-            if (sprite != null)
-            {
-                dragGhost.sprite = sprite;
                 dragGhost.preserveAspect = true;
-                dragGhost.color = piece.level >= 4 ? new Color(1f, 0.86f, 0.35f, 1f) : Color.white;
+                RectTransform rect = dragGhost.rectTransform;
+                rect.anchorMin = new Vector2(0.5f, 0.5f);
+                rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
             }
-            else
+            Vector2 ghostSize = new Vector2(140f, 140f);
+            if (sourceCell >= 0 && cells[sourceCell] != null)
             {
-                dragGhost.sprite = null;
-                dragGhost.color = LevelColors[Mathf.Clamp(piece.level - 1, 0, LevelColors.Length - 1)];
+                Rect cellRect = cells[sourceCell].rect;
+                ghostSize = new Vector2(Mathf.Max(80f, cellRect.width * 0.72f), Mathf.Max(80f, cellRect.height * 0.72f));
             }
+            dragGhost.rectTransform.sizeDelta = ghostSize;
+            dragGhost.gameObject.SetActive(true);
+            ApplyPieceVisual(dragGhost, null, piece);
             dragGhost.rectTransform.position = screenPosition;
         }
 
         private void HideGhost()
         {
             if (dragGhost != null) dragGhost.gameObject.SetActive(false);
+            if (sourceCell >= 0 && sourceCell < CellCount && pieceImages[sourceCell] != null)
+                pieceImages[sourceCell].enabled = FindPieceAt(sourceCell) != null;
         }
 
         private static void EnsureEventSystem()
@@ -349,7 +370,13 @@ namespace DouQuqu
             text.fontSize = 48;
             text.color = Color.white;
             text.raycastTarget = false;
-            text.font = Font.CreateDynamicFontFromOSFont("Arial", 48);
+            text.font = Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei", "SimHei", "Arial" }, 28);
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            Outline outline = go.GetComponent<Outline>();
+            if (outline == null) outline = go.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            outline.effectDistance = new Vector2(1.2f, -1.2f);
             return text;
         }
 
