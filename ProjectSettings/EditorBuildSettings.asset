@@ -6,6 +6,21 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/DouQuquLogin.unity
+    guid: f029321914b3ae448b169f89053c3e5f
+  - enabled: 1
+    path: Assets/Scenes/DouQuquMainMenu.unity
+    guid: 5c32f738f133c6f4ab57d6390d3b6479
+  - enabled: 1
+    path: Assets/Scenes/DouQuquMerge.unity
+    guid: d70677f7db5aa6149927e7d83c9c1b45
+  - enabled: 1
+    path: Assets/Scenes/DouQuquMatchmaking.unity
+    guid: 4bb1c74ebd0ef7549a8ff71fac2a79c0
+  - enabled: 1
+    path: Assets/Scenes/DouQuquCollection.unity
+    guid: 52c99e59fa6b11f429ee856232388f68
+  - enabled: 1
     path: Assets/Scenes/DouQuquDemo.unity
     guid: a8e9ca13b3fef2f45a74b70de14b5209
   m_configObjects: {}

@@ -220,3 +220,17 @@
     -unity-text-align: middle-center;
     white-space: normal;
 }
+
+.merge-back-button {
+    width: 190px;
+    height: 40px;
+    margin-top: 4px;
+    background-color: rgba(74, 96, 122, 0.95);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-radius: 8px;
+    color: rgb(235, 248, 255);
+    -unity-font-size: 18px;
+}

@@ -163,7 +163,7 @@ namespace DouQuqu
                 if (FindPieceAtCell(cell) != null) continue;
                 if (board.TrySpawn(cell, 1))
                 {
-                    SetStatus("已获得 1 级道具，拖动它到相邻同级棋子即可合成");
+                    SetStatus("已获得 1 级道具，拖动它到任意同级棋子即可合成");
                     return;
                 }
             }
@@ -193,7 +193,7 @@ namespace DouQuqu
             cell.AddToClassList("merge-dragging");
             if (boardCallbacksBound && mergeBoard != null) mergeBoard.CapturePointer(pointerId);
             else cell.CapturePointer(pointerId);
-            SetStatus("拖动到空格，或拖到相邻同等级棋子上");
+            SetStatus("拖动到空格，或拖到任意同等级棋子上");
             evt.StopPropagation();
         }
 
@@ -223,11 +223,17 @@ namespace DouQuqu
             // 松手位置才是最终目标；先清理拖动过程中的旧高亮，避免沿用旧格子。
             ClearTargetHighlight();
             targetCell = releasedCell;
+            int drawCountBefore = board == null ? 0 : board.DrawCount;
             bool moved = targetCell >= 0 && board != null && board.TryMove(draggingPieceId, targetCell);
             if (moved)
             {
                 MergePiece piece = FindPieceAtCell(targetCell);
-                if (piece == null) SetStatus("操作完成");
+                if (board.DrawCount > drawCountBefore)
+                {
+                    MergeDrawResult draw = board.LastDraw;
+                    SetStatus("合成成功，获得蟋蟀 " + draw.weightedValue + "," + draw.uniformValue);
+                }
+                else if (piece == null) SetStatus("操作完成");
                 else if (piece.isDrawResult) SetStatus("操作完成，抽卡结果 " + piece.drawA + "," + piece.drawB);
                 else if (piece.level >= board.MaxLevel) SetStatus("操作完成，最高级棋子");
                 else SetStatus("操作完成，当前等级 " + piece.level);
@@ -238,7 +244,7 @@ namespace DouQuqu
             }
             else if (FindPieceAtCell(targetCell) != null)
             {
-                SetStatus("合成必须是相邻且同等级的棋子");
+                SetStatus("合成必须是同等级的棋子");
             }
             else
             {
@@ -370,7 +376,7 @@ namespace DouQuqu
                 cells[i].style.backgroundColor = new StyleColor(LevelColors[colorIndex]);
                 if (cellLabels[i] != null)
                 {
-                    // 最高级已经被抽卡结果替代，棋盘上不再显示数字 3。
+                    // 三级棋子会立即转为图鉴产出并从棋盘消失；这里保留异常快照的显示兜底。
                     if (piece.isDrawResult)
                         cellLabels[i].text = piece.drawA + "," + piece.drawB;
                     else if (piece.level >= board.MaxLevel)
@@ -399,7 +405,7 @@ namespace DouQuqu
             if (drawLabel == null || board == null) return;
             if (board.DrawCount <= 0)
             {
-                drawLabel.text = "合成到最高级后抽卡：A 40/30/25/5，B 25/25/25/25";
+                drawLabel.text = "合到三级后生成蟋蟀并从棋盘消失：A 40/30/25/5，B 各 25%";
                 return;
             }
 
