@@ -28,7 +28,7 @@ namespace DouQuqu
         private void Start()
         {
             if (!DouQuquPlayerDataService.RequireLogin()) return;
-            BindUi();
+            if (uiDocument != null && uiDocument.enabled) BindUi();
         }
 
         private void OnDisable()

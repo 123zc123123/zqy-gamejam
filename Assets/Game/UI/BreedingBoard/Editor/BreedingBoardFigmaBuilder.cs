@@ -119,7 +119,7 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
 
             GameObject canvas = BuildEmptyPart("BreedingBoardCanvas", new Vector2(1080,1920), Vector2.zero);
             Canvas c = canvas.AddComponent<Canvas>(); c.renderMode = RenderMode.ScreenSpaceOverlay;
-            CanvasScaler scaler = canvas.AddComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; scaler.referenceResolution = new Vector2(1080,1920); scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight; scaler.matchWidthOrHeight = 0.5f; scaler.referencePixelsPerUnit = 100;
+            CanvasScaler scaler = canvas.AddComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; scaler.referenceResolution = new Vector2(1080,1920); scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight; scaler.matchWidthOrHeight = 1f; scaler.referencePixelsPerUnit = 100;
             canvas.AddComponent<GraphicRaycaster>(); ConfigureCanvas(canvas.GetComponent<RectTransform>());
             AddNested(canvas, backgroundPrefab, Vector2.zero);
             AddNested(canvas, titlePanel, new Vector2(0,766.5f));

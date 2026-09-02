@@ -76,7 +76,7 @@ namespace DouQuqu
         private const int HighestMergeLevel = 3;
         private const int DrawOptionCount = 4;
 
-        [SerializeField] private int width = 5;
+        [SerializeField] private int width = 4;
         [SerializeField] private int height = 5;
         [SerializeField] private int initialPieces = 4;
 
@@ -97,6 +97,13 @@ namespace DouQuqu
 
         public int Width => width;
         public int Height => height;
+
+        /// <summary>表现层按美术格数对齐棋盘。应在 ResetBoard 前调用。</summary>
+        public void SetSize(int newWidth, int newHeight)
+        {
+            width = Mathf.Clamp(newWidth, 2, 12);
+            height = Mathf.Clamp(newHeight, 2, 12);
+        }
         public int Score => score;
         public int MaxLevel => HighestMergeLevel;
         public int DrawCount => drawCount;
