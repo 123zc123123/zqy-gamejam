@@ -4,7 +4,7 @@
         <ui:VisualElement name="merge-root" class="merge-root">
             <ui:Label name="merge-title" text="育虫盘" class="merge-title" />
             <ui:Label name="merge-score-label" text="分数 0" class="merge-score" />
-            <ui:Label name="merge-draw-label" text="合成到最高级后抽卡：A 40/30/25/5，B 25/25/25/25" class="merge-draw" />
+            <ui:Label name="merge-draw-label" text="合到三级后生成蟋蟀并从棋盘消失：A 40/30/25/5，B 各 25%" class="merge-draw" />
             <ui:VisualElement name="merge-board" class="merge-board">
                 <ui:VisualElement name="merge-cell-0" class="merge-cell"><ui:Label name="merge-cell-label-0" text="" class="merge-cell-label" /></ui:VisualElement>
                 <ui:VisualElement name="merge-cell-1" class="merge-cell"><ui:Label name="merge-cell-label-1" text="" class="merge-cell-label" /></ui:VisualElement>
@@ -25,6 +25,7 @@
             </ui:VisualElement>
             <ui:Button name="merge-spawn-button" text="获得合成道具" class="merge-spawn-button" />
             <ui:Label name="merge-status-label" text="点击按钮获得棋子，再拖动棋子合成" class="merge-status" />
+            <ui:Button name="merge-back-button" text="返回主界面" class="merge-back-button" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -454,6 +454,7 @@ GameObject:
   - component: {fileID: 772734991}
   - component: {fileID: 772734994}
   - component: {fileID: 772734993}
+  - component: {fileID: 772734995}
   m_Layer: 0
   m_Name: DouQuquDemoRuntime
   m_TagString: Untagged
@@ -614,7 +615,7 @@ MonoBehaviour:
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_PanelSettings: {fileID: 11400000, guid: 6a4359a05a675154c845f6a18ada7126, type: 2}
+  m_PanelSettings: {fileID: 11400000, guid: c0b1cef005c2088419377af472b34157, type: 2}
   m_ParentUI: {fileID: 0}
   sourceAsset: {fileID: 9197481963319205126, guid: ea8e78a910f9a444c86004bb228e4bd5, type: 3}
   m_SortingOrder: 0
@@ -660,6 +661,18 @@ MonoBehaviour:
   - 25
   - 25
   - 25
+--- !u!114 &772734995
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 772734986}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e54370e926ec8147814151e4ae661ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1206312651
 GameObject:
   m_ObjectHideFlags: 0

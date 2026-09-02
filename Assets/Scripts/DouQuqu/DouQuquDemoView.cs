@@ -110,6 +110,21 @@ namespace DouQuqu
             RefreshView();
         }
 
+        /// <summary>由战斗场景流程关闭旧的自动开局，防止客户端等待快照时误启动单机局。</summary>
+        public void SetAutoStart(bool enabled)
+        {
+            autoStart = enabled;
+        }
+
+        /// <summary>允许场景流程在运行时替换为当前场景的权威状态组件。</summary>
+        public void BindMatch(DouQuquMatchController controller)
+        {
+            if (match == controller) return;
+            if (isActiveAndEnabled && match != null) match.StateChanged -= OnStateChanged;
+            match = controller;
+            if (isActiveAndEnabled && match != null) match.StateChanged += OnStateChanged;
+        }
+
         /// <summary>创建运行时容器，保证表现对象不会散落在场景根节点。</summary>
         private void EnsureRoots()
         {

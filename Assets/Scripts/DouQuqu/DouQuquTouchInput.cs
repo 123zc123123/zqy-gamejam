@@ -35,6 +35,14 @@ namespace DouQuqu
         public Vector2 FlyDirection => flyDirection;
         public bool IsHolding => holding;
 
+        /// <summary>战斗场景加载后绑定持久网络会话以及本机被分配的玩家槽位。</summary>
+        public void BindRuntime(DouQuquMatchController controller, DouQuquLanSession session, int localPlayerId)
+        {
+            match = controller;
+            lan = session;
+            playerId = Mathf.Max(0, localPlayerId);
+        }
+
         private void Awake()
         {
             if (match == null) match = GetComponent<DouQuquMatchController>();
