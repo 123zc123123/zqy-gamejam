@@ -83,24 +83,8 @@ namespace DouQuqu.Editor
                 renderer.receiveShadows = false;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-                Collider2D collider;
-                if (entry.Capsule)
-                {
-                    CapsuleCollider2D capsule = root.AddComponent<CapsuleCollider2D>();
-                    capsule.direction = CapsuleDirection2D.Vertical;
-                    capsule.size = new Vector2(1f, 1.8f);
-                    collider = capsule;
-                }
-                else
-                {
-                    CircleCollider2D circle = root.AddComponent<CircleCollider2D>();
-                    circle.radius = 0.5f;
-                    collider = circle;
-                }
-                // 2D 碰撞体作为表现/检测层，不接管现有的确定性规则碰撞。
-                collider.isTrigger = true;
-
-                // 当前竞技场是 XZ 平面，绕 X 轴 90 度让 Sprite 的 XY 面朝向顶视相机。
+                // 玩法碰撞是 DouQuquCollisionSystem 的圆，不要挂 Unity Collider，避免 Scene 里看到比贴图大一圈的胶囊。
+                root.transform.localScale = Vector3.one;
                 root.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                 PrefabUtility.SaveAsPrefabAsset(root, entry.PrefabPath);
                 return true;

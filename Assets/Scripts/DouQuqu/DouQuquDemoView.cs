@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace DouQuqu
 {
@@ -17,6 +18,8 @@ namespace DouQuqu
 
         [Header("预制体")]
         [SerializeField] private GameObject bugPrefab;
+        [SerializeField] private GameObject qingTouPrefab;
+        [SerializeField] private GameObject youHuluPrefab;
         [SerializeField] private GameObject babyPrefab;
         [SerializeField] private GameObject eggPrefab;
         [SerializeField] private GameObject nestPrefab;
@@ -27,7 +30,8 @@ namespace DouQuqu
 
         [Header("显示")]
         [SerializeField] private float groundOffset = 0.35f;
-        [SerializeField] private bool tintPlayers = true;
+        [SerializeField] private bool tintPlayers = false;
+        [SerializeField] private bool fitVisualToCollision = true;
 
         private readonly Dictionary<int, GameObject> bugViews = new Dictionary<int, GameObject>();
         private readonly Dictionary<int, GameObject> babyViews = new Dictionary<int, GameObject>();
@@ -43,7 +47,10 @@ namespace DouQuqu
         private Transform eggsRoot;
         private Transform pickupsRoot;
         private Transform nestRoot;
+        private Transform arrowsRoot;
         private GameObject nestView;
+        private readonly Dictionary<int, LineRenderer> chargeArrows = new Dictionary<int, LineRenderer>();
+        private Material arrowMaterial;
 
         private static readonly Color[] PlayerColors =
         {
@@ -58,7 +65,16 @@ namespace DouQuqu
             propertyBlock = new MaterialPropertyBlock();
             if (match == null) match = GetComponent<DouQuquMatchController>();
             if (match == null) match = FindObjectOfType<DouQuquMatchController>();
+            EnsureBattleCamera();
             EnsureRoots();
+        }
+
+        private static void EnsureBattleCamera()
+        {
+            Camera main = Camera.main;
+            if (main == null) return;
+            if (main.GetComponent<DouQuquBattleCamera>() == null)
+                main.gameObject.AddComponent<DouQuquBattleCamera>();
         }
 
         private void OnEnable()
@@ -102,6 +118,7 @@ namespace DouQuqu
             eggsRoot = CreateRoot("Eggs");
             pickupsRoot = CreateRoot("Pickups");
             nestRoot = CreateRoot("Nest");
+            arrowsRoot = CreateRoot("ChargeArrows");
         }
 
         private Transform CreateRoot(string rootName)
@@ -123,6 +140,7 @@ namespace DouQuqu
             RefreshEggs(state);
             RefreshPickups(state);
             RefreshNest(state);
+            RefreshChargeArrows(state);
         }
 
         private void RefreshBugs(MatchState state)
@@ -134,18 +152,22 @@ namespace DouQuqu
                 BugState bug = state.bugs[i];
                 if (bug == null) continue;
                 seenIds.Add(bug.id);
-                GameObject view = GetOrCreate(bugViews, bug.id, bugPrefab, bugsRoot, "Bug_" + bug.id);
+                GameObject view = GetOrCreate(bugViews, bug.id, PrefabForBug(bug.id), bugsRoot, "Bug_" + bug.id);
                 if (view == null) continue;
                 view.SetActive(bug.alive);
                 if (!bug.alive) continue;
                 view.transform.position = bug.position + Vector3.up * (groundOffset + bug.height);
-                float scale = Mathf.Max(0.05f, bug.radius / Mathf.Max(0.01f, state.knobs.bugR));
-                view.transform.localScale = Vector3.one * scale;
+                view.transform.localScale = Vector3.one * VisualScale(view, bug.radius, state.knobs.bugR);
+                FaceXz(view, bug.charging ? Vector3.zero : bug.velocity, bug.chargeDirection);
                 if (tintPlayers)
                 {
                     Color tint = PlayerColors[Mathf.Abs(bug.id) % PlayerColors.Length];
                     if (bug.charging) tint = Color.Lerp(tint, Color.white, 0.35f);
                     Tint(view, tint);
+                }
+                else
+                {
+                    Tint(view, bug.charging ? new Color(1f, 0.96f, 0.88f, 1f) : Color.white);
                 }
             }
             HideUnseen(bugViews, seenIds);
@@ -164,10 +186,10 @@ namespace DouQuqu
                 view.SetActive(baby.alive);
                 if (!baby.alive) continue;
                 view.transform.position = baby.position + Vector3.up * (groundOffset + baby.height);
-                float scale = Mathf.Max(0.05f, baby.radius / Mathf.Max(0.01f, state.knobs.bugR * state.knobs.babyRScale));
-                view.transform.localScale = Vector3.one * scale;
-                Color tint = PlayerColors[Mathf.Abs(baby.ownerId) % PlayerColors.Length];
-                Tint(view, Color.Lerp(tint, Color.white, 0.25f));
+                float babyRef = Mathf.Max(0.01f, state.knobs.bugR * Mathf.Max(0.01f, state.knobs.babyRScale));
+                view.transform.localScale = Vector3.one * VisualScale(view, baby.radius, babyRef);
+                FaceXz(view, baby.velocity, baby.chargeDirection);
+                Tint(view, Color.white);
             }
             HideUnseen(babyViews, seenIds);
         }
@@ -233,6 +255,137 @@ namespace DouQuqu
             nestView.transform.localScale = Vector3.one;
             float ratio = Mathf.Clamp01(state.nest.hp / Mathf.Max(1f, state.knobs.nestHP));
             Tint(nestView, Color.Lerp(new Color(0.9f, 0.18f, 0.12f), new Color(0.75f, 0.42f, 0.18f), ratio));
+        }
+
+        private GameObject PrefabForBug(int id)
+        {
+            if (id == 0 && qingTouPrefab != null) return qingTouPrefab;
+            if (id == 1 && youHuluPrefab != null) return youHuluPrefab;
+            if (id % 2 == 0 && qingTouPrefab != null) return qingTouPrefab;
+            if (youHuluPrefab != null) return youHuluPrefab;
+            return bugPrefab;
+        }
+
+        /// <summary>
+        /// 把预制体视觉外接圆对齐玩法半径。scale=1 时 Sprite 大约 1 单位，
+        /// 而 bugR=1.8 的碰撞直径是 3.6，不拟合就会「手感比画面大一圈」。
+        /// </summary>
+        private float VisualScale(GameObject view, float radius, float referenceRadius)
+        {
+            if (!fitVisualToCollision) return Mathf.Max(0.05f, radius / Mathf.Max(0.01f, referenceRadius));
+            float visual = SpriteVisualSize(view);
+            return Mathf.Max(0.05f, (2f * radius) / Mathf.Max(0.05f, visual));
+        }
+
+        private static float SpriteVisualSize(GameObject view)
+        {
+            SpriteRenderer spriteRenderer = view.GetComponentInChildren<SpriteRenderer>();
+            if (spriteRenderer != null && spriteRenderer.sprite != null)
+            {
+                Vector3 size = spriteRenderer.sprite.bounds.size;
+                return Mathf.Max(size.x, size.y);
+            }
+            return 1f;
+        }
+
+        private void RefreshChargeArrows(MatchState state)
+        {
+            seenIds.Clear();
+            MatchKnobs knobs = state.knobs;
+            if (state.bugs != null)
+            {
+                for (int i = 0; i < state.bugs.Length; i++)
+                {
+                    BugState bug = state.bugs[i];
+                    if (bug == null || !bug.alive) continue;
+                    float cap = DouQuquRules.EffectiveChargeTime(knobs, bug);
+                    float speed = DouQuquRules.EffectiveChargeSpeed(knobs, bug) * bug.chargeTime;
+                    float fill = cap > 0.0001f ? Mathf.Clamp01(bug.chargeTime / cap) : 0f;
+                    PlaceChargeArrow(bug.id, bug.charging, speed, fill, knobs, bug.chargeDirection, bug.position, bug.radius);
+                    if (bug.charging) seenIds.Add(bug.id);
+                }
+            }
+            for (int i = 0; i < state.babies.Count; i++)
+            {
+                BabyState baby = state.babies[i];
+                if (baby == null || !baby.alive) continue;
+                float cap = DouQuquRules.BabyChargeTime(knobs);
+                float speed = DouQuquRules.BabyChargeSpeed(knobs, baby);
+                float fill = cap > 0.0001f ? Mathf.Clamp01(baby.chargeTime / cap) : 0f;
+                PlaceChargeArrow(baby.id, baby.charging, speed, fill, knobs, baby.chargeDirection, baby.position, baby.radius);
+                if (baby.charging) seenIds.Add(baby.id);
+            }
+            foreach (KeyValuePair<int, LineRenderer> pair in chargeArrows)
+                if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.enabled = false;
+        }
+
+        private void PlaceChargeArrow(int id, bool charging, float speed, float fill, MatchKnobs knobs, Vector2 direction, Vector3 position, float radius)
+        {
+            LineRenderer line = GetChargeArrow(id);
+            float dist = DouQuquRules.JumpRange(knobs, speed);
+            if (!charging || dist < 0.35f || direction.sqrMagnitude < 0.0001f)
+            {
+                line.enabled = false;
+                return;
+            }
+            Vector2 dir = direction.normalized;
+            Vector2 perp = new Vector2(-dir.y, dir.x);
+            float head = Mathf.Min(1.35f, dist * 0.2f);
+            float width = Mathf.Max(0.28f, radius * 0.55f);
+            Vector3 origin = position + Vector3.up * 0.08f;
+            Vector3 tip = origin + new Vector3(dir.x, 0f, dir.y) * dist;
+            Vector3 neck = tip - new Vector3(dir.x, 0f, dir.y) * head;
+            Vector3 left = neck + new Vector3(perp.x, 0f, perp.y) * width;
+            Vector3 right = neck - new Vector3(perp.x, 0f, perp.y) * width;
+            line.enabled = true;
+            line.positionCount = 5;
+            line.SetPosition(0, origin);
+            line.SetPosition(1, tip);
+            line.SetPosition(2, left);
+            line.SetPosition(3, tip);
+            line.SetPosition(4, right);
+            float shaft = Mathf.Lerp(0.12f, 0.28f, fill);
+            line.startWidth = shaft;
+            line.endWidth = shaft;
+            Color color = fill >= 0.98f
+                ? new Color(0.98f, 0.86f, 0.45f, 0.95f)
+                : Color.Lerp(new Color(0.77f, 0.65f, 0.45f, 0.45f), new Color(0.94f, 0.90f, 0.72f, 0.88f), fill);
+            line.startColor = color;
+            line.endColor = color;
+        }
+
+        private LineRenderer GetChargeArrow(int id)
+        {
+            LineRenderer line;
+            if (chargeArrows.TryGetValue(id, out line) && line != null) return line;
+            GameObject go = new GameObject("ChargeArrow_" + id);
+            go.transform.SetParent(arrowsRoot, false);
+            line = go.AddComponent<LineRenderer>();
+            line.useWorldSpace = true;
+            line.positionCount = 5;
+            line.numCapVertices = 3;
+            line.numCornerVertices = 2;
+            line.shadowCastingMode = ShadowCastingMode.Off;
+            line.receiveShadows = false;
+            line.alignment = LineAlignment.View;
+            if (arrowMaterial == null)
+            {
+                Shader shader = Shader.Find("Sprites/Default");
+                if (shader == null) shader = Shader.Find("Unlit/Color");
+                arrowMaterial = new Material(shader);
+            }
+            line.sharedMaterial = arrowMaterial;
+            chargeArrows[id] = line;
+            return line;
+        }
+
+        private static void FaceXz(GameObject view, Vector3 velocity, Vector2 chargeDirection)
+        {
+            Vector2 face = new Vector2(velocity.x, velocity.z);
+            if (face.sqrMagnitude < 0.04f) face = chargeDirection;
+            if (face.sqrMagnitude < 0.0001f) face = Vector2.up;
+            float yaw = Mathf.Atan2(face.x, face.y) * Mathf.Rad2Deg + 180f;
+            view.transform.rotation = Quaternion.Euler(90f, yaw, 0f);
         }
 
         private GameObject PrefabForPickup(string kind)

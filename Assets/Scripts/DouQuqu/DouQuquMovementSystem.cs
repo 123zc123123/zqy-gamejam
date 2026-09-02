@@ -111,12 +111,19 @@ namespace DouQuqu
             if (!bug.charging) return;
 
             float cap = DouQuquRules.EffectiveChargeTime(knobs, bug);
-            // 手机方向盘把拖动距离直接映射到蓄力条；键盘和兼容旧包继续按时间累积。
+            // 反弹/现版按住计时；distanceCharge 仅留给滑长档。
             if (input != null && input.distanceCharge)
                 bug.chargeTime = cap * Mathf.Clamp01(input.charge01);
             else
                 bug.chargeTime = Mathf.Min(cap, bug.chargeTime + dt);
-            if (released || !held) Launch(knobs, bug);
+            if (!released && held) return;
+            if (bug.chargeTime + 1e-4f < knobs.tMin)
+            {
+                bug.charging = false;
+                bug.chargeTime = 0f;
+                return;
+            }
+            Launch(knobs, bug);
         }
 
         // 地面运动受摩擦减速；空中运动沿用平面速度，并单独积分垂直抛物线。

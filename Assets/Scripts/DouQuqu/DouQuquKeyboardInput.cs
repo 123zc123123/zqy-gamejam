@@ -19,7 +19,7 @@ namespace DouQuqu
         [SerializeField] private DouQuquMatchController match;
         [SerializeField] private DouQuquLanSession lan;
         [SerializeField] private int offlinePlayerCount = 4;
-        [SerializeField] private InputVersion inputVersion = InputVersion.Current;
+        [SerializeField] private InputVersion inputVersion = InputVersion.Rebound;
 
         // 保存上一帧按键状态，用来合成只持续一帧的松开事件。
         private readonly bool[] previousHeld = new bool[DouQuquMatchController.MaxPlayers];

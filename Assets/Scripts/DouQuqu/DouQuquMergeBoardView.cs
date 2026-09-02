@@ -84,7 +84,11 @@ namespace DouQuqu
             VisualElement root = uiDocument.rootVisualElement;
             if (root == null) return;
             mergeRoot = root.Q<VisualElement>("merge-root");
-            if (mergeRoot == null) return;
+            if (mergeRoot == null)
+            {
+                enabled = false;
+                return;
+            }
             mergeBoard = root.Q<VisualElement>("merge-board");
             scoreLabel = root.Q<Label>("merge-score-label");
             drawLabel = root.Q<Label>("merge-draw-label");

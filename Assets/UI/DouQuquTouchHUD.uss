@@ -1,222 +1,68 @@
+/* 占位外观对齐 prototype-v5/style.css #stick。正式图走 DouQuquStickTheme 的 Sprite 槽。 */
 .touch-root {
     position: absolute;
     left: 0;
     right: 0;
     top: 0;
     bottom: 0;
-    picking-mode: Ignore;
-}
-
-.direction-pad {
-    position: absolute;
-    left: 54px;
-    bottom: 54px;
-    width: 280px;
-    height: 280px;
-    background-color: rgba(8, 18, 32, 0.72);
-    border-left-width: 3px;
-    border-right-width: 3px;
-    border-top-width: 3px;
-    border-bottom-width: 3px;
-    border-left-color: rgba(120, 190, 255, 0.72);
-    border-right-color: rgba(120, 190, 255, 0.72);
-    border-top-color: rgba(120, 190, 255, 0.72);
-    border-bottom-color: rgba(120, 190, 255, 0.72);
-    border-radius: 140px;
     picking-mode: Position;
 }
 
-.direction-ring {
+.stick-base {
     position: absolute;
-    left: 26px;
-    top: 26px;
-    width: 222px;
-    height: 222px;
-    background-color: rgba(75, 135, 190, 0.18);
+    left: 50%;
+    bottom: 24px;
+    width: 128px;
+    height: 128px;
+    margin-left: -64px;
+    background-color: rgba(14, 16, 14, 0.58);
     border-left-width: 2px;
     border-right-width: 2px;
     border-top-width: 2px;
     border-bottom-width: 2px;
-    border-left-color: rgba(180, 225, 255, 0.35);
-    border-right-color: rgba(180, 225, 255, 0.35);
-    border-top-color: rgba(180, 225, 255, 0.35);
-    border-bottom-color: rgba(180, 225, 255, 0.35);
-    border-radius: 111px;
+    border-left-color: rgba(196, 165, 116, 0.40);
+    border-right-color: rgba(196, 165, 116, 0.40);
+    border-top-color: rgba(196, 165, 116, 0.40);
+    border-bottom-color: rgba(196, 165, 116, 0.40);
+    border-radius: 64px;
     picking-mode: Ignore;
+    display: none;
 }
 
-.direction-handle {
+.stick-center {
     position: absolute;
-    left: 102px;
-    top: 102px;
-    width: 76px;
-    height: 76px;
-    background-color: rgba(110, 210, 255, 0.92);
-    border-left-width: 3px;
-    border-right-width: 3px;
-    border-top-width: 3px;
-    border-bottom-width: 3px;
-    border-left-color: rgb(230, 250, 255);
-    border-right-color: rgb(230, 250, 255);
-    border-top-color: rgb(230, 250, 255);
-    border-bottom-color: rgb(230, 250, 255);
-    border-radius: 38px;
+    left: 50%;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    margin-top: -5px;
+    background-color: rgb(239, 230, 210);
+    border-radius: 5px;
     picking-mode: Ignore;
 }
 
-.charge-label {
+.stick-knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 52px;
+    height: 52px;
+    margin-left: -26px;
+    margin-top: -26px;
+    background-color: rgb(138, 74, 58);
+    border-radius: 26px;
+    picking-mode: Ignore;
+}
+
+.stick-hint {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 20px;
-    color: rgb(235, 248, 255);
-    -unity-font-size: 22px;
+    bottom: 8px;
+    color: rgba(232, 220, 196, 0.55);
+    -unity-font-size: 11px;
     -unity-text-align: middle-center;
+    letter-spacing: 1px;
     picking-mode: Ignore;
-}
-
-.touch-hint {
-    position: absolute;
-    left: 54px;
-    bottom: 20px;
-    color: rgba(225, 240, 255, 0.82);
-    -unity-font-size: 20px;
-    -unity-text-align: middle-left;
-    picking-mode: Ignore;
-}
-
-.merge-root {
-    position: absolute;
-    top: 34px;
-    right: 34px;
-    width: 362px;
-    padding-left: 18px;
-    padding-right: 18px;
-    padding-top: 16px;
-    padding-bottom: 14px;
-    background-color: rgba(10, 22, 40, 0.90);
-    border-left-width: 3px;
-    border-right-width: 3px;
-    border-top-width: 3px;
-    border-bottom-width: 3px;
-    border-left-color: rgba(125, 205, 255, 0.82);
-    border-right-color: rgba(125, 205, 255, 0.82);
-    border-top-color: rgba(125, 205, 255, 0.82);
-    border-bottom-color: rgba(125, 205, 255, 0.82);
-    border-radius: 18px;
-    align-items: center;
-    picking-mode: Position;
-}
-
-.merge-title {
-    width: 100%;
-    color: rgb(235, 248, 255);
-    -unity-font-size: 28px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-    margin-bottom: 2px;
-}
-
-.merge-score {
-    width: 100%;
-    color: rgb(174, 222, 255);
-    -unity-font-size: 20px;
-    -unity-text-align: middle-center;
-    margin-bottom: 10px;
-}
-
-.merge-draw {
-    width: 100%;
-    min-height: 34px;
-    margin-bottom: 8px;
-    color: rgba(255, 231, 164, 0.96);
-    -unity-font-size: 14px;
-    -unity-text-align: middle-center;
-    white-space: normal;
-}
-
-.merge-board {
-    width: 324px;
-    height: 324px;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    padding-left: 4px;
-    padding-top: 4px;
-    background-color: rgba(52, 84, 119, 0.52);
-    border-radius: 12px;
-}
-
-.merge-cell {
-    width: 76px;
-    height: 76px;
-    margin-right: 4px;
-    margin-bottom: 4px;
-    background-color: rgba(26, 46, 69, 0.92);
-    border-left-width: 2px;
-    border-right-width: 2px;
-    border-top-width: 2px;
-    border-bottom-width: 2px;
-    border-left-color: rgba(145, 193, 226, 0.30);
-    border-right-color: rgba(145, 193, 226, 0.30);
-    border-top-color: rgba(145, 193, 226, 0.30);
-    border-bottom-color: rgba(145, 193, 226, 0.30);
-    border-radius: 10px;
-    align-items: center;
-    justify-content: center;
-    picking-mode: Position;
-}
-
-.merge-cell.merge-dragging {
-    border-left-color: rgb(255, 245, 167);
-    border-right-color: rgb(255, 245, 167);
-    border-top-color: rgb(255, 245, 167);
-    border-bottom-color: rgb(255, 245, 167);
-}
-
-.merge-cell.merge-target {
-    border-left-color: rgb(130, 242, 190);
-    border-right-color: rgb(130, 242, 190);
-    border-top-color: rgb(130, 242, 190);
-    border-bottom-color: rgb(130, 242, 190);
-}
-
-.merge-cell-label {
-    width: 100%;
-    height: 100%;
-    color: rgb(15, 29, 48);
-    -unity-font-size: 30px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-    -unity-text-overflow-position: Ellipsis;
-    picking-mode: Ignore;
-}
-
-.merge-spawn-button {
-    width: 240px;
-    height: 48px;
-    margin-top: 14px;
-    background-color: rgb(75, 178, 231);
-    border-left-width: 0;
-    border-right-width: 0;
-    border-top-width: 0;
-    border-bottom-width: 0;
-    border-radius: 10px;
-    color: rgb(8, 25, 42);
-    -unity-font-size: 21px;
-    -unity-font-style: bold;
-}
-
-.merge-spawn-button:hover {
-    background-color: rgb(116, 211, 255);
-}
-
-.merge-status {
-    width: 100%;
-    min-height: 44px;
-    margin-top: 8px;
-    color: rgba(225, 240, 255, 0.88);
-    -unity-font-size: 16px;
-    -unity-text-align: middle-center;
-    white-space: normal;
 }
