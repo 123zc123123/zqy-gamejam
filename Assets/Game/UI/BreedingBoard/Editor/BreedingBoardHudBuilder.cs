@@ -27,7 +27,6 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             if (coinSprite == null)
                 throw new System.IO.FileNotFoundException("Missing Figma coins PNG sprite", CoinPath);
 
-            AssetDatabase.DeleteAsset(HudPath);
             GameObject hud = CreateRect("BreedingBoard_Hud", new Vector2(1080f, 1920f), Vector2.zero, null);
             ConfigureFullCanvasRect(hud.GetComponent<RectTransform>());
             BuildGoldDisplay(hud.transform, coinSprite);
