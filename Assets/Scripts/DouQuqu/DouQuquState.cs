@@ -113,6 +113,7 @@ namespace DouQuqu
         public float verticalVelocity;
         public float radius;
         public float chargeTime;
+        public float stamina;
         public int grow;
         public int score;
         public int lastHitId;
@@ -177,11 +178,11 @@ namespace DouQuqu
 
     [Serializable]
     /// <summary>
-    /// 完整权威状态。v4 包含经济和巢穴游标，使客户端或恢复后的主机可以继续确定性运行。
+    /// 完整权威状态。v5 含耐力；v4 含经济和巢穴游标，使客户端或恢复后的主机可以继续确定性运行。
     /// </summary>
     public sealed class MatchSnapshot
     {
-        public int version = 4;
+        public int version = 5;
         public int tick;
         public int playerCount;
         public int randomSeed;

@@ -75,8 +75,9 @@ namespace DouQuqu
                     continue;
                 }
 
-                // 只有停稳且不在空中时才开始下一次真人式操作。
+                // 只有停稳、不在空中、且还有耐力时才开始下一次真人式操作。
                 if (decisionTimers[i] > 0f || bug.airborne || bug.velocity.sqrMagnitude > 0.1f) continue;
+                if (!DouQuquRules.CanStartCharge(knobs, bug)) continue;
 
                 Vector2 direction = ChooseDirection(state, bug, i);
                 if (direction.sqrMagnitude <= 0.0001f) direction = Vector2.up;
@@ -118,7 +119,9 @@ namespace DouQuqu
         /// <summary>根据当前方向到场地边缘的距离，计算本次允许的最长蓄力时间。</summary>
         private float ChooseReleaseTime(MatchState state, BugState bug, Vector2 direction, MatchKnobs knobs)
         {
-            float cap = DouQuquRules.EffectiveChargeTime(knobs, bug);
+            float cap = Mathf.Min(
+                DouQuquRules.EffectiveChargeTime(knobs, bug),
+                DouQuquRules.StaminaChargeTCap(knobs, bug));
             if (cap <= 0.0001f) return DouQuquMatchController.FixedDeltaTime;
 
             float maxSpeed = Mathf.Max(

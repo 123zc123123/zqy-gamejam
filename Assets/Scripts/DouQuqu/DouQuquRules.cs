@@ -24,6 +24,10 @@ namespace DouQuqu
         // 蓄力、碰撞和移动参数。
         public float tMin = 0f;
         public float tMax = 0.4f;
+        public float staminaMax = 5f;
+        public float staminaCost = 1f;
+        public float staminaRegen = 0.6f;
+        public int staminaSlots = 5;
         public float dMin = 8f;
         public float vRate = 80f;
         public float theta = 15f;
@@ -195,6 +199,52 @@ namespace DouQuqu
         public static float ChargeDelta(MatchKnobs knobs, BugState bug)
         {
             return EffectiveChargeSpeed(knobs, bug) * Mathf.Clamp(bug.chargeTime, 0f, EffectiveChargeTime(knobs, bug));
+        }
+
+        /// <summary>满蓄一次起跳的耐力消耗。</summary>
+        public static float StaminaFullCost(MatchKnobs knobs)
+        {
+            return Mathf.Max(0f, knobs.staminaCost);
+        }
+
+        /// <summary>当前蓄力相对有效 T_max 的比例，满蓄为 1。</summary>
+        public static float ChargeProgress(MatchKnobs knobs, BugState bug)
+        {
+            if (bug == null) return 0f;
+            float tMax = Mathf.Max(0.000001f, EffectiveChargeTime(knobs, bug));
+            return Mathf.Clamp01(bug.chargeTime / tMax);
+        }
+
+        /// <summary>本次起跳耐力消耗 = 满蓄消耗 × 蓄力比例。</summary>
+        public static float JumpStaminaCost(MatchKnobs knobs, BugState bug)
+        {
+            return StaminaFullCost(knobs) * ChargeProgress(knobs, bug);
+        }
+
+        /// <summary>当前耐力能负担的最长蓄力时间。</summary>
+        public static float StaminaChargeTCap(MatchKnobs knobs, BugState bug)
+        {
+            float tMax = EffectiveChargeTime(knobs, bug);
+            float full = StaminaFullCost(knobs);
+            if (full <= 0.000001f) return tMax;
+            float stamina = bug == null ? 0f : bug.stamina;
+            return tMax * Mathf.Clamp01(stamina / full);
+        }
+
+        /// <summary>耐力大于 0 才能进入蓄力。小蟋蟀不读耐力。</summary>
+        public static bool CanStartCharge(MatchKnobs knobs, BugState bug)
+        {
+            if (bug == null) return false;
+            return bug.stamina > 0.000001f;
+        }
+
+        /// <summary>落地且未蓄力时恢复耐力，含滑行；空中和蓄力期间暂停。</summary>
+        public static void TickStamina(MatchKnobs knobs, BugState bug, float dt)
+        {
+            if (bug == null || !bug.alive || bug.airborne || bug.charging) return;
+            float max = Mathf.Max(0f, knobs.staminaMax);
+            float regen = Mathf.Max(0f, knobs.staminaRegen);
+            bug.stamina = Mathf.Clamp(bug.stamina + regen * dt, 0f, max);
         }
 
         /// <summary>返回未强化时蓄力条对应的最大速度。</summary>
@@ -690,6 +740,7 @@ namespace DouQuqu
         public float initialSpeed;
         public float slideMu;
         public float chargeTime;
+        public float stamina;
         public Vector2 chargeDirection = Vector2.up;
         public float radius;
         public float mass;
@@ -712,6 +763,7 @@ namespace DouQuqu
             id = playerId;
             position = spawn;
             previousPosition = spawn;
+            stamina = knobs == null ? 5f : Mathf.Max(0f, knobs.staminaMax);
             DouQuquRules.RefreshBody(knobs, this);
         }
     }

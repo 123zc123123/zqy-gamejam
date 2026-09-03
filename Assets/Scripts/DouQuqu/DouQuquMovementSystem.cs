@@ -33,7 +33,10 @@ namespace DouQuqu
         public void TickCharge(MatchState state, InputFrame[] inputs, float dt)
         {
             for (int i = 0; i < state.bugs.Length; i++)
+            {
                 StepBugCharge(state.knobs, state.bugs[i], inputs != null && i < inputs.Length ? inputs[i] : null, dt);
+                DouQuquRules.TickStamina(state.knobs, state.bugs[i], dt);
+            }
         }
 
         /// <summary>所有移动子步完成后应用出圈规则。</summary>
@@ -104,16 +107,17 @@ namespace DouQuqu
             if (IsSettled(bug) && bug.pendingCharge && held)
             {
                 bug.pendingCharge = false;
-                BeginCharge(bug);
+                BeginCharge(knobs, bug);
             }
             if (IsSettled(bug) && held && !bug.charging)
-                BeginCharge(bug);
+                BeginCharge(knobs, bug);
             if (!bug.charging) return;
 
-            float cap = DouQuquRules.EffectiveChargeTime(knobs, bug);
-            // 反弹/现版按住计时；distanceCharge 仅留给滑长档。
+            float tMax = DouQuquRules.EffectiveChargeTime(knobs, bug);
+            float cap = DouQuquRules.StaminaChargeTCap(knobs, bug);
+            // 反弹/现版按住计时；distanceCharge 仅留给滑长档。蓄力不超过当前耐力能负担的比例。
             if (input != null && input.distanceCharge)
-                bug.chargeTime = cap * Mathf.Clamp01(input.charge01);
+                bug.chargeTime = Mathf.Min(cap, tMax * Mathf.Clamp01(input.charge01));
             else
                 bug.chargeTime = Mathf.Min(cap, bug.chargeTime + dt);
             if (!released && held) return;
@@ -226,6 +230,14 @@ namespace DouQuqu
         // 起跳把蓄力时间换算成平面冲量和垂直升力；质量只影响碰撞，不影响自身起跳速度。
         private void Launch(MatchKnobs knobs, BugState bug)
         {
+            float cost = DouQuquRules.JumpStaminaCost(knobs, bug);
+            if (bug.stamina + 1e-6f < cost)
+            {
+                bug.charging = false;
+                bug.chargeTime = 0f;
+                return;
+            }
+            bug.stamina = Mathf.Max(0f, bug.stamina - cost);
             float speed = DouQuquRules.JumpDeltaV(knobs, bug);
             Vector2 direction = bug.chargeDirection.sqrMagnitude > 0.0001f ? bug.chargeDirection.normalized : Vector2.up;
             bug.velocity = new Vector3(direction.x * speed, 0f, direction.y * speed);
@@ -254,11 +266,13 @@ namespace DouQuqu
             baby.attackCooldown = DouQuquRules.BabyAttackCooldown(knobs);
         }
 
-        private void BeginCharge(BugState bug)
+        private bool BeginCharge(MatchKnobs knobs, BugState bug)
         {
+            if (!DouQuquRules.CanStartCharge(knobs, bug)) return false;
             bug.charging = true;
             bug.chargeTime = 0f;
             bug.pendingCharge = false;
+            return true;
         }
 
         private bool IsSettled(BugState bug)
