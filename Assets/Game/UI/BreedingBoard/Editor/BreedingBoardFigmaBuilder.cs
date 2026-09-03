@@ -17,8 +17,8 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
         const string Parts = Prefabs + "/Parts";
         const string Scenes = Root + "/Scenes";
         const string Textures = Root + "/Textures/Figma";
-        const string PagePath = Prefabs + "/BreedingBoard.prefab";
-        const string CanvasPath = Prefabs + "/BreedingBoardCanvas.prefab";
+        const string PagePath = Prefabs + "/育虫盘.prefab";
+        const string CanvasPath = Prefabs + "/Canvas.prefab";
         const string ScenePath = Scenes + "/BreedingBoard.unity";
         const string BackgroundTexture = Textures + "/BreedingBoard_Background_108_93.png";
         const string CoinTexture = Textures + "/BreedingBoard_Coins.png";
@@ -41,36 +41,36 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             GameObject titleText = BuildTextPart("banner-text", "育虫盘", new Vector2(144,73), 48, Gold, TextAnchor.MiddleCenter);
             GameObject titlePanel = BuildPanelPart("event-title-panel", new Vector2(390,105), new Vector2(0,766.5f), new Color(0.11f,0.11f,0.14f,0.82f), GoldLine, 2, false);
             AddNested(titlePanel, titleText, new Vector2(0,0));
-            titlePanel = SaveExisting(titlePanel, Parts + "/BreedingBoard_EventTitlePanel.prefab");
+            titlePanel = SaveExisting(titlePanel, Parts + "/EventTitlePanel.prefab");
 
             GameObject rulesLabel = BuildTextPart("玩法规则", "玩法规则", new Vector2(80,30), 20, Gold, TextAnchor.MiddleCenter);
             GameObject fileIcon = BuildTextPart("file-text", "▤", new Vector2(53,49), 34, Gold, TextAnchor.MiddleCenter);
             GameObject rules = BuildButtonPart("btn-left-rules", new Vector2(130,105), new Color(0,0,0,0.82f), GoldLine);
             AddNested(rules, fileIcon, new Vector2(-0.5f,19));
             AddNested(rules, rulesLabel, new Vector2(0,-25.5f));
-            rules = SaveExisting(rules, Parts + "/BreedingBoard_RulesButton.prefab");
+            rules = SaveExisting(rules, Parts + "/RulesButton.prefab");
 
-            GameObject ellipse2 = BuildImagePart("Ellipse 2", new Vector2(180,180), Color.white, PrepareSprite(Textures + "/Ellipse2.png")); ellipse2 = SaveExisting(ellipse2, Parts + "/BreedingBoard_ArenaRing.prefab");
+            GameObject ellipse2 = BuildImagePart("Ellipse 2", new Vector2(180,180), Color.white, PrepareSprite(Textures + "/Ellipse2.png")); ellipse2 = SaveExisting(ellipse2, Parts + "/ArenaRing.prefab");
             GameObject arenaCountText = BuildTextPart("99", "99", new Vector2(44,55), 36, Color.white, TextAnchor.MiddleCenter);
             GameObject arenaCount = BuildImagePart("ArenaStatus", new Vector2(90,90), Color.white, PrepareSprite(Textures + "/Ellipse3.png"));
             if (arenaCount == null) arenaCount = BuildPanelPart("Frame 2", new Vector2(90,90), Vector2.zero, new Color(0.12f,0.12f,0.16f,0.86f), GoldLine, 1, false);
             AddNested(arenaCount, arenaCountText, new Vector2(0,0));
-            arenaCount = SaveExisting(arenaCount, Parts + "/BreedingBoard_ArenaStatus.prefab");
+            arenaCount = SaveExisting(arenaCount, Parts + "/ArenaStatus.prefab");
 
             GameObject backpackLabel = BuildTextPart("背包", "背包", new Vector2(80,61), 40, Gold, TextAnchor.MiddleCenter);
             GameObject backpack = BuildButtonPart("btn-left-rules", new Vector2(138,106), new Color(0,0,0,0.82f), GoldLine);
             AddNested(backpack, backpackLabel, Vector2.zero);
-            backpack = SaveExisting(backpack, Parts + "/BreedingBoard_BackpackButton.prefab");
+            backpack = SaveExisting(backpack, Parts + "/BackpackButton.prefab");
 
             GameObject actions = BuildEmptyPart("main-event-actions", new Vector2(972,208), new Vector2(8,656));
             AddNested(actions, rules, new Vector2(-421,0.5f));
             AddNested(actions, ellipse2, new Vector2(-29,-24));
             AddNested(actions, arenaCount, new Vector2(61,34));
             AddNested(actions, backpack, new Vector2(371,-5));
-            actions = SaveExisting(actions, Parts + "/BreedingBoard_MainEventActions.prefab");
+            actions = SaveExisting(actions, Parts + "/MainEventActions.prefab");
 
             GameObject boardBase = BuildPanelPart("棋盘底", new Vector2(952,1193), Vector2.zero, new Color(0.824f,0.769f,0.522f,0.7f), new Color(0.55f,0.4f,0.26f,0.35f), 3, false);
-            boardBase = SaveExisting(boardBase, Parts + "/BreedingBoard_BoardBase.prefab");
+            boardBase = SaveExisting(boardBase, Parts + "/BoardBase.prefab");
             GameObject board = BuildEmptyPart("棋盘", new Vector2(912,1145), new Vector2(0,81.5f));
             AddNested(board, boardBase, Vector2.zero);
             float[] xs = {-349.5f,-116.5f,116.5f,349.5f};
@@ -79,11 +79,11 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             foreach (float y in ys) foreach (float x in xs)
             {
                 GameObject cellPrefab = BuildPanelPart("Cell " + cell, new Vector2(213,213), Vector2.zero, new Color(0.76f,0.58f,0.40f,1f), new Color(0.55f,0.4f,0.26f,1f), 2, true);
-                cellPrefab = SaveExisting(cellPrefab, Parts + "/BreedingBoard_Cell" + cell + ".prefab");
+                cellPrefab = SaveExisting(cellPrefab, Parts + "/Cell" + cell + ".prefab");
                 AddNested(board, cellPrefab, new Vector2(x,y));
                 cell++;
             }
-            board = SaveExisting(board, Parts + "/BreedingBoard_Board.prefab");
+            board = SaveExisting(board, Parts + "/Board.prefab");
 
             GameObject backIcon = BuildImagePart("返回icon", new Vector2(150,150), Color.white, PrepareSprite(Textures + "/BackCircle.png"));
             Color arrowColor = new Color(0.384f, 0.380f, 0.20f, 1f);
@@ -100,7 +100,7 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             Image backImage = backIcon != null ? backIcon.GetComponent<Image>() : null;
             if (backImage != null) backImage.raycastTarget = true;
             if (backImage != null) { Button backButton = backIcon.AddComponent<Button>(); backButton.targetGraphic = backImage; Navigation nav = backButton.navigation; nav.mode = Navigation.Mode.None; backButton.navigation = nav; }
-            backIcon = SaveExisting(backIcon, Parts + "/BreedingBoard_BackIcon.prefab");
+            backIcon = SaveExisting(backIcon, Parts + "/BackIcon.prefab");
             GameObject tabFight = BuildTab("BattleTab", "斗蛐蛐", -218.5f);
             GameObject tabBreed = BuildTab("BreedingTab", "育虫盘", 57.5f);
             GameObject tabRegistry = BuildTab("RegistryTab", "蛐蛐谱", 342.5f);
@@ -109,15 +109,15 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             AddNested(carousel, tabFight, new Vector2(-218.5f,0));
             AddNested(carousel, tabBreed, new Vector2(57.5f,0));
             AddNested(carousel, tabRegistry, new Vector2(342.5f,0));
-            carousel = SaveExisting(carousel, Parts + "/BreedingBoard_BottomEventCarousel.prefab");
+            carousel = SaveExisting(carousel, Parts + "/BottomEventCarousel.prefab");
 
             GameObject goldIcon = BuildImagePart("Coins", new Vector2(38,38), Color.white, coin);
             GameObject amount = BuildTextPart("18,450", "18,450", new Vector2(90,32), 20, Color.white, TextAnchor.MiddleCenter);
             GameObject gold = BuildPanelPart("GoldDisplay", new Vector2(172,58), new Vector2(381,832), new Color(0,0,0,0.5f), Color.clear, 0, false);
             AddNested(gold, goldIcon, new Vector2(-51,-1)); AddNested(gold, amount, new Vector2(19,-1));
-            gold = SaveExisting(gold, Parts + "/BreedingBoard_GoldDisplay.prefab");
+            gold = SaveExisting(gold, Parts + "/GoldDisplay.prefab");
 
-            GameObject canvas = BuildEmptyPart("BreedingBoardCanvas", new Vector2(1080,1920), Vector2.zero);
+            GameObject canvas = BuildEmptyPart("Canvas", new Vector2(1080,1920), Vector2.zero);
             Canvas c = canvas.AddComponent<Canvas>(); c.renderMode = RenderMode.ScreenSpaceOverlay;
             CanvasScaler scaler = canvas.AddComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; scaler.referenceResolution = new Vector2(1080,1920); scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight; scaler.matchWidthOrHeight = 1f; scaler.referencePixelsPerUnit = 100;
             canvas.AddComponent<GraphicRaycaster>(); ConfigureCanvas(canvas.GetComponent<RectTransform>());
@@ -129,7 +129,7 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             AddNested(canvas, gold, new Vector2(381,832));
             GameObject savedCanvas = SavePrefab(canvas, CanvasPath);
 
-            GameObject page = BuildEmptyPart("BreedingBoard", new Vector2(1080,1920), Vector2.zero);
+            GameObject page = BuildEmptyPart("育虫盘", new Vector2(1080,1920), Vector2.zero);
             AddNested(page, savedCanvas, Vector2.zero); SavePrefab(page, PagePath);
             SaveScene();
             AppendBuildSettings(ScenePath);
@@ -153,8 +153,8 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             GameObject tab = BuildButtonPart("tab-0", new Vector2(219,150), new Color(0.384f,0.380f,0.20f,1), new Color(0.341f,0.36f,0.09f,1));
             GameObject text = BuildTextPart("text", label, new Vector2(120,48), 40, Gold, TextAnchor.MiddleCenter);
             AddNested(tab, text, new Vector2(-0.5f,-39));
-            SaveExisting(tab, Parts + "/BreedingBoard_" + name + ".prefab");
-            return AssetDatabase.LoadAssetAtPath<GameObject>(Parts + "/BreedingBoard_" + name + ".prefab");
+            SaveExisting(tab, Parts + "/" + name + ".prefab");
+            return AssetDatabase.LoadAssetAtPath<GameObject>(Parts + "/" + name + ".prefab");
         }
 
         static GameObject BuildEmptyPart(string name, Vector2 size, Vector2 position)
@@ -197,16 +197,16 @@ static void AddNested(GameObject parent, GameObject child, Vector2 position)
                 instance = Object.Instantiate(child, parent.transform);
             if (instance == null) return;
             string displayName = child.name;
-            if (displayName == "BreedingBoard_EventTitlePanel") displayName = "event-title-panel";
-            else if (displayName == "BreedingBoard_MainEventActions") displayName = "main-event-actions";
-            else if (displayName == "BreedingBoard_Board") displayName = "棋盘";
-            else if (displayName == "BreedingBoard_BoardBase") displayName = "棋盘底";
-            else if (displayName == "BreedingBoard_RulesButton" || displayName == "BreedingBoard_BackpackButton") displayName = "btn-left-rules";
-            else if (displayName == "BreedingBoard_ArenaStatus") displayName = "Frame 2";
-            else if (displayName == "BreedingBoard_BottomEventCarousel") displayName = "bottom-event-carousel";
-            else if (displayName == "BreedingBoard_BackIcon") displayName = "返回icon";
-            else if (displayName == "BreedingBoard_BattleTab" || displayName == "BreedingBoard_BreedingTab" || displayName == "BreedingBoard_RegistryTab") displayName = "tab-0";
-            else if (displayName.StartsWith("BreedingBoard_Cell")) displayName = "Cell " + displayName.Substring("BreedingBoard_Cell".Length);
+            if (displayName == "EventTitlePanel") displayName = "event-title-panel";
+            else if (displayName == "MainEventActions") displayName = "main-event-actions";
+            else if (displayName == "Board") displayName = "棋盘";
+            else if (displayName == "BoardBase") displayName = "棋盘底";
+            else if (displayName == "RulesButton" || displayName == "BackpackButton") displayName = "btn-left-rules";
+            else if (displayName == "ArenaStatus") displayName = "Frame 2";
+            else if (displayName == "BottomEventCarousel") displayName = "bottom-event-carousel";
+            else if (displayName == "BackIcon") displayName = "返回icon";
+            else if (displayName == "BattleTab" || displayName == "BreedingTab" || displayName == "RegistryTab") displayName = "tab-0";
+            else if (displayName.StartsWith("Cell")) displayName = "Cell " + displayName.Substring("Cell".Length);
             instance.name = displayName;
             RectTransform rect = instance.GetComponent<RectTransform>();
             if (rect != null) rect.anchoredPosition = position;
