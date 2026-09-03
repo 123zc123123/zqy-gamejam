@@ -1,7 +1,6 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace DouQuqu.Editor
 {
@@ -13,6 +12,8 @@ namespace DouQuqu.Editor
     {
         private const string RingPath = "Assets/Prefabs/DouQuqu/DouQuqu_StaminaRing.prefab";
         private const string ArrowPath = "Assets/Prefabs/DouQuqu/DouQuqu_ChargeArrow.prefab";
+        private const string FillSvg = "Assets/Art/DouQuqu2D/DouQuqu_ChargeFill.svg";
+        private const string ChevronSvg = "Assets/Art/DouQuqu2D/DouQuqu_ChargeChevron.svg";
         private const string BattleScene = "Assets/Scenes/DouQuquDemo.unity";
 
         [MenuItem("DouQuqu/Rebuild Overlay Prefabs")]
@@ -20,7 +21,7 @@ namespace DouQuqu.Editor
         {
             Material lineMaterial = LineMaterial();
             BuildRing(lineMaterial);
-            BuildArrow(lineMaterial);
+            BuildArrow();
             AssignToBattleScene();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -63,8 +64,16 @@ namespace DouQuqu.Editor
             }
         }
 
-        private static void BuildArrow(Material lineMaterial)
+        private static void BuildArrow()
         {
+            Sprite fillSprite = AssetDatabase.LoadAssetAtPath<Sprite>(FillSvg);
+            Sprite chevronSprite = AssetDatabase.LoadAssetAtPath<Sprite>(ChevronSvg);
+            if (fillSprite == null || chevronSprite == null)
+            {
+                Debug.LogError("[DouQuqu] 找不到蓄力 SVG，等导入后再跑一次：" + FillSvg + " / " + ChevronSvg);
+                return;
+            }
+
             GameObject root;
             bool existed = System.IO.File.Exists(ArrowPath);
             if (existed) root = PrefabUtility.LoadPrefabContents(ArrowPath);
@@ -76,20 +85,24 @@ namespace DouQuqu.Editor
                 root.transform.localPosition = Vector3.zero;
                 root.transform.localRotation = Quaternion.identity;
                 root.transform.localScale = Vector3.one;
+                Strip<MeshFilter>(root);
+                Strip<MeshRenderer>(root);
+                Strip<LineRenderer>(root);
 
                 DouQuquChargeArrow arrow = root.GetComponent<DouQuquChargeArrow>();
                 if (arrow == null) arrow = root.AddComponent<DouQuquChargeArrow>();
                 SerializedObject so = new SerializedObject(arrow);
-                SerializedProperty material = so.FindProperty("lineMaterial");
-                if (material != null) material.objectReferenceValue = lineMaterial;
+                SetObject(so, "fillSprite", fillSprite);
+                SetObject(so, "chevronSprite", chevronSprite);
                 so.ApplyModifiedPropertiesWithoutUndo();
                 arrow.EnsureReady();
-                LineRenderer line = root.GetComponent<LineRenderer>();
-                if (line != null)
+                SpriteRenderer fillRenderer = root.transform.Find("Fill") != null
+                    ? root.transform.Find("Fill").GetComponent<SpriteRenderer>()
+                    : null;
+                if (fillRenderer != null)
                 {
-                    line.enabled = false;
-                    line.shadowCastingMode = ShadowCastingMode.Off;
-                    line.receiveShadows = false;
+                    fillRenderer.sprite = fillSprite;
+                    fillRenderer.enabled = true;
                 }
 
                 if (existed) PrefabUtility.SaveAsPrefabAsset(root, ArrowPath);
@@ -129,6 +142,19 @@ namespace DouQuqu.Editor
             SerializedProperty property = so.FindProperty(field);
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (property != null && prefab != null) property.objectReferenceValue = prefab;
+        }
+
+        private static void SetObject(SerializedObject so, string field, Object value)
+        {
+            SerializedProperty property = so.FindProperty(field);
+            if (property != null) property.objectReferenceValue = value;
+        }
+
+        private static void Strip<T>(GameObject root) where T : Component
+        {
+            T[] components = root.GetComponentsInChildren<T>(true);
+            for (int i = 0; i < components.Length; i++)
+                Object.DestroyImmediate(components[i]);
         }
 
         private static Material LineMaterial()

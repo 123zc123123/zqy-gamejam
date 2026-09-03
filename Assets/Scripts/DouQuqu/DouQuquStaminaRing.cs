@@ -21,18 +21,25 @@ namespace DouQuqu
         [SerializeField] private float heightOffset = 0.08f;
         [SerializeField] private float gap = 0.1f;
         [SerializeField] private Material lineMaterial;
+        [SerializeField] private float pendingAlpha = 0.4f;
         [SerializeField] private LineRenderer[] tracks = new LineRenderer[MaxSlots];
         [SerializeField] private LineRenderer[] fills = new LineRenderer[MaxSlots];
+        [SerializeField] private LineRenderer[] previews = new LineRenderer[MaxSlots];
 
-        /// <summary>按当前耐力比例刷新环。蓄力时应传入扣完后的预览比例。</summary>
-        public void Apply(float ratio, int slots, Vector3 worldCenter, float bugRadius)
+        /// <summary>
+        /// 实心 = 当前耐力。蓄力时 pendingRatio 是本次将扣的比例，画在当前值往回的半透明段。
+        /// </summary>
+        public void Apply(float currentRatio, int slots, Vector3 worldCenter, float bugRadius, float pendingRatio = 0f)
         {
             EnsureReady();
             gameObject.SetActive(true);
             transform.position = worldCenter + Vector3.up * heightOffset;
-            ratio = Mathf.Clamp01(ratio);
+            currentRatio = Mathf.Clamp01(currentRatio);
+            pendingRatio = Mathf.Clamp(pendingRatio, 0f, currentRatio);
+            float remainRatio = Mathf.Max(0f, currentRatio - pendingRatio);
             slots = Mathf.Clamp(slots, 3, MaxSlots);
-            Color color = ratio <= 0.2f ? lowColor : (ratio <= 0.4f ? warnColor : okColor);
+            Color color = currentRatio <= 0.2f ? lowColor : (currentRatio <= 0.4f ? warnColor : okColor);
+            Color ghost = new Color(color.r, color.g, color.b, color.a * pendingAlpha);
             float radius = Mathf.Max(minRadius, bugRadius * radiusScale);
             float width = Mathf.Max(minWidth, bugRadius * widthScale);
             float span = Mathf.PI * 2f / slots;
@@ -41,13 +48,18 @@ namespace DouQuqu
                 bool on = i < slots;
                 if (tracks[i] != null) tracks[i].enabled = on;
                 if (fills[i] != null) fills[i].enabled = false;
+                if (previews[i] != null) previews[i].enabled = false;
                 if (!on) continue;
                 float start = i * span + gap;
                 float end = (i + 1) * span - gap;
+                float arc = end - start;
                 SetArc(tracks[i], transform.position, radius, start, end, trackColor, width);
-                float fill = Mathf.Clamp01(ratio * slots - i);
-                if (fill > 0.001f)
-                    SetArc(fills[i], transform.position, radius, start, start + (end - start) * fill, color, width);
+                float remainFill = Mathf.Clamp01(remainRatio * slots - i);
+                float currentFill = Mathf.Clamp01(currentRatio * slots - i);
+                if (currentFill > remainFill + 0.001f)
+                    SetArc(previews[i], transform.position, radius, start + arc * remainFill, start + arc * currentFill, ghost, width);
+                if (remainFill > 0.001f)
+                    SetArc(fills[i], transform.position, radius, start, start + arc * remainFill, color, width);
             }
         }
 
@@ -61,11 +73,16 @@ namespace DouQuqu
         {
             if (tracks == null || tracks.Length != MaxSlots) tracks = new LineRenderer[MaxSlots];
             if (fills == null || fills.Length != MaxSlots) fills = new LineRenderer[MaxSlots];
+            if (previews == null || previews.Length != MaxSlots) previews = new LineRenderer[MaxSlots];
             Material material = LineMaterial();
             for (int i = 0; i < MaxSlots; i++)
             {
                 if (tracks[i] == null) tracks[i] = CreateLine("Track_" + i, material);
+                if (previews[i] == null) previews[i] = CreateLine("Preview_" + i, material);
                 if (fills[i] == null) fills[i] = CreateLine("Fill_" + i, material);
+                tracks[i].sortingOrder = 20;
+                previews[i].sortingOrder = 21;
+                fills[i].sortingOrder = 22;
             }
         }
 

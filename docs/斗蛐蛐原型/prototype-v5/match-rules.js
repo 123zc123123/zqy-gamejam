@@ -26,10 +26,14 @@
       heartGapOt: 5,
       heartOpenAt: 20,
       vRate: 23,
-      tMax: 0.55,
+      tChargeMin: 0,
+      tChargeMax: 0.55,
+      tFloor: 0.12,
       staminaMax: 5,
-      staminaCost: 1,
-      staminaRegen: 0.6,
+      staminaCost: 0.8,
+      staminaJump: 0.2,
+      staminaRegen: 0.48,
+      staminaRegenCharge: 0.5,
       staminaSlots: 5,
       m: 1,
       growPer: 0.16,
@@ -68,8 +72,19 @@
     };
   }
 
+  function migrateChargeTimeKeys(knobs) {
+    if (!knobs || typeof knobs !== "object") return knobs;
+    if (knobs.tChargeMin == null && knobs.tMin != null) knobs.tChargeMin = knobs.tMin;
+    if (knobs.tChargeMax == null && knobs.tMax != null) knobs.tChargeMax = knobs.tMax;
+    delete knobs.tMin;
+    delete knobs.tMax;
+    return knobs;
+  }
+
   function mergeKnobs(knobs) {
-    return Object.assign(defaultItemKnobs(), knobs || {});
+    const src = Object.assign({}, knobs || {});
+    migrateChargeTimeKeys(src);
+    return Object.assign(defaultItemKnobs(), src);
   }
 
   function createMatchState(knobs) {
@@ -125,13 +140,17 @@
     const s = chargeActive(bug) ? knobs.chargeScale : 1;
     return {
       vRate: knobs.vRate * s,
-      tMax: knobs.tMax / Math.max(1e-6, s),
+      tMax: knobs.tChargeMax / Math.max(1e-6, s),
       scale: s,
     };
   }
 
+  function tFloor(knobs) {
+    return Math.max(0, Number(knobs && knobs.tFloor) || 0);
+  }
+
   function panelVMax(knobs) {
-    return Math.max(0, knobs.vRate) * Math.max(0, knobs.tMax);
+    return Math.max(0, knobs.vRate) * (Math.max(0, knobs.tChargeMax) + tFloor(knobs));
   }
 
   function chargeDeltaV(knobs, bug) {
@@ -139,8 +158,23 @@
     return e.vRate * clamp(bug.chargeT || 0, 0, e.tMax);
   }
 
+  function jumpSpeedMin(knobs, bug) {
+    const rate = bug ? effectiveCharge(knobs, bug).vRate : Math.max(0, knobs.vRate);
+    return Math.max(0, rate) * tFloor(knobs);
+  }
+
+  function jumpDeltaV(knobs, bug) {
+    const e = effectiveCharge(knobs, bug);
+    const tAcc = clamp((bug && bug.chargeT) || 0, 0, e.tMax);
+    return e.vRate * (tAcc + tFloor(knobs));
+  }
+
   function staminaFullCost(knobs) {
     return Math.max(0, Number(knobs.staminaCost) || 0);
+  }
+
+  function staminaJumpCost(knobs) {
+    return Math.max(0, Number(knobs.staminaJump) || 0);
   }
 
   function chargeProgress(knobs, bug) {
@@ -150,19 +184,22 @@
   }
 
   function jumpStaminaCost(knobs, bug) {
-    return staminaFullCost(knobs) * chargeProgress(knobs, bug);
+    return staminaFullCost(knobs) * chargeProgress(knobs, bug) + staminaJumpCost(knobs);
   }
 
   function staminaChargeTCap(knobs, bug) {
     const tMax = effectiveCharge(knobs, bug).tMax;
     const full = staminaFullCost(knobs);
     if (full <= 1e-6) return tMax;
-    return tMax * clamp((bug.stamina || 0) / full, 0, 1);
+    return tMax * clamp(((bug.stamina || 0) - staminaJumpCost(knobs)) / full, 0, 1);
   }
 
   function canStartCharge(knobs, bug) {
     if (!bug || bug.kind === "baby") return true;
-    return (bug.stamina || 0) > 1e-6;
+    if ((bug.stamina || 0) + 1e-6 < staminaJumpCost(knobs)) return false;
+    const tMin = Math.max(0, Number(knobs.tChargeMin) || 0);
+    if (tMin > 1e-6 && staminaChargeTCap(knobs, bug) + 1e-6 < tMin) return false;
+    return true;
   }
 
   function refreshBody(knobs, bug) {
@@ -507,6 +544,7 @@
   const api = {
     ITEM_KINDS,
     defaultItemKnobs,
+    migrateChargeTimeKeys,
     mergeKnobs,
     createMatchState,
     hardStop,
@@ -516,8 +554,11 @@
     chargeActive,
     shieldActive,
     effectiveCharge,
+    tFloor,
     panelVMax,
     chargeDeltaV,
+    jumpSpeedMin,
+    jumpDeltaV,
     staminaFullCost,
     chargeProgress,
     jumpStaminaCost,

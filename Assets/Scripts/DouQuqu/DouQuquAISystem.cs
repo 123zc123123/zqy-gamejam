@@ -124,13 +124,11 @@ namespace DouQuqu
                 DouQuquRules.StaminaChargeTCap(knobs, bug));
             if (cap <= 0.0001f) return DouQuquMatchController.FixedDeltaTime;
 
-            float maxSpeed = Mathf.Max(
-                DouQuquRules.JumpSpeedMin(knobs),
-                DouQuquRules.EffectiveChargeSpeed(knobs, bug) * cap);
+            float maxSpeed = DouQuquRules.JumpDeltaV(knobs, bug, cap);
             float safeRange = SafeTravelDistance(state, bug, direction, DouQuquRules.JumpRange(knobs, maxSpeed));
             safeRange = Mathf.Max(0f, safeRange - ReleaseSafetyBuffer);
 
-            float minSpeed = DouQuquRules.JumpSpeedMin(knobs);
+            float minSpeed = DouQuquRules.JumpSpeedMin(knobs, bug);
             float minRange = DouQuquRules.JumpRange(knobs, minSpeed);
             if (safeRange <= minRange + 0.001f)
                 return Mathf.Min(cap, DouQuquMatchController.FixedDeltaTime);
@@ -141,7 +139,7 @@ namespace DouQuqu
             for (int i = 0; i < 10; i++)
             {
                 float mid = (low + high) * 0.5f;
-                float speed = Mathf.Max(minSpeed, DouQuquRules.EffectiveChargeSpeed(knobs, bug) * mid);
+                float speed = DouQuquRules.JumpDeltaV(knobs, bug, mid);
                 if (DouQuquRules.JumpRange(knobs, speed) <= safeRange) low = mid;
                 else high = mid;
             }
@@ -165,7 +163,7 @@ namespace DouQuqu
             safeMargin += Mathf.Max(0f, bug.radius);
             bool nearEdge = DouQuquRules.ArenaSdf(bug.position.x, bug.position.z) > -safeMargin;
             // 即使还没进入可调安全边距，只要最小跳跃距离已经放不下，也必须先转向场内。
-            float minimumJumpRange = DouQuquRules.JumpRange(knobs, DouQuquRules.JumpSpeedMin(knobs));
+            float minimumJumpRange = DouQuquRules.JumpRange(knobs, DouQuquRules.JumpSpeedMin(knobs, bug));
             bool minimumJumpDoesNotFit = SafeTravelDistance(state, bug, desired, minimumJumpRange) + ReleaseSafetyBuffer < minimumJumpRange;
             if ((!nearEdge && !minimumJumpDoesNotFit) || outwardPart <= 0f) return desired;
 

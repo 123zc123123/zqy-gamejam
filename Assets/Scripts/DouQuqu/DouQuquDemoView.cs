@@ -321,9 +321,9 @@ namespace DouQuqu
                     BugState bug = state.bugs[i];
                     if (bug == null || !bug.alive) continue;
                     float cap = DouQuquRules.EffectiveChargeTime(knobs, bug);
-                    float speed = DouQuquRules.EffectiveChargeSpeed(knobs, bug) * bug.chargeTime;
+                    float speed = DouQuquRules.JumpDeltaV(knobs, bug);
                     float fill = cap > 0.0001f ? Mathf.Clamp01(bug.chargeTime / cap) : 0f;
-                    PlaceChargeArrow(bug.id, bug.charging, speed, fill, knobs, bug.chargeDirection, bug.position, bug.radius);
+                    PlaceChargeArrow(bug.id, bug.charging, speed, fill, knobs, bug.chargeDirection, bug.position, bug.radius, bug.id == 0);
                     if (bug.charging) seenIds.Add(bug.id);
                 }
             }
@@ -334,14 +334,14 @@ namespace DouQuqu
                 float cap = DouQuquRules.BabyChargeTime(knobs);
                 float speed = DouQuquRules.BabyChargeSpeed(knobs, baby);
                 float fill = cap > 0.0001f ? Mathf.Clamp01(baby.chargeTime / cap) : 0f;
-                PlaceChargeArrow(baby.id, baby.charging, speed, fill, knobs, baby.chargeDirection, baby.position, baby.radius);
+                PlaceChargeArrow(baby.id, baby.charging, speed, fill, knobs, baby.chargeDirection, baby.position, baby.radius, baby.ownerId == 0);
                 if (baby.charging) seenIds.Add(baby.id);
             }
             foreach (KeyValuePair<int, DouQuquChargeArrow> pair in chargeArrows)
                 if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
         }
 
-        private void PlaceChargeArrow(int id, bool charging, float speed, float fill, MatchKnobs knobs, Vector2 direction, Vector3 position, float radius)
+        private void PlaceChargeArrow(int id, bool charging, float speed, float fill, MatchKnobs knobs, Vector2 direction, Vector3 position, float radius, bool ally)
         {
             if (!charging)
             {
@@ -352,7 +352,7 @@ namespace DouQuqu
             DouQuquChargeArrow arrow = GetChargeArrow(id);
             if (arrow == null) return;
             float dist = DouQuquRules.JumpRange(knobs, speed);
-            arrow.Apply(true, dist, fill, direction, position + Vector3.up * 0.08f, radius);
+            arrow.Apply(true, dist, fill, direction, position + Vector3.up * 0.08f, radius, ally);
         }
 
         private void RefreshStaminaRings(MatchState state)
@@ -380,9 +380,9 @@ namespace DouQuqu
             if (ring == null) return;
             float max = Mathf.Max(1f, knobs.staminaMax);
             int slots = Mathf.Clamp(knobs.staminaSlots, 3, DouQuquStaminaRing.MaxSlots);
+            float current = Mathf.Max(0f, bug.stamina);
             float pending = bug.charging ? DouQuquRules.JumpStaminaCost(knobs, bug) : 0f;
-            float shown = Mathf.Max(0f, bug.stamina - pending);
-            ring.Apply(shown / max, slots, bug.position + Vector3.up * bug.height, bug.radius);
+            ring.Apply(current / max, slots, bug.position + Vector3.up * bug.height, bug.radius, pending / max);
         }
 
         private DouQuquStaminaRing GetStaminaRing(int id)

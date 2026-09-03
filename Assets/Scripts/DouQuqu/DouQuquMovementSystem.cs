@@ -100,7 +100,7 @@ namespace DouQuqu
             bool released = input != null && input.released;
             if (released && bug.charging)
             {
-                if (bug.chargeTime + 1e-4f >= knobs.tMin) Launch(knobs, bug);
+                if (bug.chargeTime + 1e-4f >= knobs.tChargeMin) Launch(knobs, bug);
                 else
                 {
                     bug.charging = false;
@@ -123,15 +123,11 @@ namespace DouQuqu
                 BeginCharge(knobs, bug);
             if (!bug.charging) return;
 
-            float tMax = DouQuquRules.EffectiveChargeTime(knobs, bug);
             float cap = DouQuquRules.StaminaChargeTCap(knobs, bug);
-            // 反弹/现版按住计时；distanceCharge 仅留给滑长档。蓄力不超过当前耐力能负担的比例。
-            if (input != null && input.distanceCharge)
-                bug.chargeTime = Mathf.Min(cap, tMax * Mathf.Clamp01(input.charge01));
-            else
-                bug.chargeTime = Mathf.Min(cap, bug.chargeTime + dt);
+            // 反弹：按住计时。蓄力不超过当前耐力能负担的比例。
+            bug.chargeTime = Mathf.Min(cap, bug.chargeTime + dt);
             if (!released && held) return;
-            if (bug.chargeTime + 1e-4f < knobs.tMin)
+            if (bug.chargeTime + 1e-4f < knobs.tChargeMin)
             {
                 bug.charging = false;
                 bug.chargeTime = 0f;

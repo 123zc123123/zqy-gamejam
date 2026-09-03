@@ -23,9 +23,31 @@ function approx(name, got, expected, tol) {
 const knobs = R.mergeKnobs();
 
 {
+  approx("panel v_max includes tFloor", R.panelVMax(knobs), 23 * 0.67, 1e-9);
+  approx("tap jump A1 tFloor", R.jumpDeltaV(knobs, { chargeT: 0 }), 23 * 0.12, 1e-9);
+  approx("full jump A1 (Tmax+tFloor)", R.jumpDeltaV(knobs, { chargeT: knobs.tChargeMax }), 23 * 0.67, 1e-9);
+  const buffed = { chargeT: 0, buffChargeT: 5 };
+  approx("buff tap bigger", R.jumpDeltaV(knobs, buffed), 23 * 1.25 * 0.12, 1e-9);
+  buffed.chargeT = R.effectiveCharge(knobs, buffed).tMax;
+  approx("buff extra charge still A1 Tmax", R.chargeDeltaV(knobs, buffed), 23 * 0.55, 1e-9);
+  approx("buff full jump adds s tFloor", R.jumpDeltaV(knobs, buffed), 23 * 0.55 + 23 * 1.25 * 0.12, 1e-9);
+}
+
+{
+  const migrated = R.mergeKnobs({ tMin: 0.1, tMax: 0.7, vRate: 23 });
+  approx("migrate tChargeMin", migrated.tChargeMin, 0.1, 1e-9);
+  approx("migrate tChargeMax", migrated.tChargeMax, 0.7, 1e-9);
+  eq("old tMin dropped", migrated.tMin, undefined);
+  eq("old tMax dropped", migrated.tMax, undefined);
+  const preferNew = R.mergeKnobs({ tMin: 0.1, tMax: 0.7, tChargeMin: 0.05, tChargeMax: 0.4 });
+  approx("new keys win min", preferNew.tChargeMin, 0.05, 1e-9);
+  approx("new keys win max", preferNew.tChargeMax, 0.4, 1e-9);
+}
+
+{
   const vmax = R.panelVMax(knobs);
-  approx("panel v_max", vmax, 12.65, 1e-9);
-  const bug = { chargeT: knobs.tMax, rageCharge: false, buffChargeT: 0 };
+  approx("panel v_max", vmax, 23 * 0.67, 1e-9);
+  const bug = { chargeT: knobs.tChargeMax, rageCharge: false, buffChargeT: 0 };
   const off = R.effectiveCharge(knobs, bug);
   approx("idle tMax", off.tMax, 0.55, 1e-9);
   approx("idle vRate*tMax", off.vRate * off.tMax, 12.65, 1e-9);

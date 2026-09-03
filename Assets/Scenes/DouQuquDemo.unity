@@ -507,11 +507,14 @@ MonoBehaviour:
   offlineHumanPlayers: 1
   tickFromUnity: 1
   knobs:
-    tMin: 0
-    tMax: 0.4
+    tChargeMin: 0
+    tChargeMax: 0.5
+    tFloor: 0.12
     staminaMax: 5
-    staminaCost: 1
-    staminaRegen: 0.6
+    staminaCost: 0.8
+    staminaJump: 0.2
+    staminaRegen: 0.48
+    staminaRegenCharge: 0.5
     staminaSlots: 5
     dMin: 8
     vRate: 80

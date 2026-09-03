@@ -112,13 +112,13 @@ namespace DouQuqu
             float power = 0.92f + quality * 0.12f;
             knobs.vRate *= power;
             knobs.mass *= power;
-            knobs.dMin *= power;
+            knobs.tFloor *= power;
 
             switch ((CricketTemperament)temperament)
             {
                 case CricketTemperament.MengGong:
                     knobs.vRate *= 1.28f;
-                    knobs.tMax *= 0.88f;
+                    knobs.tChargeMax *= 0.88f;
                     knobs.mass *= 1.06f;
                     knobs.mu *= 0.92f;
                     break;
@@ -131,7 +131,7 @@ namespace DouQuqu
                     break;
                 case CricketTemperament.ZhiKong:
                     knobs.vRate *= 0.94f;
-                    knobs.tMax *= 1.22f;
+                    knobs.tChargeMax *= 1.22f;
                     knobs.theta *= 1.28f;
                     knobs.mu *= 1.08f;
                     break;
@@ -139,7 +139,7 @@ namespace DouQuqu
                     knobs.vRate *= 0.88f;
                     knobs.mass *= 1.32f;
                     knobs.mu *= 1.22f;
-                    knobs.dMin *= 1.10f;
+                    knobs.tFloor *= 1.10f;
                     knobs.theta *= 0.88f;
                     break;
             }

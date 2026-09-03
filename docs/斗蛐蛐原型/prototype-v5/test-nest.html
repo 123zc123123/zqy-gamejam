@@ -82,14 +82,14 @@
         </div>
         <p id="input-hint" class="tune-note">点按召出摇杆 · 按住时间蓄力 · 推向要去的方向</p>
         <div class="tune-grid">
-          <label>T_min 最小蓄力 <span id="v-tMin">0.00</span>s
-            <input id="k-tMin" type="range" min="0" max="1" step="0.05" value="0" />
+          <label>t蓄min <span id="v-tChargeMin">0.00</span>s
+            <input id="k-tChargeMin" type="range" min="0" max="1" step="0.05" value="0" />
           </label>
-          <label>T_max 蓄满 <span id="v-tMax">0.80</span>s
-            <input id="k-tMax" type="range" min="0.25" max="3" step="0.05" value="0.8" />
+          <label>T_max 蓄满 <span id="v-tChargeMax">0.80</span>s
+            <input id="k-tChargeMax" type="range" min="0.25" max="3" step="0.05" value="0.8" />
           </label>
-          <label>最低跳速(距) <span id="v-dMin">7.00</span>
-            <input id="k-dMin" type="range" min="0.2" max="10" step="0.1" value="7" />
+          <label>起跳力气 <span id="v-tFloor">0.12</span>s
+            <input id="k-tFloor" type="range" min="0" max="0.4" step="0.01" value="0.12" />
           </label>
           <label>A1 Δvx/秒 <span id="v-vRate">50.00</span>
             <input id="k-vRate" type="range" min="2" max="100" step="0.5" value="50" />

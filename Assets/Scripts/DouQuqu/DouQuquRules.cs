@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace DouQuqu
 {
@@ -22,77 +23,83 @@ namespace DouQuqu
     public sealed class MatchKnobs
     {
         // 蓄力、碰撞和移动参数。
-        public float tMin = 0f;
-        public float tMax = 0.4f;
-        public float staminaMax = 5f;
-        public float staminaCost = 1f;
-        public float staminaRegen = 0.6f;
-        public int staminaSlots = 5;
-        public float dMin = 8f;
-        public float vRate = 80f;
-        public float theta = 15f;
-        public float mass = 1f;
-        public float gravity = 80f;
-        public float mu = 1.8f;
-        public float rStand = 0.4f;
-        public float rMax = 0.4f;
-        public float rChargeScale = 0.5f;
-        public float muCtrlScale = 1.2f;
-        public float muSlipScale = 0.8f;
-        public float growPer = 0.16f;
-        public float bugR = 1.8f;
-        public float sizeScale = 1.3f;
-        public float sizeT = 6f;
-        public float shieldT = 8f;
-        public float chargeScale = 1.25f;
-        public float chargeBuffT = 5f;
+        [FormerlySerializedAs("tMin")]
+        public float tChargeMin = 0f; // 蓄力下限（秒）；未满松手取消；0 = 点一下就跳
+        [FormerlySerializedAs("tMax")]
+        public float tChargeMax = 0.5f; // 蓄满时间（秒）；蓄满后可继续按，速度不再涨
+        public float tFloor = 0.12f; // 每次有效起跳额外加算的时间；点跳距离由它反推
+        public float staminaMax = 5f; // 耐力上限；开局满；不参与跳跃和碰撞公式
+        public float staminaCost = 0.8f; // 蓄满时的蓄力耐力；实际扣 = 该值 × 蓄力比例
+        public float staminaJump = 0.2f; // 每次有效起跳固定加扣；点跳只扣这一笔
+        public float staminaRegen = 0.48f; // 落地未蓄力时的耐力恢复（/秒）；空中不恢复
+        public float staminaRegenCharge = 0.5f; // 蓄力时恢复 = staminaRegen × 该值；0 = 蓄力不回
+        public int staminaSlots = 5; // 身周耐力圆环格数
+        [HideInInspector]
+        public float dMin = 8f; // 废止：旧版点跳距离，现由 tFloor 反推
+        public float vRate = 80f; // A1，水平加速度（Δv_x / 秒）；出手速度 = A1 × (蓄力时间 + tFloor)
+        public float theta = 15f; // 起跳仰角（度）；与 μ 一起定空中匀速占比
+        public float mass = 1f; // 基础质量；对撞分速度，也进抵抗
+        public float gravity = 80f; // 重力；抛物线与落地减速都用
+        public float mu = 1.8f; // 地面摩擦；落地匀减速 a = μg，也改匀速占比
+        public float rStand = 0.4f; // 站立抵抗系数 K0；相对满蓄速度的倍数
+        public float rMax = 0.4f; // 满速抵抗系数 K1；相对满蓄速度的倍数
+        public float rChargeScale = 0.5f; // 静止蓄力时的抵抗折扣
+        public float muCtrlScale = 1.2f; // 可控档摩擦倍率；只改撞后滑多远
+        public float muSlipScale = 0.8f; // 失衡档摩擦倍率；只改撞后滑多远
+        public float growPer = 0.16f; // 每层成长给半径和质量加的倍率
+        public float bugR = 1.8f; // 开局碰撞半径；成长和增大再乘
+        public float sizeScale = 1.3f; // 增大倍率；拾取与狂暴共用，半径和质量同乘
+        public float sizeT = 6f; // 增大持续（秒）；仅拾取，狂暴不读
+        public float shieldT = 8f; // 护盾持续（秒）；未被消耗也会到期
+        public float chargeScale = 1.25f; // 蓄力强化倍率；拾取与狂暴共用，A1 × s、Tmax / s
+        public float chargeBuffT = 5f; // 蓄力强化持续（秒）；仅拾取，狂暴不读
         // AI 决策参数：攻击范围可在 Inspector 中调节；安全边距用于限制主动起跳路线。
-        public float aiAttackRange = 14f;
-        public float aiSafeEdgeMargin = 4f;
+        public float aiAttackRange = 14f; // 人机主动起跳的攻击距离
+        public float aiSafeEdgeMargin = 4f; // 人机贴边安全距；路线太贴圈则改方向
         // 经济系统和阶段时间参数。
-        public float itemR = 1.35f;
-        public float regTime = 90f;
-        public float otTime = 30f;
-        public int heartStart = 4;
-        public int heartCap = 6;
-        public int heartBatch = 6;
-        public int itemBatch = 3;
-        public int itemCap = 3;
-        public float heartGap = 7f;
-        public float heartGapOt = 5f;
-        public float heartOpenAt = 20f;
-        public float v3Rate = 23f;
-        public float itemMinEdge = 2.4f;
-        public float itemMinBug = 3f;
-        public float itemMinHeart = 1.6f;
-        public float itemMinItem = 2f;
-        public float itemRingMin = 6f;
-        public float itemRingMax = 12f;
-        public float heartMinEdge = 1.4f;
-        public float heartMinBug = 1.3f;
-        public float heartMinHeart = 1.25f;
-        public float shieldPad = 0.08f;
+        public float itemR = 1.35f; // 限时道具拾取半径（饲料球另用固定半径）
+        public float regTime = 90f; // 正赛时长（秒）；到点未结束则进加时
+        public float otTime = 30f; // 加时 / 狂暴时长（秒）；与正赛相加为硬截止
+        public int heartStart = 4; // 开局饲料球数量
+        public int heartCap = 6; // 场上饲料球上限；不足才补，每次 1 颗
+        public int heartBatch = 6; // 未使用；饲料球补货仍每次 1 颗
+        public int itemBatch = 3; // 到点补几颗限时道具，不超过 itemCap
+        public int itemCap = 3; // 场上限时道具上限；已满则挂起
+        public float heartGap = 7f; // 正赛补饲料球间隔（秒）
+        public float heartGapOt = 5f; // 加时补饲料球间隔（秒）
+        public float heartOpenAt = 20f; // 开始补饲料球的时间（秒）；此前只吃开局那批
+        public float v3Rate = 23f; // 未使用；旧版 A1 遗留
+        public float itemMinEdge = 2.4f; // 限时道具离罐边的最小距离
+        public float itemMinBug = 3f; // 投放点离活虫的最小距离
+        public float itemMinHeart = 1.6f; // 投放点离已有饲料球的最小距离
+        public float itemMinItem = 2f; // 投放点离已有限时道具的最小距离
+        public float itemRingMin = 6f; // 限时道具刷在环带上的内半径
+        public float itemRingMax = 12f; // 限时道具刷在环带上的外半径
+        public float heartMinEdge = 1.4f; // 饲料球离罐边的最小距离
+        public float heartMinBug = 1.3f; // 未使用；投放避虫走 itemMinBug
+        public float heartMinHeart = 1.25f; // 未使用；投放避球走 itemMinHeart
+        public float shieldPad = 0.08f; // 护盾拉回区内后再往里留的余量
         // 巢穴、蛋和幼虫生命周期参数。
-        public float nestHP = 4f;
-        public float nestMass = 3f;
-        public float nestR = 2.4f;
-        public int nestEggN = 5;
-        public float eggHatchT = 5f;
-        public float eggHatchGap = 0.28f;
-        public float eggHatchJitter = 0.15f;
-        public float eggScatterV = 8f;
-        public float eggR = 0.55f;
-        public float eggMass = 0.2f;
-        public float babyLifeT = 12f;
-        public float babyRScale = 0.4f;
-        public float babyMass = 0.5f;
-        public float babyA1Scale = 0.4f;
-        public float babyChargeT = 0.8f;
-        public float babyAtkCd = 0.8f;
-        public bool babyCanLoot = false;
-        public int nestCap = 1;
-        public float nestFirstT = 25f;
-        public float nestGap = 12f;
+        public float nestHP = 4f; // 房子血量；一次有效撞击 -1
+        public float nestMass = 3f; // 房子质量；不位移，只用于对撞分速度
+        public float nestR = 2.4f; // 房子碰撞半径
+        public int nestEggN = 5; // 房子爆开散落的卵数
+        public float eggHatchT = 5f; // 卵孵化基准时间（秒）
+        public float eggHatchGap = 0.28f; // 第 i 枚卵再加 i × 该值；0 = 只靠随机错开
+        public float eggHatchJitter = 0.15f; // 孵化时间随机抖动上限（秒）
+        public float eggScatterV = 8f; // 卵散开初速；当前爆开不读此项
+        public float eggR = 0.55f; // 卵碰撞 / 出圈半径
+        public float eggMass = 0.2f; // 卵被踢时的质量
+        public float babyLifeT = 12f; // 崽寿命（秒）；孵化起算，出圈也会死
+        public float babyRScale = 0.4f; // 崽半径 = bugR × 该值
+        public float babyMass = 0.5f; // 崽质量；不吃饲主成长
+        public float babyA1Scale = 0.4f; // 崽 A1 = 面板 A1 × 该值；不另改 Tmax
+        public float babyChargeT = 0.8f; // 崽自动蓄多久再跳（秒）
+        public float babyAtkCd = 0.8f; // 崽两次起跳最短间隔（秒）；0 = 落地即可再蓄
+        public bool babyCanLoot = false; // 崽能否吃饲料球 / 限时道具；默认关
+        public int nestCap = 1; // 场上巢上限；整条链算 1 个
+        public float nestFirstT = 25f; // 首栋房子出现时间（秒）
+        public float nestGap = 12f; // 上一窝彻底结束后，下一栋再等的间隔（秒）
     }
 
     /// <summary>
@@ -192,7 +199,7 @@ namespace DouQuqu
         public static float EffectiveChargeTime(MatchKnobs knobs, BugState bug)
         {
             float scale = ChargeActive(bug) ? knobs.chargeScale : 1f;
-            return knobs.tMax / Mathf.Max(0.01f, scale);
+            return knobs.tChargeMax / Mathf.Max(0.01f, scale);
         }
 
         /// <summary>将蓄力时间换算成当前蟋蟀的冲撞速度增量。</summary>
@@ -201,10 +208,16 @@ namespace DouQuqu
             return EffectiveChargeSpeed(knobs, bug) * Mathf.Clamp(bug.chargeTime, 0f, EffectiveChargeTime(knobs, bug));
         }
 
-        /// <summary>满蓄一次起跳的耐力消耗。</summary>
+        /// <summary>蓄满一次 T_max 的蓄力耐力。</summary>
         public static float StaminaFullCost(MatchKnobs knobs)
         {
             return Mathf.Max(0f, knobs.staminaCost);
+        }
+
+        /// <summary>每次有效起跳固定加扣的起跳耐力。</summary>
+        public static float StaminaJumpCost(MatchKnobs knobs)
+        {
+            return Mathf.Max(0f, knobs.staminaJump);
         }
 
         /// <summary>当前蓄力相对有效 T_max 的比例，满蓄为 1。</summary>
@@ -215,42 +228,52 @@ namespace DouQuqu
             return Mathf.Clamp01(bug.chargeTime / tMax);
         }
 
-        /// <summary>本次起跳耐力消耗 = 满蓄消耗 × 蓄力比例。</summary>
+        /// <summary>本次起跳耐力消耗 = 蓄力耐力 + 起跳耐力。</summary>
         public static float JumpStaminaCost(MatchKnobs knobs, BugState bug)
         {
-            return StaminaFullCost(knobs) * ChargeProgress(knobs, bug);
+            return StaminaFullCost(knobs) * ChargeProgress(knobs, bug) + StaminaJumpCost(knobs);
         }
 
-        /// <summary>当前耐力能负担的最长蓄力时间。</summary>
+        /// <summary>当前耐力能负担的最长蓄力时间。先留起跳耐力，剩下的才拿去蓄。</summary>
         public static float StaminaChargeTCap(MatchKnobs knobs, BugState bug)
         {
             float tMax = EffectiveChargeTime(knobs, bug);
             float full = StaminaFullCost(knobs);
             if (full <= 0.000001f) return tMax;
             float stamina = bug == null ? 0f : bug.stamina;
-            return tMax * Mathf.Clamp01(stamina / full);
+            return tMax * Mathf.Clamp01((stamina - StaminaJumpCost(knobs)) / full);
         }
 
-        /// <summary>耐力大于 0 才能进入蓄力。小蟋蟀不读耐力。</summary>
+        /// <summary>耐力不少于起跳耐力才能进入蓄力。tChargeMin&gt;0 时还要能蓄到取消线。小蟋蟀不读耐力。</summary>
         public static bool CanStartCharge(MatchKnobs knobs, BugState bug)
         {
             if (bug == null) return false;
-            return bug.stamina > 0.000001f;
+            if (bug.stamina + 0.000001f < StaminaJumpCost(knobs)) return false;
+            if (knobs.tChargeMin > 0.000001f && StaminaChargeTCap(knobs, bug) + 0.000001f < knobs.tChargeMin)
+                return false;
+            return true;
         }
 
-        /// <summary>落地且未蓄力时恢复耐力，含滑行；空中和蓄力期间暂停。</summary>
+        /// <summary>落地恢复耐力，含滑行；空中不恢复；蓄力中乘 staminaRegenCharge。</summary>
         public static void TickStamina(MatchKnobs knobs, BugState bug, float dt)
         {
-            if (bug == null || !bug.alive || bug.airborne || bug.charging) return;
+            if (bug == null || !bug.alive || bug.airborne) return;
             float max = Mathf.Max(0f, knobs.staminaMax);
             float regen = Mathf.Max(0f, knobs.staminaRegen);
+            if (bug.charging) regen *= Mathf.Max(0f, knobs.staminaRegenCharge);
             bug.stamina = Mathf.Clamp(bug.stamina + regen * dt, 0f, max);
         }
 
-        /// <summary>返回未强化时蓄力条对应的最大速度。</summary>
+        /// <summary>起跳力气。每次有效起跳都加上，不受蓄力强化缩短。</summary>
+        public static float TFloor(MatchKnobs knobs)
+        {
+            return Mathf.Max(0f, knobs.tFloor);
+        }
+
+        /// <summary>未强化满蓄水平速度 v_max = A1 (T_max + t_floor)。</summary>
         public static float PanelVMax(MatchKnobs knobs)
         {
-            return Mathf.Max(0f, knobs.vRate) * Mathf.Max(0f, knobs.tMax);
+            return Mathf.Max(0f, knobs.vRate) * (Mathf.Max(0f, knobs.tChargeMax) + TFloor(knobs));
         }
 
         /// <summary>返回带下限保护的重力值。</summary>
@@ -272,18 +295,24 @@ namespace DouQuqu
             return Mathf.Max(0.0001f, mu * Gravity(knobs));
         }
 
-        /// <summary>根据最小距离、重力和摩擦计算最低起跳速度。</summary>
-        public static float JumpSpeedMin(MatchKnobs knobs)
+        /// <summary>点跳水平速度 = A1' t_floor。蓄力强化会抬高，t_floor 本身不缩短。</summary>
+        public static float JumpSpeedMin(MatchKnobs knobs, BugState bug = null)
         {
-            float tangent = TanTheta(knobs);
-            float denominator = 2f * tangent + 1f / (2f * Mathf.Max(0.0001f, knobs.mu));
-            return Mathf.Sqrt(Mathf.Max(0f, knobs.dMin) * Gravity(knobs) / Mathf.Max(0.000001f, denominator));
+            float rate = bug == null ? Mathf.Max(0f, knobs.vRate) : EffectiveChargeSpeed(knobs, bug);
+            return rate * TFloor(knobs);
         }
 
-        /// <summary>返回蟋蟀最终起跳速度，保证不低于最低速度。</summary>
+        /// <summary>跳出力气对应的水平速度：Δv_x = A1' (t_蓄 + t_floor)。</summary>
+        public static float JumpDeltaV(MatchKnobs knobs, BugState bug, float chargeTime)
+        {
+            float tAcc = Mathf.Clamp(chargeTime, 0f, EffectiveChargeTime(knobs, bug));
+            return EffectiveChargeSpeed(knobs, bug) * (tAcc + TFloor(knobs));
+        }
+
+        /// <summary>用当前蓄力时间算出手速度。</summary>
         public static float JumpDeltaV(MatchKnobs knobs, BugState bug)
         {
-            return Mathf.Max(JumpSpeedMin(knobs), ChargeDelta(knobs, bug));
+            return JumpDeltaV(knobs, bug, bug == null ? 0f : bug.chargeTime);
         }
 
         /// <summary>返回幼虫一次攻击的蓄力时长下限保护值。</summary>

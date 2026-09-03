@@ -22,17 +22,13 @@ namespace DouQuqu
         public float z;
         public bool held;
         public bool released;
-        // 触摸方向盘使用“拖动距离决定蓄力”；键盘/旧网络包为 false 时仍沿用按住时长蓄力。
-        public bool distanceCharge;
-        // 触摸点距离除以方向盘最大半径后的 0~1 蓄力比例。
-        public float charge01;
 
         /// <summary>以 Unity 的 X/Y 向量形式返回保存的平面瞄准方向。</summary>
         public Vector2 Direction => new Vector2(x, z);
 
         public InputFrame() { }
 
-        public InputFrame(int id, Vector2 direction, bool isHeld, bool isReleased, int inputSequence = 0, bool useDistanceCharge = false, float normalizedCharge = 0f)
+        public InputFrame(int id, Vector2 direction, bool isHeld, bool isReleased, int inputSequence = 0)
         {
             playerId = id;
             x = direction.x;
@@ -40,8 +36,6 @@ namespace DouQuqu
             held = isHeld;
             released = isReleased;
             sequence = inputSequence;
-            distanceCharge = useDistanceCharge;
-            charge01 = Mathf.Clamp01(normalizedCharge);
         }
     }
 
