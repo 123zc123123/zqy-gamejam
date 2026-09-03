@@ -1,6 +1,6 @@
 # 斗蛐蛐 · 碰撞逻辑与配置-v4
 
-> 本文是 develop_v0（每跳固定扣耐力）。现行规格见 [develop_v0.1](碰撞逻辑与配置_develop_v0.1.md)。
+> 本文是 develop_v0（每跳固定扣耐力）。现行规格见 [develop_v0.2](../review/碰撞逻辑与配置_develop_v0.2.md)。
 > 规定跳跃公式、弹性碰撞、抵抗三档与耐力。读者是策划与程序。
 > 公式以本文为准。随包默认以 [prototype-v5/defaults.js](../斗蛐蛐原型/prototype-v5/defaults.js) 与 §6 为准；冲突时以 `defaults.js` 为准。
 > 范围：蓄力飞出、对撞、撞后滑行、出圈、耐力。不含手势三档、拾取投放、联机。
