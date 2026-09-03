@@ -74,7 +74,7 @@ namespace DouQuqu
 
             // 蓄力在所有移动子步后统一判断。若本段开始时正在蓄力，会保持原地直到 TickCharge；
             // 碰撞仍可清除蓄力标记，使下一子步恢复运动。
-            if (bug.charging && !IsSettled(bug))
+            if (bug.charging && !IsSettled(bug) && (input == null || !input.released))
             {
                 bug.charging = false;
                 bug.pendingCharge = held;
@@ -98,6 +98,16 @@ namespace DouQuqu
         {
             bool held = input != null && input.held;
             bool released = input != null && input.released;
+            if (released && bug.charging)
+            {
+                if (bug.chargeTime + 1e-4f >= knobs.tMin) Launch(knobs, bug);
+                else
+                {
+                    bug.charging = false;
+                    bug.chargeTime = 0f;
+                }
+                return;
+            }
             if (bug.charging && !IsSettled(bug))
             {
                 bug.charging = false;

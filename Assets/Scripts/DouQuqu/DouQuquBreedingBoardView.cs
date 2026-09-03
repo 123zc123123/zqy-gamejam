@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using ZqyGameJam.UI.QuquXiangqing;
 
 namespace DouQuqu
 {
@@ -18,6 +19,7 @@ namespace DouQuqu
         [SerializeField] private bool autoReset = true;
         [SerializeField] private int randomSeed = 20260902;
         [SerializeField] private Sprite[] levelSprites;
+        [SerializeField] private GameObject xiangqingPrefab;
 
         private readonly RectTransform[] cells = new RectTransform[CellCount];
         private readonly Image[] pieceImages = new Image[CellCount];
@@ -27,6 +29,7 @@ namespace DouQuqu
         private Text goldText;
         private Sprite[] phaseSprites;
         private Sprite[] qualitySprites;
+        private QuquXiangqingView detailView;
         private int draggingPieceId = -1;
         private int sourceCell = -1;
 
@@ -100,6 +103,13 @@ namespace DouQuqu
             RefreshBoard();
         }
 
+        public void OnCellClicked(int cellIndex)
+        {
+            MergePiece piece = FindPieceAt(cellIndex);
+            if (piece == null) return;
+            OpenDetail(piece);
+        }
+
         private void SpawnCanvas()
         {
             if (canvasInstance != null) return;
@@ -127,6 +137,7 @@ namespace DouQuqu
             for (int i = 0; i < CellCount; i++)
             {
                 Transform found = FindNamed(canvasInstance.transform, "BreedingBoard_Cell" + (i + 1));
+                if (found == null) found = FindNamed(canvasInstance.transform, "Cell" + (i + 1));
                 if (found == null) found = FindNamed(canvasInstance.transform, "Cell " + (i + 1));
                 if (found == null) continue;
                 RectTransform rect = found as RectTransform;
@@ -166,6 +177,44 @@ namespace DouQuqu
                 for (int i = 0; i < texts.Length; i++)
                     if (texts[i] != null && texts[i].text.IndexOf(',') >= 0) { goldText = texts[i]; break; }
             }
+        }
+
+        private void OpenDetail(MergePiece piece)
+        {
+            if (!EnsureDetailView()) return;
+            string rank;
+            string title;
+            string desc;
+            if (piece.level >= 4 && piece.isDrawResult)
+            {
+                rank = DouQuquCricketCatalog.QualityName(piece.drawA);
+                title = piece.drawA >= 4
+                    ? DouQuquCricketCatalog.UltimateName(piece.drawB) + " · " + DouQuquCricketCatalog.Idiom(piece.drawB)
+                    : DouQuquCricketCatalog.TemperamentName(piece.drawB);
+                desc = DouQuquCricketCatalog.Blurb(piece.drawB);
+            }
+            else
+            {
+                rank = piece.level == 1 ? "幼虫" : (piece.level == 2 ? "中虫" : "成虫");
+                title = rank;
+                desc = "继续合成可成长为精品虫。";
+            }
+            Sprite sprite = piece.level >= 4 ? SpriteForQuality(piece.drawA, piece.drawB) : SpriteForLevel(piece.level);
+            if (sprite == null) sprite = SpriteForLevel(piece.level);
+            detailView.Show(rank, title, desc, sprite);
+        }
+
+        private bool EnsureDetailView()
+        {
+            if (detailView != null) return true;
+            if (xiangqingPrefab == null) return false;
+            GameObject instance = Instantiate(xiangqingPrefab);
+            instance.name = "蛐蛐详情";
+            detailView = instance.GetComponent<QuquXiangqingView>();
+            if (detailView == null) detailView = instance.GetComponentInChildren<QuquXiangqingView>(true);
+            if (detailView == null) detailView = instance.AddComponent<QuquXiangqingView>();
+            detailView.Closed += () => instance.SetActive(false);
+            return true;
         }
 
         private void SpawnOne()

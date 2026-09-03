@@ -205,13 +205,21 @@ namespace DouQuqu
         private void RefreshStickMetrics()
         {
             if (root == null || pad == null) return;
-            float panelWidth = root.layout.width;
+            float panelWidth = Mathf.Min(root.layout.width, root.layout.height);
             if (panelWidth < 8f) return;
             float phoneScale = panelWidth / DouQuquStickTheme.PrototypePhoneWidth;
             bool useFixed = inputVersion == InputVersion.Slide;
             stickPx = (theme != null ? theme.StickSize(useFixed) : DouQuquStickTheme.PrototypeSummonedSize) * phoneScale;
             knobPx = (theme != null ? theme.KnobSize(useFixed) : DouQuquStickTheme.PrototypeSummonedKnob) * phoneScale;
             travelPx = (theme != null ? theme.Travel(useFixed) : DouQuquStickTheme.PrototypeSummonedTravel) * phoneScale;
+            float cap = panelWidth * DouQuquStickTheme.MaxScreenFraction;
+            if (stickPx > cap && stickPx > 1f)
+            {
+                float shrink = cap / stickPx;
+                stickPx *= shrink;
+                knobPx *= shrink;
+                travelPx *= shrink;
+            }
             pad.style.width = stickPx;
             pad.style.height = stickPx;
             pad.style.marginLeft = 0;

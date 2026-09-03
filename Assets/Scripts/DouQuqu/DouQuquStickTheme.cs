@@ -10,12 +10,13 @@ namespace DouQuqu
     public sealed class DouQuquStickTheme : ScriptableObject
     {
         public const float PrototypePhoneWidth = 390f;
-        public const float PrototypeSummonedSize = 128f;
-        public const float PrototypeFixedSize = 220f;
-        public const float PrototypeSummonedKnob = 52f;
-        public const float PrototypeFixedKnob = 64f;
-        public const float PrototypeSummonedTravel = 38f;
-        public const float PrototypeFixedTravel = 78f;
+        public const float PrototypeSummonedSize = 88f;
+        public const float PrototypeFixedSize = 160f;
+        public const float PrototypeSummonedKnob = 36f;
+        public const float PrototypeFixedKnob = 48f;
+        public const float PrototypeSummonedTravel = 26f;
+        public const float PrototypeFixedTravel = 56f;
+        public const float MaxScreenFraction = 0.20f;
 
         [Header("正式图（可空 = 继续用颜色占位）")]
         [Tooltip("底盘。正方形，透明底。空则用原型径向渐变占位。")]

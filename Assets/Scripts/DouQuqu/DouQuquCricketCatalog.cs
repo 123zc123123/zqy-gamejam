@@ -27,8 +27,17 @@ namespace DouQuqu
     public static class DouQuquCricketCatalog
     {
         public static readonly string[] QualityNames = { "", "凡品", "灵品", "仙品", "极品" };
-        public static readonly string[] TemperamentNames = { "", "猛攻", "灵巧", "智控", "稳重" };
+        public static readonly string[] TemperamentNames = { "", "强攻", "灵巧", "智控", "稳重" };
         public static readonly string[] UltimateNames = { "", "吕布", "貂蝉", "诸葛亮", "关羽" };
+        public static readonly string[] Idioms = { "", "天下无双", "闭月羞花", "神机妙算", "义薄云天" };
+        public static readonly string[] TemperamentBlurbs =
+        {
+            "",
+            "出手快、蓄力猛，适合抢先发难。",
+            "身轻好控，变向灵活，适合走位周旋。",
+            "蓄得久、角度稳，适合算准时机。",
+            "体重高、摩擦大，适合抗撞顶住。"
+        };
 
         public static readonly Color[] QualityColors =
         {
@@ -66,19 +75,31 @@ namespace DouQuqu
             return UltimateNames[temperament];
         }
 
-        /// <summary>棋盘格短名：凡品·猛攻，极品则显示 极品·吕布。</summary>
+        public static string Idiom(int temperament)
+        {
+            temperament = Mathf.Clamp(temperament, 1, 4);
+            return Idioms[temperament];
+        }
+
+        public static string Blurb(int temperament)
+        {
+            temperament = Mathf.Clamp(temperament, 1, 4);
+            return TemperamentBlurbs[temperament];
+        }
+
+        /// <summary>棋盘格短名：凡品·强攻；极品显示成语。</summary>
         public static string ShortLabel(int quality, int temperament)
         {
             if (quality < 1) return "";
             string left = QualityName(quality);
-            string right = quality >= 4 ? UltimateName(temperament) : TemperamentName(temperament);
+            string right = quality >= 4 ? Idiom(temperament) : TemperamentName(temperament);
             return left + "\n" + right;
         }
 
         public static string FullName(int quality, int temperament)
         {
             if (quality < 1) return "未成型";
-            if (quality >= 4) return "极品·" + UltimateName(temperament);
+            if (quality >= 4) return "极品·" + Idiom(temperament);
             return QualityName(quality) + "·" + TemperamentName(temperament);
         }
 

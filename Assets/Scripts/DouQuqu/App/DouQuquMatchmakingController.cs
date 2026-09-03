@@ -74,8 +74,10 @@ namespace DouQuqu
                 new Vector2(0.36f, 0.28f), new Vector2(0.91f, 0.57f), Vector2.zero, Vector2.zero,
                 TextAlignmentOptions.TopLeft);
             matchButton = DouQuquUiFactory.CreateButton(panel, "MatchButton", "开始匹配", ToggleMatch,
-                new Vector2(0.32f, 0.11f), new Vector2(0.68f, 0.23f), Vector2.zero, Vector2.zero);
+                new Vector2(0.32f, 0.22f), new Vector2(0.68f, 0.33f), Vector2.zero, Vector2.zero);
             matchButtonText = matchButton.GetComponentInChildren<TMP_Text>();
+            DouQuquUiFactory.CreateButton(panel, "AiBattleButton", "AI 对战", StartAiBattle,
+                new Vector2(0.32f, 0.10f), new Vector2(0.68f, 0.20f), Vector2.zero, Vector2.zero);
             DouQuquUiFactory.CreateButton(panel, "BackButton", "返回", Back,
                 new Vector2(0.06f, 0.05f), new Vector2(0.22f, 0.13f), Vector2.zero, Vector2.zero);
         }
@@ -122,6 +124,19 @@ namespace DouQuqu
         private void OnNetworkError(string message)
         {
             if (statusText != null) statusText.text = message;
+        }
+
+        private void StartAiBattle()
+        {
+            if (loadingBattle) return;
+            loadingBattle = true;
+            if (network != null)
+            {
+                network.CancelAutomaticMatchmaking();
+                network.Stop();
+            }
+            if (statusText != null) statusText.text = "正在进入 AI 对战……";
+            DouQuquSceneNames.Load(DouQuquSceneNames.Battle);
         }
 
         private void OnMatchReady()

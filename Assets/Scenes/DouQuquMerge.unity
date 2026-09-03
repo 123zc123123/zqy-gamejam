@@ -399,6 +399,7 @@ MonoBehaviour:
   autoReset: 1
   randomSeed: 20260902
   levelSprites: []
+  xiangqingPrefab: {fileID: 6045008293470880094, guid: c196f17d41639da4faf5f95bc4d62f39, type: 3}
 --- !u!1 &210000001
 GameObject:
   m_ObjectHideFlags: 0
