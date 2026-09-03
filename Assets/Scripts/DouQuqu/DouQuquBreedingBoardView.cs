@@ -278,9 +278,9 @@ namespace DouQuqu
         {
             if (levelSprites != null && levelSprites.Length > 0) return;
             phaseSprites = new Sprite[4];
-            phaseSprites[0] = LoadResourceSprite("DouQuqu/MergePhases/phase-1");
-            phaseSprites[1] = LoadResourceSprite("DouQuqu/MergePhases/phase-2");
-            phaseSprites[2] = LoadResourceSprite("DouQuqu/MergePhases/phase-3");
+            phaseSprites[0] = LoadResourceSprite("Merge/MergePhases/phase-1");
+            phaseSprites[1] = LoadResourceSprite("Merge/MergePhases/phase-2");
+            phaseSprites[2] = LoadResourceSprite("Merge/MergePhases/phase-3");
             phaseSprites[3] = phaseSprites[2];
         }
 
@@ -292,7 +292,7 @@ namespace DouQuqu
                 for (int temperament = 1; temperament <= 4; temperament++)
                 {
                     qualitySprites[(quality - 1) * 4 + (temperament - 1)] = LoadResourceSprite(
-                        "DouQuqu/MergeQualities/quality-" + quality + "-" + temperament);
+                        "Merge/MergeQualities/quality-" + quality + "-" + temperament);
                 }
             }
         }

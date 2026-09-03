@@ -9,7 +9,7 @@ namespace DouQuqu.Editor
     /// </summary>
     public sealed class DouQuquQualitySpriteImporter : AssetPostprocessor
     {
-        private const string Folder = "Assets/Resources/DouQuqu/MergeQualities";
+        private const string Folder = "Assets/Resources/Merge/MergeQualities";
 
         [InitializeOnLoadMethod]
         private static void EnsureImportedAsSprites()
