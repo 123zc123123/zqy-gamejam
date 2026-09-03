@@ -11,7 +11,7 @@ namespace DouQuqu
         Ji = 4
     }
 
-    /// <summary>性格。每个品质都会随机带一种；极品用三国名作为立绘占位。</summary>
+    /// <summary>性格。每个品质都会随机带一种；极品仍用三国名做短名。</summary>
     public enum CricketTemperament
     {
         MengGong = 1,

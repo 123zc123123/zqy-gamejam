@@ -26,6 +26,7 @@ namespace DouQuqu
         private Image dragGhost;
         private Text goldText;
         private Sprite[] phaseSprites;
+        private Sprite[] qualitySprites;
         private int draggingPieceId = -1;
         private int sourceCell = -1;
 
@@ -50,6 +51,7 @@ namespace DouQuqu
         private void Start()
         {
             LoadPhaseSprites();
+            LoadQualitySprites();
             SpawnCanvas();
             BindCells();
             BindHud();
@@ -181,10 +183,23 @@ namespace DouQuqu
         {
             if (levelSprites != null && levelSprites.Length > 0) return;
             phaseSprites = new Sprite[4];
-            phaseSprites[0] = LoadPhase("phase-1");
-            phaseSprites[1] = LoadPhase("phase-2");
-            phaseSprites[2] = LoadPhase("phase-3");
+            phaseSprites[0] = LoadResourceSprite("DouQuqu/MergePhases/phase-1");
+            phaseSprites[1] = LoadResourceSprite("DouQuqu/MergePhases/phase-2");
+            phaseSprites[2] = LoadResourceSprite("DouQuqu/MergePhases/phase-3");
             phaseSprites[3] = phaseSprites[2];
+        }
+
+        private void LoadQualitySprites()
+        {
+            qualitySprites = new Sprite[16];
+            for (int quality = 1; quality <= 4; quality++)
+            {
+                for (int temperament = 1; temperament <= 4; temperament++)
+                {
+                    qualitySprites[(quality - 1) * 4 + (temperament - 1)] = LoadResourceSprite(
+                        "DouQuqu/MergeQualities/quality-" + quality + "-" + temperament);
+                }
+            }
         }
 
         private void ApplyPieceVisual(Image image, Text label, MergePiece piece)
@@ -194,10 +209,16 @@ namespace DouQuqu
             image.preserveAspect = true;
             if (piece.level >= 4 && piece.isDrawResult)
             {
-                image.sprite = sprite;
-                image.color = piece.drawA >= 4
-                    ? DouQuquCricketCatalog.TemperamentColors[Mathf.Clamp(piece.drawB, 1, 4)]
-                    : Color.Lerp(Color.white, DouQuquCricketCatalog.QualityColors[Mathf.Clamp(piece.drawA, 1, 4)], 0.55f);
+                Sprite portrait = SpriteForQuality(piece.drawA, piece.drawB);
+                bool hasPortrait = portrait != null;
+                image.sprite = hasPortrait ? portrait : sprite;
+                image.color = Color.white;
+                if (!hasPortrait && sprite != null)
+                {
+                    image.color = piece.drawA >= 4
+                        ? DouQuquCricketCatalog.TemperamentColors[Mathf.Clamp(piece.drawB, 1, 4)]
+                        : Color.Lerp(Color.white, DouQuquCricketCatalog.QualityColors[Mathf.Clamp(piece.drawA, 1, 4)], 0.55f);
+                }
                 if (label != null)
                 {
                     label.text = DouQuquCricketCatalog.ShortLabel(piece.drawA, piece.drawB);
@@ -219,13 +240,23 @@ namespace DouQuqu
             if (label != null) label.text = piece.level.ToString();
         }
 
-        private static Sprite LoadPhase(string name)
+        private static Sprite LoadResourceSprite(string path)
         {
-            Sprite sprite = Resources.Load<Sprite>("DouQuqu/MergePhases/" + name);
+            Sprite sprite = Resources.Load<Sprite>(path);
             if (sprite != null) return sprite;
-            Texture2D texture = Resources.Load<Texture2D>("DouQuqu/MergePhases/" + name);
+            Texture2D texture = Resources.Load<Texture2D>(path);
             if (texture == null) return null;
             return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        private Sprite SpriteForQuality(int quality, int temperament)
+        {
+            int q = Mathf.Clamp(quality, 1, 4);
+            int t = Mathf.Clamp(temperament, 1, 4);
+            int index = (q - 1) * 4 + (t - 1);
+            if (qualitySprites != null && index < qualitySprites.Length)
+                return qualitySprites[index];
+            return null;
         }
 
         private Sprite SpriteForLevel(int level)
