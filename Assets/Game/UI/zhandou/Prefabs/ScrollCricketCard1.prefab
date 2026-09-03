@@ -1,0 +1,177 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4755158459806363880
+GameObject:
+  m_ObjectHideFlags: 0
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4755158459806363881}
+  m_Layer: 0
+  m_Name: ScrollCricketCard1
+  m_IsActive: 1
+--- !u!224 &4755158459806363881
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_GameObject: {fileID: 4755158459806363880}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 190, y: 242}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1001 &8115925018191318370
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4755158459806363881}
+    m_Modifications:
+    - target: {fileID: 1755445618986087990, guid: b211c36d11c45e7e8e0888dc12fe35ba, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755445618986087990, guid: b211c36d11c45e7e8e0888dc12fe35ba, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755445618986087990, guid: b211c36d11c45e7e8e0888dc12fe35ba, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 166
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755445618986087990, guid: b211c36d11c45e7e8e0888dc12fe35ba, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 166
+      objectReference: {fileID: 0}
+    - target: {fileID: 1755445618986087990, guid: b211c36d11c45e7e8e0888dc12fe35ba, type: 3}
+      propertyPath: m_Name
+      value: CricketImage
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: b211c36d11c45e7e8e0888dc12fe35ba, type: 3}
+--- !u!224 &8115925018191318371 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1755445618986087990, guid: b211c36d11c45e7e8e0888dc12fe35ba, type: 3}
+  m_PrefabInstance: {fileID: 8115925018191318370}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &8600863505950434274
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4755158459806363881}
+    m_Modifications:
+    - target: {fileID: 1104734007789310391, guid: 3be20835d94c5fdab27cae4cfcbda8d0, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1104734007789310391, guid: 3be20835d94c5fdab27cae4cfcbda8d0, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -96
+      objectReference: {fileID: 0}
+    - target: {fileID: 1104734007789310391, guid: 3be20835d94c5fdab27cae4cfcbda8d0, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 166
+      objectReference: {fileID: 0}
+    - target: {fileID: 1104734007789310391, guid: 3be20835d94c5fdab27cae4cfcbda8d0, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 1104734007789310391, guid: 3be20835d94c5fdab27cae4cfcbda8d0, type: 3}
+      propertyPath: m_Name
+      value: CricketName
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 3be20835d94c5fdab27cae4cfcbda8d0, type: 3}
+--- !u!224 &8600863505950434275 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1104734007789310391, guid: 3be20835d94c5fdab27cae4cfcbda8d0, type: 3}
+  m_PrefabInstance: {fileID: 8600863505950434274}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &6819826420412901852
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4755158459806363881}
+    m_Modifications:
+    - target: {fileID: 1897219990258069416, guid: 94c69d2c84a15f03b31b70d630f8edb5, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -67
+      objectReference: {fileID: 0}
+    - target: {fileID: 1897219990258069416, guid: 94c69d2c84a15f03b31b70d630f8edb5, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -108
+      objectReference: {fileID: 0}
+    - target: {fileID: 1897219990258069416, guid: 94c69d2c84a15f03b31b70d630f8edb5, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 32
+      objectReference: {fileID: 0}
+    - target: {fileID: 1897219990258069416, guid: 94c69d2c84a15f03b31b70d630f8edb5, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 19
+      objectReference: {fileID: 0}
+    - target: {fileID: 1897219990258069416, guid: 94c69d2c84a15f03b31b70d630f8edb5, type: 3}
+      propertyPath: m_Name
+      value: Grade
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 94c69d2c84a15f03b31b70d630f8edb5, type: 3}
+--- !u!224 &6819826420412901853 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1897219990258069416, guid: 94c69d2c84a15f03b31b70d630f8edb5, type: 3}
+  m_PrefabInstance: {fileID: 6819826420412901852}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &4094762937056138647
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4755158459806363881}
+    m_Modifications:
+    - target: {fileID: 1610923481625215568, guid: 8c5683279aba56aabd059b9849995324, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 50
+      objectReference: {fileID: 0}
+    - target: {fileID: 1610923481625215568, guid: 8c5683279aba56aabd059b9849995324, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -108
+      objectReference: {fileID: 0}
+    - target: {fileID: 1610923481625215568, guid: 8c5683279aba56aabd059b9849995324, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 51
+      objectReference: {fileID: 0}
+    - target: {fileID: 1610923481625215568, guid: 8c5683279aba56aabd059b9849995324, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 19
+      objectReference: {fileID: 0}
+    - target: {fileID: 1610923481625215568, guid: 8c5683279aba56aabd059b9849995324, type: 3}
+      propertyPath: m_Name
+      value: Power
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 8c5683279aba56aabd059b9849995324, type: 3}
+--- !u!224 &4094762937056138648 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1610923481625215568, guid: 8c5683279aba56aabd059b9849995324, type: 3}
+  m_PrefabInstance: {fileID: 4094762937056138647}
+  m_PrefabAsset: {fileID: 0}

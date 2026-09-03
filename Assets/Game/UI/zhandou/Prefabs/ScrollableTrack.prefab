@@ -1,0 +1,177 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4587314189711124330
+GameObject:
+  m_ObjectHideFlags: 0
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4587314189711124331}
+  m_Layer: 0
+  m_Name: ScrollableTrack
+  m_IsActive: 1
+--- !u!224 &4587314189711124331
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_GameObject: {fileID: 4587314189711124330}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 904, y: 242}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1001 &8828482028472012756
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4587314189711124331}
+    m_Modifications:
+    - target: {fileID: 4264118438944470777, guid: f13d4fa1c64c502fb43cb001685b3fca, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -357
+      objectReference: {fileID: 0}
+    - target: {fileID: 4264118438944470777, guid: f13d4fa1c64c502fb43cb001685b3fca, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4264118438944470777, guid: f13d4fa1c64c502fb43cb001685b3fca, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 190
+      objectReference: {fileID: 0}
+    - target: {fileID: 4264118438944470777, guid: f13d4fa1c64c502fb43cb001685b3fca, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 242
+      objectReference: {fileID: 0}
+    - target: {fileID: 4264118438944470777, guid: f13d4fa1c64c502fb43cb001685b3fca, type: 3}
+      propertyPath: m_Name
+      value: MePlayer
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: f13d4fa1c64c502fb43cb001685b3fca, type: 3}
+--- !u!224 &8828482028472012757 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 4264118438944470777, guid: f13d4fa1c64c502fb43cb001685b3fca, type: 3}
+  m_PrefabInstance: {fileID: 8828482028472012756}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &8326512330175502170
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4587314189711124331}
+    m_Modifications:
+    - target: {fileID: 4755158459806363881, guid: 241ac156cb115a53beb4cf99fea84971, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -95
+      objectReference: {fileID: 0}
+    - target: {fileID: 4755158459806363881, guid: 241ac156cb115a53beb4cf99fea84971, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4755158459806363881, guid: 241ac156cb115a53beb4cf99fea84971, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 190
+      objectReference: {fileID: 0}
+    - target: {fileID: 4755158459806363881, guid: 241ac156cb115a53beb4cf99fea84971, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 242
+      objectReference: {fileID: 0}
+    - target: {fileID: 4755158459806363881, guid: 241ac156cb115a53beb4cf99fea84971, type: 3}
+      propertyPath: m_Name
+      value: Card1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 241ac156cb115a53beb4cf99fea84971, type: 3}
+--- !u!224 &8326512330175502171 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 4755158459806363881, guid: 241ac156cb115a53beb4cf99fea84971, type: 3}
+  m_PrefabInstance: {fileID: 8326512330175502170}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &5841505449072433003
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4587314189711124331}
+    m_Modifications:
+    - target: {fileID: 4843473040477794464, guid: cfe0bbcb2a0154f1941177f0e5c13cfe, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 143
+      objectReference: {fileID: 0}
+    - target: {fileID: 4843473040477794464, guid: cfe0bbcb2a0154f1941177f0e5c13cfe, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4843473040477794464, guid: cfe0bbcb2a0154f1941177f0e5c13cfe, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 190
+      objectReference: {fileID: 0}
+    - target: {fileID: 4843473040477794464, guid: cfe0bbcb2a0154f1941177f0e5c13cfe, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 242
+      objectReference: {fileID: 0}
+    - target: {fileID: 4843473040477794464, guid: cfe0bbcb2a0154f1941177f0e5c13cfe, type: 3}
+      propertyPath: m_Name
+      value: Card2
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: cfe0bbcb2a0154f1941177f0e5c13cfe, type: 3}
+--- !u!224 &5841505449072433004 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 4843473040477794464, guid: cfe0bbcb2a0154f1941177f0e5c13cfe, type: 3}
+  m_PrefabInstance: {fileID: 5841505449072433003}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &2595980721953002401
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4587314189711124331}
+    m_Modifications:
+    - target: {fileID: 4757166417036544594, guid: 0824cfeeb347568ab7cdd436e2cd8a0c, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 381
+      objectReference: {fileID: 0}
+    - target: {fileID: 4757166417036544594, guid: 0824cfeeb347568ab7cdd436e2cd8a0c, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4757166417036544594, guid: 0824cfeeb347568ab7cdd436e2cd8a0c, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 190
+      objectReference: {fileID: 0}
+    - target: {fileID: 4757166417036544594, guid: 0824cfeeb347568ab7cdd436e2cd8a0c, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 242
+      objectReference: {fileID: 0}
+    - target: {fileID: 4757166417036544594, guid: 0824cfeeb347568ab7cdd436e2cd8a0c, type: 3}
+      propertyPath: m_Name
+      value: Card3
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 0824cfeeb347568ab7cdd436e2cd8a0c, type: 3}
+--- !u!224 &2595980721953002402 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 4757166417036544594, guid: 0824cfeeb347568ab7cdd436e2cd8a0c, type: 3}
+  m_PrefabInstance: {fileID: 2595980721953002401}
+  m_PrefabAsset: {fileID: 0}
