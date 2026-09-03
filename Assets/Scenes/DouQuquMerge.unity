@@ -360,7 +360,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1891428132}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6cbf657d24a62a94691ea178629fddca, type: 3}
   m_Name: 
@@ -399,6 +399,7 @@ MonoBehaviour:
   autoReset: 1
   randomSeed: 20260902
   levelSprites: []
+  xiangqingPrefab: {fileID: 6045008293470880094, guid: c196f17d41639da4faf5f95bc4d62f39, type: 3}
 --- !u!1 &210000001
 GameObject:
   m_ObjectHideFlags: 0

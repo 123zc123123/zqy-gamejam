@@ -75,8 +75,9 @@ namespace DouQuqu
                     continue;
                 }
 
-                // 只有停稳且不在空中时才开始下一次真人式操作。
+                // 只有停稳、不在空中、且还有耐力时才开始下一次真人式操作。
                 if (decisionTimers[i] > 0f || bug.airborne || bug.velocity.sqrMagnitude > 0.1f) continue;
+                if (!DouQuquRules.CanStartCharge(knobs, bug)) continue;
 
                 Vector2 direction = ChooseDirection(state, bug, i);
                 if (direction.sqrMagnitude <= 0.0001f) direction = Vector2.up;
@@ -118,16 +119,16 @@ namespace DouQuqu
         /// <summary>根据当前方向到场地边缘的距离，计算本次允许的最长蓄力时间。</summary>
         private float ChooseReleaseTime(MatchState state, BugState bug, Vector2 direction, MatchKnobs knobs)
         {
-            float cap = DouQuquRules.EffectiveChargeTime(knobs, bug);
+            float cap = Mathf.Min(
+                DouQuquRules.EffectiveChargeTime(knobs, bug),
+                DouQuquRules.StaminaChargeTCap(knobs, bug));
             if (cap <= 0.0001f) return DouQuquMatchController.FixedDeltaTime;
 
-            float maxSpeed = Mathf.Max(
-                DouQuquRules.JumpSpeedMin(knobs),
-                DouQuquRules.EffectiveChargeSpeed(knobs, bug) * cap);
+            float maxSpeed = DouQuquRules.JumpDeltaV(knobs, bug, cap);
             float safeRange = SafeTravelDistance(state, bug, direction, DouQuquRules.JumpRange(knobs, maxSpeed));
             safeRange = Mathf.Max(0f, safeRange - ReleaseSafetyBuffer);
 
-            float minSpeed = DouQuquRules.JumpSpeedMin(knobs);
+            float minSpeed = DouQuquRules.JumpSpeedMin(knobs, bug);
             float minRange = DouQuquRules.JumpRange(knobs, minSpeed);
             if (safeRange <= minRange + 0.001f)
                 return Mathf.Min(cap, DouQuquMatchController.FixedDeltaTime);
@@ -138,7 +139,7 @@ namespace DouQuqu
             for (int i = 0; i < 10; i++)
             {
                 float mid = (low + high) * 0.5f;
-                float speed = Mathf.Max(minSpeed, DouQuquRules.EffectiveChargeSpeed(knobs, bug) * mid);
+                float speed = DouQuquRules.JumpDeltaV(knobs, bug, mid);
                 if (DouQuquRules.JumpRange(knobs, speed) <= safeRange) low = mid;
                 else high = mid;
             }
@@ -162,7 +163,7 @@ namespace DouQuqu
             safeMargin += Mathf.Max(0f, bug.radius);
             bool nearEdge = DouQuquRules.ArenaSdf(bug.position.x, bug.position.z) > -safeMargin;
             // 即使还没进入可调安全边距，只要最小跳跃距离已经放不下，也必须先转向场内。
-            float minimumJumpRange = DouQuquRules.JumpRange(knobs, DouQuquRules.JumpSpeedMin(knobs));
+            float minimumJumpRange = DouQuquRules.JumpRange(knobs, DouQuquRules.JumpSpeedMin(knobs, bug));
             bool minimumJumpDoesNotFit = SafeTravelDistance(state, bug, desired, minimumJumpRange) + ReleaseSafetyBuffer < minimumJumpRange;
             if ((!nearEdge && !minimumJumpDoesNotFit) || outwardPart <= 0f) return desired;
 

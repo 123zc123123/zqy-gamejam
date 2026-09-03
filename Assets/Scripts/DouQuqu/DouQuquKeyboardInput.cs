@@ -2,29 +2,18 @@ using UnityEngine;
 
 namespace DouQuqu
 {
-    /// <summary>为兼容原型保留的输入解释模式。</summary>
-    public enum InputVersion
-    {
-        Current = 1,
-        Rebound = 2,
-        Slide = 3
-    }
-
     /// <summary>
     /// 纯代码输入桥接器，支持四名本地键盘玩家，并可将当前分配槽位的输入
-    /// 透明转发给 DouQuquLanSession。
+    /// 透明转发给 DouQuquLanSession。键盘仅供桌面调试；方向与触屏反弹相同：往后按、朝反方向飞。
     /// </summary>
     public sealed class DouQuquKeyboardInput : MonoBehaviour
     {
         [SerializeField] private DouQuquMatchController match;
         [SerializeField] private DouQuquLanSession lan;
         [SerializeField] private int offlinePlayerCount = 4;
-        [SerializeField] private InputVersion inputVersion = InputVersion.Rebound;
 
         // 保存上一帧按键状态，用来合成只持续一帧的松开事件。
         private readonly bool[] previousHeld = new bool[DouQuquMatchController.MaxPlayers];
-        // Slide 模式使用计时器控制持续时间，不直接使用物理按键时长。
-        private readonly float[] slideTimers = new float[DouQuquMatchController.MaxPlayers];
         private bool wasStarted;
 
         private void Awake()
@@ -79,32 +68,11 @@ namespace DouQuqu
             if (Input.GetKey(down)) direction.y -= 1f;
             if (Input.GetKey(left)) direction.x -= 1f;
             if (Input.GetKey(right)) direction.x += 1f;
-            // 方向为零表示“保持上一次瞄准方向”。如果每帧传 Vector2.up，
-            // 松开方向键后会意外覆盖玩家原本的瞄准方向。
+            // 反弹：往后按、朝反方向飞。方向为零表示“保持上一次瞄准方向”。
+            if (direction.sqrMagnitude > 0.0001f) direction = -direction;
 
-            bool physicalHeld = Input.GetKey(jump);
-            bool held = physicalHeld;
-            bool released = previousHeld[playerId] && !physicalHeld;
-            if (inputVersion == InputVersion.Rebound)
-            {
-                direction = -direction;
-            }
-            else if (inputVersion == InputVersion.Slide)
-            {
-                if (Input.GetKeyDown(jump)) slideTimers[playerId] = 0.0001f;
-                if (slideTimers[playerId] > 0f)
-                {
-                    slideTimers[playerId] += Time.deltaTime;
-                    held = slideTimers[playerId] < match.Knobs.tMax;
-                    released = !held;
-                    if (!held) slideTimers[playerId] = 0f;
-                }
-                else
-                {
-                    held = false;
-                    released = false;
-                }
-            }
+            bool held = Input.GetKey(jump);
+            bool released = previousHeld[playerId] && !held;
             previousHeld[playerId] = held;
             if (networked) lan.SendInput(direction, held, released);
             else match.SetInput(playerId, direction, held, released);
@@ -113,11 +81,7 @@ namespace DouQuqu
         // 首帧和两局之间都会调用，避免上一局仍按住的键在新局产生伪松开事件。
         private void ResetTransientInput()
         {
-            for (int i = 0; i < previousHeld.Length; i++)
-            {
-                previousHeld[i] = false;
-                slideTimers[i] = 0f;
-            }
+            for (int i = 0; i < previousHeld.Length; i++) previousHeld[i] = false;
             wasStarted = false;
         }
 

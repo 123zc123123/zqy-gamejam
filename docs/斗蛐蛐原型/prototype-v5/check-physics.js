@@ -1,9 +1,9 @@
 "use strict";
 
 const knobs = {
-  tMin: 0,
-  tMax: 0.55,
-  dMin: 1.2,
+  tChargeMin: 0,
+  tChargeMax: 0.55,
+  tFloor: 0.12,
   vRate: 23,
   theta: 45,
   m: 1,
@@ -26,15 +26,14 @@ function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function hypot(x, z) { return Math.hypot(x, z); }
 function gravity() { return Math.max(0.01, knobs.g); }
 function tanTheta() { return Math.tan(knobs.theta * Math.PI / 180); }
-function vMax() { return Math.max(0, knobs.vRate) * Math.max(0, knobs.tMax); }
+function tFloor() { return Math.max(0, knobs.tFloor || 0); }
+function vMax() { return Math.max(0, knobs.vRate) * (Math.max(0, knobs.tChargeMax) + tFloor()); }
 function frictionAccel(muEff) {
   const mu = muEff == null ? knobs.mu : muEff;
   return Math.max(1e-4, mu * gravity());
 }
 function jumpSpeedMin() {
-  const t = tanTheta();
-  const denom = 2 * t + 1 / (2 * Math.max(1e-4, knobs.mu));
-  return Math.sqrt(Math.max(0, knobs.dMin) * gravity() / Math.max(1e-6, denom));
+  return Math.max(0, knobs.vRate) * tFloor();
 }
 function jumpRange(dvx) {
   const g = gravity();
@@ -51,7 +50,7 @@ function isSettled(b) {
   return !b.airborne && (b.y == null || b.y <= 0) && hypot(b.vx || 0, b.vz || 0) < SETTLE_SPEED;
 }
 function chargeDeltaV(b) {
-  return Math.max(0, knobs.vRate) * clamp(b.chargeT || 0, 0, Math.max(0, knobs.tMax));
+  return Math.max(0, knobs.vRate) * clamp(b.chargeT || 0, 0, Math.max(0, knobs.tChargeMax));
 }
 function motionInitSpeed(b) {
   if (typeof b.vInit === "number" && Number.isFinite(b.vInit)) return Math.max(0, b.vInit);
@@ -191,23 +190,23 @@ function eq(name, got, expected) {
 }
 
 const vmax = vMax();
-approx("vmax", vmax, 12.65, 1e-9);
+approx("vmax", vmax, 23 * 0.67, 1e-9);
 
 const t = tanTheta();
 approx("tanθ", t, 1, 1e-6);
 
 const vmin = jumpSpeedMin();
-approx("vmin from dMin", vmin, Math.sqrt(1.2 * 18 / 3), 1e-6);
+approx("vmin from tFloor", vmin, 23 * 0.12, 1e-9);
 
 const full = jumpRange(vmax);
-approx("ty", full.ty, 2 * 12.65 / 18, 1e-6);
-approx("t地", full.tg, 12.65 / (0.5 * 18), 1e-6);
+approx("ty", full.ty, 2 * vmax / 18, 1e-6);
+approx("t地", full.tg, vmax / (0.5 * 18), 1e-6);
 approx("k", full.ty / full.T, 0.5, 1e-6);
-approx("D空", full.air, 2 * 12.65 * 12.65 / 18, 0.05);
-approx("D地", full.ground, 12.65 * 12.65 / (2 * 0.5 * 18), 0.05);
-approx("D", full.total, 26.7, 0.15);
-approx("H", full.height, 4.45, 0.05);
-approx("T", full.T, 2.81, 0.02);
+approx("D空", full.air, 2 * vmax * vmax / 18, 0.05);
+approx("D地", full.ground, vmax * vmax / (2 * 0.5 * 18), 0.05);
+approx("D", full.total, 39.6, 0.15);
+approx("H", full.height, 6.60, 0.05);
+approx("T", full.T, 3.42, 0.02);
 
 const sim = simulateJump(vmax);
 approx("sim D", sim.x, full.total, 0.35);
@@ -217,9 +216,9 @@ approx("sim ty", sim.tLand, full.ty, 0.06);
 approx("sim H", sim.yMax, full.height, 0.15);
 
 const short = jumpRange(vmin);
-approx("short D", short.total, 1.2, 0.02);
+approx("short D", short.total, 1.27, 0.02);
 const simShort = simulateJump(vmin);
-approx("sim short D", simShort.x, 1.2, 0.12);
+approx("sim short D", simShort.x, 1.27, 0.12);
 
 const A = { m: 1, vx: vmax, vz: 0, y: 1, airborne: true, vy: 1 };
 const B = { m: 1, vx: 0, vz: 0, y: 0, airborne: false, vy: 0 };
@@ -256,7 +255,7 @@ eq("tiers after standing hit", `${hit.tierA}/${hit.tierB}`, "ctrl/slip");
 approx("slip μ", standB.slideMu, 0.5 * 0.65, 1e-9);
 approx("ctrl μ", standA.slideMu, 0.5 * 1.3, 1e-9);
 const slipD = (vmax * vmax) / (2 * standB.slideMu * knobs.g);
-approx("standing slip distance", slipD, 13.7, 0.1);
+approx("standing slip distance", slipD, 20.3, 0.1);
 
 const slowA = { m: 1, vx: 0.5, vz: 0 };
 const slowB = { m: 1, vx: 0, vz: 0 };
@@ -278,16 +277,22 @@ const Rkept = resistOf({ m: 1, vx: vmax * 0.2, vz: 0, vInit: vmax });
 approx("R uses vInit not remaining speed", Rkept, 1 * vmax, 1e-6);
 const Rcharge0 = resistOf({ m: 1, vx: 0, vz: 0, charging: true, chargeT: 0 });
 approx("R charge just started", Rcharge0, 0.1 * vmax, 1e-6);
-const RchargeFull = resistOf({ m: 1, vx: 0, vz: 0, charging: true, chargeT: knobs.tMax });
-approx("R stand charging full * λ", RchargeFull, 0.1 * vmax + 0.5 * (vmax - 0.1 * vmax), 1e-6);
-const chargingStand = { m: 1, vx: 0, vz: 0, charging: true, chargeT: knobs.tMax, airborne: false, y: 0 };
+const extraV = knobs.vRate * knobs.tChargeMax;
+function rAt(vInit) {
+  const V0 = 0.1 * vmax;
+  const u = vmax < 1e-6 ? 0 : clamp(vInit, 0, vmax) / vmax;
+  return V0 + u * (vmax - V0);
+}
+const RchargeFull = resistOf({ m: 1, vx: 0, vz: 0, charging: true, chargeT: knobs.tChargeMax });
+approx("R stand charging full * λ", RchargeFull, rAt(0.5 * extraV), 1e-6);
+const chargingStand = { m: 1, vx: 0, vz: 0, charging: true, chargeT: knobs.tChargeMax, airborne: false, y: 0 };
 const savedL = knobs.rChargeScale;
 knobs.rChargeScale = 0;
 approx("R charge λ=0 same as stand", resistOf(chargingStand), 0.1 * vmax, 1e-6);
 knobs.rChargeScale = 1;
-approx("R charge λ=1 same as airborne full", resistOf(chargingStand), 1 * vmax, 1e-6);
+approx("R charge λ=1 is extra charge only", resistOf(chargingStand), rAt(extraV), 1e-6);
 knobs.rChargeScale = savedL;
-const RflyCharge = resistOf({ m: 1, vx: vmax * 0.2, vz: 0, vInit: vmax, charging: true, chargeT: knobs.tMax, airborne: true, y: 1 });
+const RflyCharge = resistOf({ m: 1, vx: vmax * 0.2, vz: 0, vInit: vmax, charging: true, chargeT: knobs.tChargeMax, airborne: true, y: 1 });
 approx("R airborne ignores charge λ", RflyCharge, 1 * vmax, 1e-6);
 
 const grow = 1 + 6 * 0.16;
@@ -410,24 +415,28 @@ eq("save has no file picker", js.includes("showSaveFilePicker"), false);
 eq("save has no download overwrite", js.includes("请覆盖原型目录"), false);
 eq("factory reset kept", js.includes("const FACTORY") && js.includes("Object.assign(knobs, FACTORY)"), true);
 eq("html has hud-clock", html.includes("id=\"hud-clock\""), true);
-eq("drawArc preview uses chargeDeltaV", /function drawArc\(b\) \{[\s\S]{0,500}chargeDeltaV\(b\)/.test(js), true);
+eq("drawArc preview uses jumpDeltaV", /function drawArc\(b\) \{[\s\S]{0,500}jumpDeltaV\(b\)/.test(js), true);
+eq("html dropped dMin", html.includes("k-dMin"), false);
 eq("charge waits until settled", /function stepCharge\(b, dt\) \{[\s\S]{0,1200}!isSettled\(b\)/.test(js), true);
 eq("baby charge waits until settled", /function stepBabyCharge\(b, dt\) \{[\s\S]{0,250}!isSettled\(b\)/.test(js), true);
 eq("own-slide does not plant to charge", !/function plant\(b\)/.test(js), true);
 eq("stamina gates charge", /function canStartCharge\(b\)/.test(js) && /R\.canStartCharge\(knobs, b\)/.test(js), true);
 eq("stamina cost scales with charge", /R\.jumpStaminaCost\(knobs, b\)/.test(js), true);
 eq("stamina caps chargeT", /staminaChargeCap\(b\)/.test(js), true);
+eq("charge regen uses scale", /function stepStamina\(b, dt\) \{[\s\S]{0,500}staminaRegenCharge/.test(js), true);
+eq("stamina ring keeps current fill", /function drawStaminaRing\(b, p, hitPx\) \{[\s\S]{0,900}remainRatio/.test(js), true);
+eq("stamina ring paints pending ghost", /function drawStaminaRing\(b, p, hitPx\) \{[\s\S]{0,1600}ghost/.test(js), true);
 
 const Rules = require("./match-rules.js");
-const staminaKnobs = { tMax: 0.4, vRate: 80, staminaCost: 1, staminaMax: 5, chargeScale: 1.25 };
+const staminaKnobs = { tChargeMax: 0.4, vRate: 80, staminaCost: 0.8, staminaJump: 0.2, staminaMax: 5, chargeScale: 1.25 };
 approx("full charge cost 1", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0.4 }), 1, 1e-9);
-approx("half charge cost 0.5", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0.2 }), 0.5, 1e-9);
-approx("zero charge cost 0", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0 }), 0, 1e-9);
+approx("half charge cost 0.6", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0.2 }), 0.6, 1e-9);
+approx("tap cost is jump ticket", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0 }), 0.2, 1e-9);
 approx("overfull charge still 1", Rules.jumpStaminaCost(staminaKnobs, { chargeT: 0.8 }), 1, 1e-9);
-approx("stamina 2.5 caps at 100%", Rules.staminaChargeTCap(staminaKnobs, { stamina: 2.5 }), 0.4, 1e-9);
-approx("stamina 0.5 caps at 50%", Rules.staminaChargeTCap(staminaKnobs, { stamina: 0.5 }), 0.2, 1e-9);
-eq("cannot start at 0 stamina", Rules.canStartCharge(staminaKnobs, { stamina: 0 }), false);
-eq("can start with remainder", Rules.canStartCharge(staminaKnobs, { stamina: 0.3 }), true);
+approx("stamina 1.0 caps at 100%", Rules.staminaChargeTCap(staminaKnobs, { stamina: 1.0 }), 0.4, 1e-9);
+approx("stamina 0.6 caps at 50%", Rules.staminaChargeTCap(staminaKnobs, { stamina: 0.6 }), 0.2, 1e-9);
+eq("cannot start below jump cost", Rules.canStartCharge(staminaKnobs, { stamina: 0.1 }), false);
+eq("can start at jump cost", Rules.canStartCharge(staminaKnobs, { stamina: 0.2 }), true);
 eq("baby ignores stamina gate", Rules.canStartCharge(staminaKnobs, { kind: "baby", stamina: 0 }), true);
 eq("hit fx split by tier", /function playHitFx\(/.test(js) && /function spawnHitSpray\(/.test(js), true);
 eq("slip sets roll", /b\.roll = 1/.test(js), true);

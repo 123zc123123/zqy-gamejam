@@ -367,10 +367,10 @@ namespace DouQuqu
         }
 
         /// <summary>把本地输入发送给主机；如果自身是主机则立即应用。</summary>
-        public void SendInput(Vector2 direction, bool held, bool released, float charge01 = 0f, bool distanceCharge = false)
+        public void SendInput(Vector2 direction, bool held, bool released)
         {
             if (LocalPlayerId < 0 || match == null) return;
-            InputFrame frame = new InputFrame(LocalPlayerId, direction, held, released, 0, distanceCharge, charge01);
+            InputFrame frame = new InputFrame(LocalPlayerId, direction, held, released);
             if (IsHost)
             {
                 match.SetInput(frame);

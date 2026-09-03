@@ -221,7 +221,7 @@ namespace DouQuqu
             if (state == null) return null;
             MatchSnapshot snapshot = new MatchSnapshot
             {
-                version = 4,
+                version = 5,
                 tick = state.tick,
                 playerCount = state.playerCount,
                 randomSeed = state.randomSeed,
@@ -253,7 +253,7 @@ namespace DouQuqu
                 {
                     id = b.id, alive = b.alive, position = b.position, velocity = b.velocity,
                     height = b.height, verticalVelocity = b.verticalVelocity, radius = b.radius,
-                    chargeTime = b.chargeTime, grow = b.grow, score = b.score, lastHitId = b.lastHitId,
+                    chargeTime = b.chargeTime, stamina = b.stamina, grow = b.grow, score = b.score, lastHitId = b.lastHitId,
                     buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
                     charging = b.charging, airborne = b.airborne, hitTier = (int)b.hitTier
                 };
@@ -318,6 +318,7 @@ namespace DouQuqu
                 b.id = s.id; b.alive = s.alive; b.position = s.position; b.previousPosition = s.position - s.velocity * FixedDeltaTime;
                 b.velocity = s.velocity; b.height = s.height; b.verticalVelocity = s.verticalVelocity; b.airborne = s.airborne || s.height > 0.03f || s.verticalVelocity > 0f;
                 b.radius = s.radius; b.chargeTime = s.chargeTime; b.grow = s.grow; b.score = s.score; b.lastHitId = s.lastHitId;
+                b.stamina = snapshot.version >= 5 ? Mathf.Max(0f, s.stamina) : Mathf.Max(0f, knobs.staminaMax);
                 b.buffSizeT = s.buffSizeT; b.buffShieldT = s.buffShieldT; b.buffChargeT = s.buffChargeT; b.charging = s.charging;
                 b.hitTier = (HitTier)Mathf.Clamp(s.hitTier, 0, (int)HitTier.Slip);
             }

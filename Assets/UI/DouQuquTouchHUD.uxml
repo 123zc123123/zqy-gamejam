@@ -1,10 +1,9 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <ui:Style src="project://database/Assets/UI/DouQuquTouchHUD.uss" />
-    <ui:VisualElement name="touch-root" class="touch-root">
-        <ui:VisualElement name="stick-base" class="stick-base">
-            <ui:VisualElement name="stick-center" class="stick-center" />
-            <ui:VisualElement name="stick-knob" class="stick-knob" />
+    <ui:VisualElement name="touch-root" class="touch-root" picking-mode="Position">
+        <ui:VisualElement name="stick-base" class="stick-base" picking-mode="Ignore">
+            <ui:VisualElement name="stick-knob" class="stick-knob" picking-mode="Ignore" />
         </ui:VisualElement>
-        <ui:Label name="stick-hint" text="往后拉，松手朝反方向跳" class="stick-hint" />
+        <ui:Label name="stick-hint" text="往后拉，松手朝反方向跳" class="stick-hint" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

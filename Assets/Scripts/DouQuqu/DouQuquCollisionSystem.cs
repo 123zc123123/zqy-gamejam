@@ -296,7 +296,7 @@ namespace DouQuqu
                 float bugNormalInitial = bug.velocity.magnitude < 1e-8f ? 0f : bugInitial * bugNormal / bug.velocity.magnitude;
                 float babyNormalInitial = baby.velocity.magnitude < 1e-8f ? 0f : babyInitial * babyNormal / baby.velocity.magnitude;
                 float deltaMomentum = baby.mass * (-babyNormalInitial) - bug.mass * bugNormalInitial;
-                float vmax = Mathf.Max(0f, knobs.vRate) * Mathf.Max(0f, knobs.tMax);
+                float vmax = DouQuquRules.PanelVMax(knobs);
                 float resistance = knobs.rStand * vmax * bug.mass;
                 if (vmax > 1e-6f)
                     resistance += Mathf.Clamp(bugInitial / vmax, 0f, 1f) * (knobs.rMax * bug.mass * vmax - knobs.rStand * vmax * bug.mass);
@@ -434,7 +434,7 @@ namespace DouQuqu
         private float ResistanceOf(MatchKnobs knobs, BugState bug)
         {
             // 与原型 resistOf() 相同的阻力插值公式。
-            float vmax = Mathf.Max(0f, knobs.vRate) * Mathf.Max(0f, knobs.tMax);
+            float vmax = DouQuquRules.PanelVMax(knobs);
             float v0 = knobs.rStand * vmax;
             float resistanceSpeed = (!bug.airborne && bug.charging)
                 ? DouQuquRules.ChargeDelta(knobs, bug) * Mathf.Max(0f, knobs.rChargeScale)

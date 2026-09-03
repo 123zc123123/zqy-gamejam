@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 namespace DouQuqu
 {
     /// <summary>
-    /// 默认反弹：点哪召出摇杆，按住计时，往后拉、朝反方向跳。杆头跟手指。
+    /// 反弹：点哪召出摇杆，按住计时，往后拉、朝反方向跳。杆头跟手指。
     /// </summary>
     public sealed class DouQuquTouchInput : MonoBehaviour
     {
@@ -13,22 +13,18 @@ namespace DouQuqu
         [SerializeField] private UIDocument uiDocument;
         [SerializeField] private DouQuquStickTheme theme;
         [SerializeField] private int playerId;
-        [SerializeField] private InputVersion inputVersion = InputVersion.Rebound;
         [SerializeField, Range(0.05f, 0.3f)] private float deadZone = 0.12f;
 
         private VisualElement root;
         private VisualElement pad;
-        private VisualElement center;
         private VisualElement handle;
         private Label hint;
-        private DouQuquBattleCamera battleCamera;
         private int pointerId = -1;
-        private Vector2 pullDirection = Vector2.down;
         private Vector2 flyDirection = Vector2.up;
         private bool holding;
-        private float stickPx = DouQuquStickTheme.PrototypeSummonedSize;
-        private float knobPx = DouQuquStickTheme.PrototypeSummonedKnob;
-        private float travelPx = DouQuquStickTheme.PrototypeSummonedTravel;
+        private float stickPx = DouQuquStickTheme.PrototypeSize;
+        private float knobPx = DouQuquStickTheme.PrototypeKnob;
+        private float travelPx = DouQuquStickTheme.PrototypeTravel;
         private int lastScreenWidth;
         private int lastScreenHeight;
 
@@ -56,11 +52,12 @@ namespace DouQuqu
             if (uiDocument == null) return;
             root = uiDocument.rootVisualElement;
             pad = root.Q<VisualElement>("stick-base") ?? root.Q<VisualElement>("direction-pad");
-            center = root.Q<VisualElement>("stick-center") ?? root.Q<VisualElement>("direction-ring");
             handle = root.Q<VisualElement>("stick-knob") ?? root.Q<VisualElement>("direction-handle");
             hint = root.Q<Label>("stick-hint") ?? root.Q<Label>("touch-hint");
             if (root != null) root.pickingMode = PickingMode.Position;
             if (pad != null) pad.pickingMode = PickingMode.Ignore;
+            if (handle != null) handle.pickingMode = PickingMode.Ignore;
+            if (hint != null) hint.pickingMode = PickingMode.Ignore;
             ApplyTheme();
             HideStick();
             if (root == null) return;
@@ -103,23 +100,16 @@ namespace DouQuqu
         public void ApplyTheme()
         {
             if (pad == null) return;
-            bool useFixed = inputVersion == InputVersion.Slide;
-            if (center != null) center.style.display = useFixed ? DisplayStyle.Flex : DisplayStyle.None;
             ApplySlot(pad, theme != null && theme.HasBaseSprite ? theme.baseSprite : null,
                 theme != null ? theme.baseFill : new Color(0.055f, 0.063f, 0.055f, 0.58f),
                 theme != null ? theme.baseRim : new Color(0.769f, 0.647f, 0.455f, 0.40f));
-            ApplySlot(center, theme != null && theme.HasCenterSprite ? theme.centerSprite : null,
-                theme != null ? theme.centerFill : new Color(0.937f, 0.902f, 0.824f, 1f),
-                Color.clear);
             ApplySlot(handle, theme != null && theme.HasKnobSprite ? theme.knobSprite : null,
                 theme != null ? theme.knobFill : new Color(0.541f, 0.290f, 0.227f, 0.95f),
                 Color.clear);
             if (hint != null)
             {
                 hint.style.display = DisplayStyle.Flex;
-                if (inputVersion == InputVersion.Rebound) hint.text = "往后拉，松手朝反方向跳";
-                else if (inputVersion == InputVersion.Slide) hint.text = "从圆心拉出长度再松手";
-                else hint.text = "推向要去的方向，按住蓄力";
+                hint.text = "往后拉，松手朝反方向跳";
             }
         }
 
@@ -205,28 +195,24 @@ namespace DouQuqu
         private void RefreshStickMetrics()
         {
             if (root == null || pad == null) return;
-            float panelWidth = root.layout.width;
+            float panelWidth = Mathf.Min(root.layout.width, root.layout.height);
             if (panelWidth < 8f) return;
             float phoneScale = panelWidth / DouQuquStickTheme.PrototypePhoneWidth;
-            bool useFixed = inputVersion == InputVersion.Slide;
-            stickPx = (theme != null ? theme.StickSize(useFixed) : DouQuquStickTheme.PrototypeSummonedSize) * phoneScale;
-            knobPx = (theme != null ? theme.KnobSize(useFixed) : DouQuquStickTheme.PrototypeSummonedKnob) * phoneScale;
-            travelPx = (theme != null ? theme.Travel(useFixed) : DouQuquStickTheme.PrototypeSummonedTravel) * phoneScale;
+            stickPx = (theme != null ? theme.StickSize() : DouQuquStickTheme.PrototypeSize) * phoneScale;
+            knobPx = (theme != null ? theme.KnobSize() : DouQuquStickTheme.PrototypeKnob) * phoneScale;
+            travelPx = (theme != null ? theme.Travel() : DouQuquStickTheme.PrototypeTravel) * phoneScale;
+            float cap = panelWidth * DouQuquStickTheme.MaxScreenFraction;
+            if (stickPx > cap && stickPx > 1f)
+            {
+                float shrink = cap / stickPx;
+                stickPx *= shrink;
+                knobPx *= shrink;
+                travelPx *= shrink;
+            }
             pad.style.width = stickPx;
             pad.style.height = stickPx;
             pad.style.marginLeft = 0;
             SetRound(pad, stickPx);
-            if (center != null)
-            {
-                float dot = Mathf.Max(6f, 10f * phoneScale);
-                center.style.width = dot;
-                center.style.height = dot;
-                center.style.left = (stickPx - dot) * 0.5f;
-                center.style.top = (stickPx - dot) * 0.5f;
-                center.style.marginLeft = 0;
-                center.style.marginTop = 0;
-                SetRound(center, dot);
-            }
             if (handle != null)
             {
                 handle.style.width = knobPx;
@@ -279,8 +265,7 @@ namespace DouQuqu
             SetHandleOffset(offset);
             if (mag < deadZone) return;
             Vector2 pull = new Vector2(offset.x, -offset.y).normalized;
-            pullDirection = pull;
-            flyDirection = inputVersion == InputVersion.Rebound ? -pull : pull;
+            flyDirection = -pull;
         }
 
         private void SetHandleOffset(Vector2 offset)
@@ -295,9 +280,9 @@ namespace DouQuqu
             if (match == null || !match.IsStarted) return;
             Vector2 dir = flyDirection.sqrMagnitude > 0.0001f ? flyDirection : Vector2.up;
             if (lan != null && lan.IsRunning)
-                lan.SendInput(dir, !released, released, 0f, false);
+                lan.SendInput(dir, !released, released);
             else
-                match.SetInput(new InputFrame(playerId, dir, !released, released, 0, false, 0f));
+                match.SetInput(new InputFrame(playerId, dir, !released, released));
         }
     }
 }

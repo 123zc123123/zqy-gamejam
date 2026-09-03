@@ -7,7 +7,6 @@
     background-color: rgb(8, 16, 28);
     align-items: center;
     justify-content: center;
-    picking-mode: Position;
 }
 
 .merge-root {
@@ -27,13 +26,12 @@
     border-bottom-color: rgba(125, 205, 255, 0.82);
     border-radius: 22px;
     align-items: center;
-    picking-mode: Position;
 }
 
 .merge-title {
     width: 100%;
     color: rgb(235, 248, 255);
-    -unity-font-size: 32px;
+    font-size: 32px;
     -unity-font-style: bold;
     -unity-text-align: middle-center;
     margin-bottom: 4px;
@@ -42,7 +40,7 @@
 .merge-score {
     width: 100%;
     color: rgb(174, 222, 255);
-    -unity-font-size: 22px;
+    font-size: 22px;
     -unity-text-align: middle-center;
     margin-bottom: 10px;
 }
@@ -52,7 +50,7 @@
     min-height: 34px;
     margin-bottom: 10px;
     color: rgba(255, 231, 164, 0.96);
-    -unity-font-size: 15px;
+    font-size: 15px;
     -unity-text-align: middle-center;
     white-space: normal;
 }
@@ -86,7 +84,6 @@
     border-radius: 10px;
     align-items: center;
     justify-content: center;
-    picking-mode: Position;
 }
 
 .merge-cell.merge-dragging {
@@ -107,11 +104,10 @@
     width: 100%;
     height: 100%;
     color: rgb(15, 29, 48);
-    -unity-font-size: 30px;
+    font-size: 30px;
     -unity-font-style: bold;
     -unity-text-align: middle-center;
     -unity-text-overflow-position: Ellipsis;
-    picking-mode: Ignore;
 }
 
 .merge-spawn-button {
@@ -125,7 +121,7 @@
     border-bottom-width: 0;
     border-radius: 10px;
     color: rgb(8, 25, 42);
-    -unity-font-size: 21px;
+    font-size: 21px;
     -unity-font-style: bold;
 }
 
@@ -138,7 +134,7 @@
     min-height: 44px;
     margin-top: 8px;
     color: rgba(225, 240, 255, 0.88);
-    -unity-font-size: 16px;
+    font-size: 16px;
     -unity-text-align: middle-center;
     white-space: normal;
 }
@@ -154,5 +150,5 @@
     border-bottom-width: 0;
     border-radius: 8px;
     color: rgb(235, 248, 255);
-    -unity-font-size: 18px;
+    font-size: 18px;
 }

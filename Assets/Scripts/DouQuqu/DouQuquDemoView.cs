@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace DouQuqu
 {
@@ -27,6 +26,9 @@ namespace DouQuqu
         [SerializeField] private GameObject sizePrefab;
         [SerializeField] private GameObject shieldPrefab;
         [SerializeField] private GameObject chargePrefab;
+        [Header("覆盖层预制体")]
+        [SerializeField] private GameObject staminaRingPrefab;
+        [SerializeField] private GameObject chargeArrowPrefab;
 
         [Header("显示")]
         [SerializeField] private float groundOffset = 0.35f;
@@ -48,9 +50,11 @@ namespace DouQuqu
         private Transform pickupsRoot;
         private Transform nestRoot;
         private Transform arrowsRoot;
+        private Transform ringsRoot;
         private GameObject nestView;
-        private readonly Dictionary<int, LineRenderer> chargeArrows = new Dictionary<int, LineRenderer>();
-        private Material arrowMaterial;
+        private readonly Dictionary<int, DouQuquChargeArrow> chargeArrows = new Dictionary<int, DouQuquChargeArrow>();
+        private readonly Dictionary<int, DouQuquStaminaRing> staminaRings = new Dictionary<int, DouQuquStaminaRing>();
+        private bool warnedMissingOverlays;
 
         private static readonly Color[] PlayerColors =
         {
@@ -134,6 +138,7 @@ namespace DouQuqu
             pickupsRoot = CreateRoot("Pickups");
             nestRoot = CreateRoot("Nest");
             arrowsRoot = CreateRoot("ChargeArrows");
+            ringsRoot = CreateRoot("StaminaRings");
         }
 
         private Transform CreateRoot(string rootName)
@@ -156,6 +161,7 @@ namespace DouQuqu
             RefreshPickups(state);
             RefreshNest(state);
             RefreshChargeArrows(state);
+            RefreshStaminaRings(state);
         }
 
         private void RefreshBugs(MatchState state)
@@ -305,6 +311,7 @@ namespace DouQuqu
 
         private void RefreshChargeArrows(MatchState state)
         {
+            WarnIfOverlaysMissing();
             seenIds.Clear();
             MatchKnobs knobs = state.knobs;
             if (state.bugs != null)
@@ -314,9 +321,9 @@ namespace DouQuqu
                     BugState bug = state.bugs[i];
                     if (bug == null || !bug.alive) continue;
                     float cap = DouQuquRules.EffectiveChargeTime(knobs, bug);
-                    float speed = DouQuquRules.EffectiveChargeSpeed(knobs, bug) * bug.chargeTime;
+                    float speed = DouQuquRules.JumpDeltaV(knobs, bug);
                     float fill = cap > 0.0001f ? Mathf.Clamp01(bug.chargeTime / cap) : 0f;
-                    PlaceChargeArrow(bug.id, bug.charging, speed, fill, knobs, bug.chargeDirection, bug.position, bug.radius);
+                    PlaceChargeArrow(bug.id, bug.charging, speed, fill, knobs, bug.chargeDirection, bug.position, bug.radius, bug.id == 0);
                     if (bug.charging) seenIds.Add(bug.id);
                 }
             }
@@ -327,71 +334,89 @@ namespace DouQuqu
                 float cap = DouQuquRules.BabyChargeTime(knobs);
                 float speed = DouQuquRules.BabyChargeSpeed(knobs, baby);
                 float fill = cap > 0.0001f ? Mathf.Clamp01(baby.chargeTime / cap) : 0f;
-                PlaceChargeArrow(baby.id, baby.charging, speed, fill, knobs, baby.chargeDirection, baby.position, baby.radius);
+                PlaceChargeArrow(baby.id, baby.charging, speed, fill, knobs, baby.chargeDirection, baby.position, baby.radius, baby.ownerId == 0);
                 if (baby.charging) seenIds.Add(baby.id);
             }
-            foreach (KeyValuePair<int, LineRenderer> pair in chargeArrows)
-                if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.enabled = false;
+            foreach (KeyValuePair<int, DouQuquChargeArrow> pair in chargeArrows)
+                if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
         }
 
-        private void PlaceChargeArrow(int id, bool charging, float speed, float fill, MatchKnobs knobs, Vector2 direction, Vector3 position, float radius)
+        private void PlaceChargeArrow(int id, bool charging, float speed, float fill, MatchKnobs knobs, Vector2 direction, Vector3 position, float radius, bool ally)
         {
-            LineRenderer line = GetChargeArrow(id);
-            float dist = DouQuquRules.JumpRange(knobs, speed);
-            if (!charging || dist < 0.35f || direction.sqrMagnitude < 0.0001f)
+            if (!charging)
             {
-                line.enabled = false;
+                DouQuquChargeArrow existing;
+                if (chargeArrows.TryGetValue(id, out existing) && existing != null) existing.Hide();
                 return;
             }
-            Vector2 dir = direction.normalized;
-            Vector2 perp = new Vector2(-dir.y, dir.x);
-            float head = Mathf.Min(1.35f, dist * 0.2f);
-            float width = Mathf.Max(0.28f, radius * 0.55f);
-            Vector3 origin = position + Vector3.up * 0.08f;
-            Vector3 tip = origin + new Vector3(dir.x, 0f, dir.y) * dist;
-            Vector3 neck = tip - new Vector3(dir.x, 0f, dir.y) * head;
-            Vector3 left = neck + new Vector3(perp.x, 0f, perp.y) * width;
-            Vector3 right = neck - new Vector3(perp.x, 0f, perp.y) * width;
-            line.enabled = true;
-            line.positionCount = 5;
-            line.SetPosition(0, origin);
-            line.SetPosition(1, tip);
-            line.SetPosition(2, left);
-            line.SetPosition(3, tip);
-            line.SetPosition(4, right);
-            float shaft = Mathf.Lerp(0.12f, 0.28f, fill);
-            line.startWidth = shaft;
-            line.endWidth = shaft;
-            Color color = fill >= 0.98f
-                ? new Color(0.98f, 0.86f, 0.45f, 0.95f)
-                : Color.Lerp(new Color(0.77f, 0.65f, 0.45f, 0.45f), new Color(0.94f, 0.90f, 0.72f, 0.88f), fill);
-            line.startColor = color;
-            line.endColor = color;
+            DouQuquChargeArrow arrow = GetChargeArrow(id);
+            if (arrow == null) return;
+            float dist = DouQuquRules.JumpRange(knobs, speed);
+            arrow.Apply(true, dist, fill, direction, position + Vector3.up * 0.08f, radius, ally);
         }
 
-        private LineRenderer GetChargeArrow(int id)
+        private void RefreshStaminaRings(MatchState state)
         {
-            LineRenderer line;
-            if (chargeArrows.TryGetValue(id, out line) && line != null) return line;
-            GameObject go = new GameObject("ChargeArrow_" + id);
-            go.transform.SetParent(arrowsRoot, false);
-            line = go.AddComponent<LineRenderer>();
-            line.useWorldSpace = true;
-            line.positionCount = 5;
-            line.numCapVertices = 3;
-            line.numCornerVertices = 2;
-            line.shadowCastingMode = ShadowCastingMode.Off;
-            line.receiveShadows = false;
-            line.alignment = LineAlignment.View;
-            if (arrowMaterial == null)
+            WarnIfOverlaysMissing();
+            seenIds.Clear();
+            MatchKnobs knobs = state.knobs;
+            if (state.bugs != null)
             {
-                Shader shader = Shader.Find("Sprites/Default");
-                if (shader == null) shader = Shader.Find("Unlit/Color");
-                arrowMaterial = new Material(shader);
+                for (int i = 0; i < state.bugs.Length; i++)
+                {
+                    BugState bug = state.bugs[i];
+                    if (bug == null || !bug.alive) continue;
+                    seenIds.Add(bug.id);
+                    PlaceStaminaRing(bug, knobs);
+                }
             }
-            line.sharedMaterial = arrowMaterial;
-            chargeArrows[id] = line;
-            return line;
+            foreach (KeyValuePair<int, DouQuquStaminaRing> pair in staminaRings)
+                if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
+        }
+
+        private void PlaceStaminaRing(BugState bug, MatchKnobs knobs)
+        {
+            DouQuquStaminaRing ring = GetStaminaRing(bug.id);
+            if (ring == null) return;
+            float max = Mathf.Max(1f, knobs.staminaMax);
+            int slots = Mathf.Clamp(knobs.staminaSlots, 3, DouQuquStaminaRing.MaxSlots);
+            float current = Mathf.Max(0f, bug.stamina);
+            float pending = bug.charging ? DouQuquRules.JumpStaminaCost(knobs, bug) : 0f;
+            ring.Apply(current / max, slots, bug.position + Vector3.up * bug.height, bug.radius, pending / max);
+        }
+
+        private DouQuquStaminaRing GetStaminaRing(int id)
+        {
+            DouQuquStaminaRing ring;
+            if (staminaRings.TryGetValue(id, out ring) && ring != null) return ring;
+            ring = InstantiateOverlay<DouQuquStaminaRing>(staminaRingPrefab, ringsRoot, "StaminaRing_" + id);
+            if (ring != null) staminaRings[id] = ring;
+            return ring;
+        }
+
+        private DouQuquChargeArrow GetChargeArrow(int id)
+        {
+            DouQuquChargeArrow arrow;
+            if (chargeArrows.TryGetValue(id, out arrow) && arrow != null) return arrow;
+            arrow = InstantiateOverlay<DouQuquChargeArrow>(chargeArrowPrefab, arrowsRoot, "ChargeArrow_" + id);
+            if (arrow != null) chargeArrows[id] = arrow;
+            return arrow;
+        }
+
+        private static T InstantiateOverlay<T>(GameObject prefab, Transform parent, string objectName) where T : Component
+        {
+            if (prefab == null) return null;
+            GameObject view = Instantiate(prefab, parent);
+            view.name = objectName;
+            return view.GetComponent<T>();
+        }
+
+        private void WarnIfOverlaysMissing()
+        {
+            if (warnedMissingOverlays) return;
+            if (staminaRingPrefab != null && chargeArrowPrefab != null) return;
+            warnedMissingOverlays = true;
+            Debug.LogWarning("[DouQuqu] 缺少耐力环或蓄力箭头预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
         }
 
         private static void FaceXz(GameObject view, Vector3 velocity, Vector2 chargeDirection)

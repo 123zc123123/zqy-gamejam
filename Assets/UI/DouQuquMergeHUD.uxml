@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <ui:Style src="project://database/Assets/UI/DouQuquMergeHUD.uss" />
-    <ui:VisualElement name="merge-screen" class="merge-screen">
-        <ui:VisualElement name="merge-root" class="merge-root">
+    <ui:VisualElement name="merge-screen" class="merge-screen" picking-mode="Position">
+        <ui:VisualElement name="merge-root" class="merge-root" picking-mode="Position">
             <ui:Label name="merge-title" text="育虫盘" class="merge-title" />
             <ui:Label name="merge-score-label" text="分数 0" class="merge-score" />
             <ui:Label name="merge-draw-label" text="合到三级后生成蟋蟀并从棋盘消失：A 40/30/25/5，B 各 25%" class="merge-draw" />

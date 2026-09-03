@@ -43,13 +43,15 @@
   let H = 844;
 
   const FACTORY = {
-    tMin: 0,
-    tMax: 0.55,
+    tChargeMin: 0,
+    tChargeMax: 0.55,
+    tFloor: 0.12,
     staminaMax: 5,
-    staminaCost: 1,
-    staminaRegen: 0.6,
+    staminaCost: 0.8,
+    staminaJump: 0.2,
+    staminaRegen: 0.48,
+    staminaRegenCharge: 0.5,
     staminaSlots: 5,
-    dMin: 1.2,
     vRate: 23,
     theta: 45,
     m: 1,
@@ -101,13 +103,15 @@
   };
 
   const DEFAULTS = {
-    tMin: 0,
-    tMax: 0.8,
+    tChargeMin: 0,
+    tChargeMax: 0.8,
+    tFloor: 0.12,
     staminaMax: 5,
-    staminaCost: 1,
-    staminaRegen: 0.6,
+    staminaCost: 0.8,
+    staminaJump: 0.2,
+    staminaRegen: 0.48,
+    staminaRegenCharge: 0.5,
     staminaSlots: 5,
-    dMin: 7,
     vRate: 50,
     theta: 15,
     m: 1,
@@ -159,8 +163,11 @@
   };
   const shipped = globalThis.DOU_QUQU_SHIPPED;
   if (shipped && shipped.knobs && typeof shipped.knobs === "object") {
-    Object.assign(DEFAULTS, shipped.knobs);
+    const incoming = Object.assign({}, shipped.knobs);
+    if (R && typeof R.migrateChargeTimeKeys === "function") R.migrateChargeTimeKeys(incoming);
+    Object.assign(DEFAULTS, incoming);
   }
+  if (R && typeof R.migrateChargeTimeKeys === "function") R.migrateChargeTimeKeys(DEFAULTS);
 
   const knobs = { ...DEFAULTS };
   const SETTINGS_KEY = "dou-ququ-knobs-v3";
@@ -652,7 +659,7 @@
   }
 
   function vMax() {
-    return Math.max(0, knobs.vRate) * Math.max(0, knobs.tMax);
+    return R.panelVMax(knobs);
   }
 
   function isSettled(b) {
@@ -664,21 +671,19 @@
   }
 
   function stepStamina(b, dt) {
-    if (!b.alive || b.kind === "baby" || b.airborne || b.charging) return;
+    if (!b.alive || b.kind === "baby" || b.airborne) return;
     const max = Math.max(0, Number(knobs.staminaMax) || 0);
-    const regen = Math.max(0, Number(knobs.staminaRegen) || 0);
+    let regen = Math.max(0, Number(knobs.staminaRegen) || 0);
+    if (b.charging) {
+      const scale = knobs.staminaRegenCharge == null ? 0.5 : Math.max(0, Number(knobs.staminaRegenCharge));
+      regen *= scale;
+    }
     b.stamina = Math.min(max, Math.max(0, (b.stamina == null ? max : b.stamina) + regen * dt));
   }
 
   function frictionAccel(muEff)
  {    const mu = muEff == null ? knobs.mu : muEff;
     return Math.max(1e-4, mu * gravity());
-  }
-
-  function jumpSpeedMin() {
-    const t = tanTheta();
-    const denom = 2 * t + 1 / (2 * Math.max(1e-4, knobs.mu));
-    return Math.sqrt(Math.max(0, knobs.dMin) * gravity() / Math.max(1e-6, denom));
   }
 
   function chargeDeltaV(b) {
@@ -692,16 +697,19 @@
   }
 
   function jumpSpeedMinFor(b) {
-    if (b.kind !== "baby") return jumpSpeedMin();
-    const dMin = knobs.babyDMin || 0;
-    if (dMin <= 0) return 0;
-    const t = tanTheta();
-    const denom = 2 * t + 1 / (2 * Math.max(1e-4, knobs.mu));
-    return Math.sqrt(Math.max(0, dMin) * gravity() / Math.max(1e-6, denom));
+    if (b && b.kind === "baby") {
+      const dMin = knobs.babyDMin || 0;
+      if (dMin <= 0) return 0;
+      const t = tanTheta();
+      const denom = 2 * t + 1 / (2 * Math.max(1e-4, knobs.mu));
+      return Math.sqrt(Math.max(0, dMin) * gravity() / Math.max(1e-6, denom));
+    }
+    return R.jumpSpeedMin(knobs, b);
   }
 
   function jumpDeltaV(b) {
-    return Math.max(jumpSpeedMinFor(b), chargeDeltaV(b));
+    if (b && b.kind === "baby") return Math.max(jumpSpeedMinFor(b), chargeDeltaV(b));
+    return R.jumpDeltaV(knobs, b);
   }
 
   function jumpRange(dvx) {
@@ -840,7 +848,7 @@
   function tryRelease(b) {
     if (!b.charging) return;
     if (b.v3Goal != null) return;
-    if (b.chargeT < knobs.tMin - 1e-4) {
+    if (b.chargeT < knobs.tChargeMin - 1e-4) {
       b.charging = false;
       b.chargeT = 0;
       return;
@@ -1016,7 +1024,7 @@
       b.dirX = inward.x;
       b.dirZ = inward.z;
       b.holding = true;
-      b.ai.releaseAt = knobs.tMin + 0.16 + Math.random() * 0.18;
+      b.ai.releaseAt = knobs.tChargeMin + 0.16 + Math.random() * 0.18;
       b.ai.target = null;
       b.ai.timer = 0;
       return;
@@ -1049,7 +1057,7 @@
         b.dirZ = d.z || b.dirZ;
         b.holding = true;
         b.ai.target = null;
-        b.ai.releaseAt = clamp(0.16 + itemD * 0.07, knobs.tMin + 0.04, chargeTMax(b) * 0.7);
+        b.ai.releaseAt = clamp(0.16 + itemD * 0.07, knobs.tChargeMin + 0.04, chargeTMax(b) * 0.7);
         return;
       }
       if (heartAim && Math.random() < 0.42) {
@@ -1060,7 +1068,7 @@
         b.dirZ = d.z || b.dirZ;
         b.holding = true;
         b.ai.target = null;
-        b.ai.releaseAt = clamp(0.18 + heartD * 0.08, knobs.tMin + 0.04, chargeTMax(b) * 0.7);
+        b.ai.releaseAt = clamp(0.18 + heartD * 0.08, knobs.tChargeMin + 0.04, chargeTMax(b) * 0.7);
         return;
       }
       const target = pickTarget(b);
@@ -1078,7 +1086,7 @@
         let t = (0.32 + gap * 0.16) * chargeMul;
         if (target.charging) t = Math.min(t, 0.55 + Math.random() * 0.15);
         if (Math.random() < 0.12) t = chargeTMax(b) * (0.85 + Math.random() * 0.12);
-        b.ai.releaseAt = clamp(t, knobs.tMin + 0.04, chargeTMax(b) * 0.98);
+        b.ai.releaseAt = clamp(t, knobs.tChargeMin + 0.04, chargeTMax(b) * 0.98);
       } else {
         b.ai.timer = 0.2 + Math.random() * 0.5;
       }
@@ -1110,7 +1118,7 @@
     if (b.v3Goal != null) return;
     if (mag < 0.12) return;
     const goal = mag * chargeTMax(b);
-    if (goal < knobs.tMin - 1e-4) return;
+    if (goal < knobs.tChargeMin - 1e-4) return;
     b.dirX = dirX;
     b.dirZ = dirZ;
     b.inX = dirX;
@@ -2567,7 +2575,7 @@
     const t = preview ? b.v3Preview * tMax : b.chargeT;
     const saved = b.chargeT;
     b.chargeT = t;
-    const dvx = chargeDeltaV(b);
+    const dvx = jumpDeltaV(b);
     b.chargeT = saved;
     if (dvx <= 0.01) return;
     const d = norm(b.dirX, b.dirZ);
@@ -3021,18 +3029,34 @@
   function drawStaminaRing(b, p, hitPx) {
     if (!b.alive || b.kind === "baby") return;
     const max = Math.max(1, Number(knobs.staminaMax) || 5);
-    const pending = b.charging ? R.jumpStaminaCost(knobs, b) : 0;
-    const shown = Math.max(0, (b.stamina == null ? max : b.stamina) - pending);
-    const ratio = clamp(shown / max, 0, 1);
+    const current = Math.max(0, b.stamina == null ? max : b.stamina);
+    const pending = b.charging ? Math.min(current, R.jumpStaminaCost(knobs, b)) : 0;
+    const remain = Math.max(0, current - pending);
+    const currentRatio = clamp(current / max, 0, 1);
+    const remainRatio = clamp(remain / max, 0, 1);
     const slots = Math.max(3, Math.min(8, Math.round(Number(knobs.staminaSlots) || 5)));
     const radius = hitPx * 1.52; const span = Math.PI * 2 / slots; const gap = 0.1;
-    const color = ratio <= 0.2 ? "#e05a45" : ratio <= 0.4 ? "#e5b34f" : "#7bd5a4";
+    const color = currentRatio <= 0.2 ? "#e05a45" : currentRatio <= 0.4 ? "#e5b34f" : "#7bd5a4";
+    const ghost = currentRatio <= 0.2 ? "rgba(224,90,69,0.38)" : currentRatio <= 0.4 ? "rgba(229,179,79,0.38)" : "rgba(123,213,164,0.38)";
     ctx.save(); ctx.lineWidth = Math.max(1.5, hitPx * 0.075); ctx.lineCap = "round";
     for (let i = 0; i < slots; i++) {
       const start = -Math.PI / 2 + i * span + gap; const end = -Math.PI / 2 + (i + 1) * span - gap;
+      const arc = end - start;
       ctx.strokeStyle = "rgba(20, 30, 28, 0.48)"; ctx.beginPath(); ctx.arc(p.x, p.y, radius, start, end); ctx.stroke();
-      const fill = clamp(ratio * slots - i, 0, 1);
-      if (fill > 0) { ctx.strokeStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, radius, start, start + (end - start) * fill); ctx.stroke(); }
+      const remainFill = clamp(remainRatio * slots - i, 0, 1);
+      const currentFill = clamp(currentRatio * slots - i, 0, 1);
+      if (currentFill > remainFill) {
+        ctx.strokeStyle = ghost;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, start + arc * remainFill, start + arc * currentFill);
+        ctx.stroke();
+      }
+      if (remainFill > 0) {
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, start, start + arc * remainFill);
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
@@ -4193,13 +4217,15 @@
   };
   document.getElementById("btn-tune-close").onclick = closeTune;
   const knobMap = [
-    ["tMin", "k-tMin", "v-tMin", 2],
-    ["tMax", "k-tMax", "v-tMax", 2],
+    ["tChargeMin", "k-tChargeMin", "v-tChargeMin", 2],
+    ["tChargeMax", "k-tChargeMax", "v-tChargeMax", 2],
     ["staminaMax", "k-staminaMax", "v-staminaMax", 0],
     ["staminaCost", "k-staminaCost", "v-staminaCost", 1],
+    ["staminaJump", "k-staminaJump", "v-staminaJump", 1],
     ["staminaRegen", "k-staminaRegen", "v-staminaRegen", 2],
+    ["staminaRegenCharge", "k-staminaRegenCharge", "v-staminaRegenCharge", 2],
     ["staminaSlots", "k-staminaSlots", "v-staminaSlots", 0],
-    ["dMin", "k-dMin", "v-dMin", 2],
+    ["tFloor", "k-tFloor", "v-tFloor", 2],
     ["vRate", "k-vRate", "v-vRate", 2],
     ["theta", "k-theta", "v-theta", 0],
     ["m", "k-m", "v-m", 2],
@@ -4281,7 +4307,9 @@
 
   function applySettings(data, opts) {
     if (!data || typeof data !== "object") return false;
-    const src = data.knobs && typeof data.knobs === "object" ? data.knobs : data;
+    const raw = data.knobs && typeof data.knobs === "object" ? data.knobs : data;
+    const src = Object.assign({}, raw);
+    if (R && typeof R.migrateChargeTimeKeys === "function") R.migrateChargeTimeKeys(src);
     for (const key of Object.keys(FACTORY)) {
       if (typeof src[key] === "number" && Number.isFinite(src[key])) knobs[key] = src[key];
     }
