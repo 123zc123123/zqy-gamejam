@@ -44,4 +44,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/ququxiangqing.unity
     guid: f1dfc0c9abe3a514186605a9ede19feb
+  - enabled: 1
+    path: Assets/Scenes/douhuodong.unity
+    guid: eb680fba09754c459ac86352c4a0954f
   m_configObjects: {}
