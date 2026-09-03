@@ -95,12 +95,15 @@ namespace DouQuqu
                 return;
             }
             int target = HitCell(eventData.position);
-            if (target >= 0 && board != null)
+            bool sameCell = target == sourceCell;
+            if (target >= 0 && board != null && !sameCell)
                 board.TryMove(draggingPieceId, target);
             HideGhost();
+            int clicked = sameCell ? sourceCell : -1;
             draggingPieceId = -1;
             sourceCell = -1;
             RefreshBoard();
+            if (clicked >= 0) OnCellClicked(clicked);
         }
 
         public void OnCellClicked(int cellIndex)
@@ -134,11 +137,24 @@ namespace DouQuqu
         private void BindCells()
         {
             if (canvasInstance == null) return;
+            Transform[] all = canvasInstance.GetComponentsInChildren<Transform>(true);
             for (int i = 0; i < CellCount; i++)
             {
                 Transform found = FindNamed(canvasInstance.transform, "BreedingBoard_Cell" + (i + 1));
                 if (found == null) found = FindNamed(canvasInstance.transform, "Cell" + (i + 1));
                 if (found == null) found = FindNamed(canvasInstance.transform, "Cell " + (i + 1));
+                if (found == null)
+                {
+                    string wanted = "Cell " + (i + 1);
+                    for (int t = 0; t < all.Length; t++)
+                    {
+                        if (all[t].name == wanted || all[t].name == "Cell" + (i + 1))
+                        {
+                            found = all[t];
+                            break;
+                        }
+                    }
+                }
                 if (found == null) continue;
                 RectTransform rect = found as RectTransform;
                 if (rect == null) rect = found.GetComponent<RectTransform>();
@@ -165,10 +181,14 @@ namespace DouQuqu
             Button registry = FindButtonByLabel("蛐蛐谱");
             if (registry != null) registry.onClick.AddListener(() => DouQuquSceneNames.Load(DouQuquSceneNames.Collection));
 
-            BindSpawnButton(FindNamed(canvasInstance.transform, "BreedingBoard_ArenaRing"));
-            BindSpawnButton(FindNamed(canvasInstance.transform, "Ellipse 2"));
-            BindSpawnButton(FindNamed(canvasInstance.transform, "BreedingBoard_ArenaStatus"));
-            BindSpawnButton(FindNamed(canvasInstance.transform, "ArenaStatus"));
+            Transform[] all = canvasInstance.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                string n = all[i].name;
+                if (n.IndexOf("Arena", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || n.IndexOf("Ellipse", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    BindSpawnButton(all[i]);
+            }
 
             goldText = FindTextByName(canvasInstance.transform, "18,450");
             if (goldText == null)
@@ -210,6 +230,29 @@ namespace DouQuqu
             if (xiangqingPrefab == null) return false;
             GameObject instance = Instantiate(xiangqingPrefab);
             instance.name = "蛐蛐详情";
+            instance.transform.localScale = Vector3.one;
+            Canvas[] canvases = instance.GetComponentsInChildren<Canvas>(true);
+            for (int i = 0; i < canvases.Length; i++)
+            {
+                Canvas canvas = canvases[i];
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.sortingOrder = 80 + i;
+                canvas.enabled = true;
+                RectTransform rect = canvas.GetComponent<RectTransform>();
+                if (rect == null) continue;
+                rect.localScale = Vector3.one;
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+                CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+                if (scaler == null) scaler = canvas.gameObject.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1080f, 1920f);
+                scaler.matchWidthOrHeight = 1f;
+                if (canvas.GetComponent<GraphicRaycaster>() == null)
+                    canvas.gameObject.AddComponent<GraphicRaycaster>();
+            }
             detailView = instance.GetComponent<QuquXiangqingView>();
             if (detailView == null) detailView = instance.GetComponentInChildren<QuquXiangqingView>(true);
             if (detailView == null) detailView = instance.AddComponent<QuquXiangqingView>();
@@ -217,9 +260,12 @@ namespace DouQuqu
             return true;
         }
 
+        private int lastSpawnFrame = -1;
+
         private void SpawnOne()
         {
-            if (board == null) return;
+            if (board == null || lastSpawnFrame == Time.frameCount) return;
+            lastSpawnFrame = Time.frameCount;
             for (int i = 0; i < board.Width * board.Height; i++)
             {
                 if (FindPieceAt(i) != null) continue;
@@ -321,10 +367,14 @@ namespace DouQuqu
         private void BindSpawnButton(Transform target)
         {
             if (target == null) return;
+            DouQuquSimpleClick extra = target.GetComponent<DouQuquSimpleClick>();
+            if (extra != null) extra.Clicked = null;
             Image image = target.GetComponent<Image>();
             if (image != null) image.raycastTarget = true;
             Button button = target.GetComponent<Button>();
             if (button == null) button = target.gameObject.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.interactable = true;
             if (image != null) button.targetGraphic = image;
             Navigation nav = button.navigation;
             nav.mode = Navigation.Mode.None;
