@@ -108,9 +108,13 @@ namespace DouQuqu.Editor
             DouQuquDemoView view = Object.FindObjectOfType<DouQuquDemoView>();
             if (view == null) return;
             SerializedObject so = new SerializedObject(view);
-            SetPrefab(so, "bugPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_QingTou.prefab");
-            SetPrefab(so, "qingTouPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_QingTou.prefab");
-            SetPrefab(so, "youHuluPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_YouHulu.prefab");
+            // 局内成虫已切到零件预制体时，不要把青头 / 油葫芦槽盖回旧 SVG。
+            if (!System.IO.File.Exists(DouQuquCricketPrefabBuilder.PrefabPath))
+            {
+                SetPrefab(so, "bugPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_QingTou.prefab");
+                SetPrefab(so, "qingTouPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_QingTou.prefab");
+                SetPrefab(so, "youHuluPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_YouHulu.prefab");
+            }
             SetPrefab(so, "babyPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_Baby.prefab");
             SerializedProperty tint = so.FindProperty("tintPlayers");
             if (tint != null) tint.boolValue = false;

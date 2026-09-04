@@ -180,7 +180,12 @@ namespace DouQuqu
                 view.transform.position = bug.position + Vector3.up * (groundOffset + bug.height);
                 view.transform.localScale = Vector3.one * VisualScale(view, bug.radius, state.knobs.bugR);
                 FaceXz(view, bug.charging ? Vector3.zero : bug.velocity, bug.chargeDirection);
-                if (tintPlayers)
+                DouQuquCricketVisual cricket = view.GetComponent<DouQuquCricketVisual>();
+                if (cricket != null)
+                {
+                    cricket.ApplyTeam(bug.id == 0, bug.charging);
+                }
+                else if (tintPlayers)
                 {
                     Color tint = PlayerColors[Mathf.Abs(bug.id) % PlayerColors.Length];
                     if (bug.charging) tint = Color.Lerp(tint, Color.white, 0.35f);
@@ -300,6 +305,9 @@ namespace DouQuqu
 
         private static float SpriteVisualSize(GameObject view)
         {
+            DouQuquCricketVisual cricket = view.GetComponent<DouQuquCricketVisual>();
+            if (cricket != null) return cricket.VisualSize;
+
             SpriteRenderer spriteRenderer = view.GetComponentInChildren<SpriteRenderer>();
             if (spriteRenderer != null && spriteRenderer.sprite != null)
             {

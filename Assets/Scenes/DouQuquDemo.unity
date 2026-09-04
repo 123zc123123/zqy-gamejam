@@ -478,7 +478,9 @@ MonoBehaviour:
   autoStart: 1
   playerCount: 4
   randomSeed: 20260828
-  bugPrefab: {fileID: 8999080225993311173, guid: 79d0369d1e071474aad991f6cb7b8597, type: 3}
+  bugPrefab: {fileID: 7504085011634074711, guid: a77ca4623cb466f418179302c13522a0, type: 3}
+  qingTouPrefab: {fileID: 7504085011634074711, guid: a77ca4623cb466f418179302c13522a0, type: 3}
+  youHuluPrefab: {fileID: 7504085011634074711, guid: a77ca4623cb466f418179302c13522a0, type: 3}
   babyPrefab: {fileID: 1741508492364335284, guid: d74d92a9b201b3646bb4e7cba7effd6e, type: 3}
   eggPrefab: {fileID: 6209181618149965666, guid: 499aca1932e5d26418f6b214f1902318, type: 3}
   nestPrefab: {fileID: 2727548216710118964, guid: 53e5eb7c18db91c41a295840fb02a7f4, type: 3}
@@ -489,7 +491,8 @@ MonoBehaviour:
   staminaRingPrefab: {fileID: 5101938472619384710, guid: 5a7c1e93d2b84f6a9e0c4d8b1f3a6720, type: 3}
   chargeArrowPrefab: {fileID: 6102849583720495820, guid: 6b8d2f04e3c9507b0f1d5e9c2a4b7831, type: 3}
   groundOffset: 0.35
-  tintPlayers: 1
+  tintPlayers: 0
+  fitVisualToCollision: 1
 --- !u!114 &772734989
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -611,7 +614,6 @@ MonoBehaviour:
   theme: {fileID: 11400000, guid: 1a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d, type: 2}
   playerId: 0
   deadZone: 0.08
-  fixedStick: 0
 --- !u!114 &772734992
 MonoBehaviour:
   m_ObjectHideFlags: 0
