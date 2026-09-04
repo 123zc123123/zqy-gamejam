@@ -1,0 +1,128 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1000000000000000141
+GameObject:
+  m_ObjectHideFlags: 0
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1000000000000000142}
+  m_Name: RankBadge2
+  m_IsActive: 1
+--- !u!224 &1000000000000000142
+RectTransform:
+  m_GameObject: {fileID: 1000000000000000141}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children:
+  - {fileID: 1000000000000000144}
+  - {fileID: 1000000000000000146}
+  - {fileID: 1000000000000000148}
+  m_Father: {fileID: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 185, y: 74}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1001 &1000000000000000143
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1000000000000000142}
+    m_Modifications:
+    - target: {fileID: 1000000000000000062, guid: 6e3dbffb78074221b9729188d570770c, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000000000000000062, guid: 6e3dbffb78074221b9729188d570770c, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000000000000000062, guid: 6e3dbffb78074221b9729188d570770c, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 185
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000000000000000062, guid: 6e3dbffb78074221b9729188d570770c, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 74
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 6e3dbffb78074221b9729188d570770c, type: 3}
+--- !u!224 &1000000000000000144 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1000000000000000062, guid: 6e3dbffb78074221b9729188d570770c, type: 3}
+  m_PrefabInstance: {fileID: 1000000000000000143}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1000000000000000145
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1000000000000000142}
+    m_Modifications:
+    - target: {fileID: 1000000000000000066, guid: 473cf25879cc41fe90c74e485b6a090a, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -62.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000000000000000066, guid: 473cf25879cc41fe90c74e485b6a090a, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000000000000000066, guid: 473cf25879cc41fe90c74e485b6a090a, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 60
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000000000000000066, guid: 473cf25879cc41fe90c74e485b6a090a, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 60
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 473cf25879cc41fe90c74e485b6a090a, type: 3}
+--- !u!224 &1000000000000000146 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1000000000000000066, guid: 473cf25879cc41fe90c74e485b6a090a, type: 3}
+  m_PrefabInstance: {fileID: 1000000000000000145}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1000000000000000147
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1000000000000000142}
+    m_Modifications:
+    - target: {fileID: 1000000000000000070, guid: 1099a639439e4c64b9eabb7896f4253d, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000000000000000070, guid: 1099a639439e4c64b9eabb7896f4253d, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000000000000000070, guid: 1099a639439e4c64b9eabb7896f4253d, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 110
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000000000000000070, guid: 1099a639439e4c64b9eabb7896f4253d, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 48
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 1099a639439e4c64b9eabb7896f4253d, type: 3}
+--- !u!224 &1000000000000000148 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1000000000000000070, guid: 1099a639439e4c64b9eabb7896f4253d, type: 3}
+  m_PrefabInstance: {fileID: 1000000000000000147}
+  m_PrefabAsset: {fileID: 0}
