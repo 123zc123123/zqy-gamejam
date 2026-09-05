@@ -1,0 +1,149 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5bf7c34a0dc4e6348bea04faa70406ee, type: 3}
+  m_Name: CricketSkins
+  m_EditorClassIdentifier: 
+  m_Labels:
+  - m_Name: chujiao-r
+    m_Hash: 499417801
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: 4970922940498535308, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-4-2
+    m_Hash: 162307554
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -8609072590096459009, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-4-1
+    m_Hash: 279301208
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -2515429208062414178, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-6-2
+    m_Hash: 170412428
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -646612074154816073, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-3-3
+    m_Hash: 1004846065
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -5438638467931013994, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: chest&body
+    m_Hash: 531943693
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: 4343030660026015649, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-5-1
+    m_Hash: 292005487
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: 6629503304567453047, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-3-2
+    m_Hash: 216238951
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: 5805573882264636946, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-1-2
+    m_Hash: 258432777
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -8160423781977257508, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-1-3
+    m_Hash: 945844127
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -8635450944006160931, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-4-3
+    m_Hash: 1051438452
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -3606534382741056743, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-6-3
+    m_Hash: 1026521370
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: 1632336925318172360, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-2-1
+    m_Hash: 338211050
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -97052012911669789, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: chujiao-l
+    m_Hash: 667664298
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -6081478400215283518, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-1-1
+    m_Hash: 376311475
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -1223186832772899359, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-2-3
+    m_Hash: 975622598
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -6816055654890007600, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-5-3
+    m_Hash: 1063896899
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -627343421285001159, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: head
+    m_Hash: 670299804
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -5938125980695853609, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-5-2
+    m_Hash: 141490133
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -1545398656246069566, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-6-1
+    m_Hash: 320935990
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: 575873316434859257, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-3-1
+    m_Hash: 367712989
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: 8422490194298888214, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  - m_Name: legs-2-2
+    m_Hash: 220324176
+    m_CategoryList:
+    - m_Name: Default
+      m_Hash: 753088835
+      m_Sprite: {fileID: -5306062783343540628, guid: a7c86e88ca13d0148afb8ef05f59f8bb, type: 3}
+  m_ModificationHash: 0
+  m_Version: 1

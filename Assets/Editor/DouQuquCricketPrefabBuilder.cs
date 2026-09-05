@@ -25,13 +25,20 @@ namespace DouQuqu.Editor
             EditorApplication.delayCall += () =>
             {
                 if (File.Exists(PrefabPath)) return;
+                if (File.Exists(DouQuquCricketSkeletalBuilder.PsbPath)) return;
                 if (!File.Exists(BodyPath) || !File.Exists(AntennaPath)) return;
-                Rebuild();
+                RebuildPlaceholder();
             };
         }
 
         [MenuItem("DouQuqu/Rebuild Character Cricket Prefab")]
         public static void Rebuild()
+        {
+            DouQuquCricketSkeletalBuilder.Rebuild();
+        }
+
+        [MenuItem("DouQuqu/Rebuild Placeholder Cricket Prefab (PNG)")]
+        public static void RebuildPlaceholder()
         {
             EnsureFolders();
             AssetDatabase.Refresh();
