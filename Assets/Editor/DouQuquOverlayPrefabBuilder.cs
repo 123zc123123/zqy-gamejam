@@ -1,31 +1,58 @@
+using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace DouQuqu.Editor
 {
     /// <summary>
-    /// 生成耐力环和蓄力箭头预制体，并挂到打开的战斗场景 DemoView。
+    /// 生成耐力环、身下耐力条和蓄力箭头预制体，并挂到战斗场景 DemoView。
     /// 菜单：DouQuqu / Rebuild Overlay Prefabs
     /// </summary>
     public static class DouQuquOverlayPrefabBuilder
     {
         private const string RingPath = "Assets/Prefabs/DouQuqu/DouQuqu_StaminaRing.prefab";
+        private const string BarPath = "Assets/Prefabs/DouQuqu/DouQuqu_StaminaBar.prefab";
         private const string ArrowPath = "Assets/Prefabs/DouQuqu/DouQuqu_ChargeArrow.prefab";
         private const string FillSvg = "Assets/Art/DouQuqu2D/DouQuqu_ChargeFill.svg";
         private const string ChevronSvg = "Assets/Art/DouQuqu2D/DouQuqu_ChargeChevron.svg";
         private const string BattleScene = "Assets/Scenes/DouQuquDemo.unity";
+
+        [InitializeOnLoadMethod]
+        private static void AutoBuildBarIfMissing()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                if (File.Exists(BarPath)) return;
+                BuildBar();
+                AssignBarToBattleScene(false);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+            };
+        }
 
         [MenuItem("DouQuqu/Rebuild Overlay Prefabs")]
         public static void Rebuild()
         {
             Material lineMaterial = LineMaterial();
             BuildRing(lineMaterial);
+            BuildBar();
             BuildArrow();
             AssignToBattleScene();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[DouQuqu] 覆盖层预制体已重建：耐力环、蓄力箭头。");
+            Debug.Log("[DouQuqu] 覆盖层预制体已重建：耐力环、耐力条、蓄力箭头。");
+        }
+
+        [MenuItem("DouQuqu/Rebuild Stamina Bar Prefab")]
+        public static void RebuildBarMenu()
+        {
+            BuildBar();
+            AssignBarToBattleScene(true);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[DouQuqu] 身下耐力条预制体已重建：" + BarPath);
         }
 
         private static void BuildRing(Material lineMaterial)
@@ -119,22 +146,108 @@ namespace DouQuqu.Editor
             }
         }
 
+        private static void BuildBar()
+        {
+            GameObject root;
+            bool existed = File.Exists(BarPath);
+            if (existed) root = PrefabUtility.LoadPrefabContents(BarPath);
+            else root = new GameObject("DouQuqu_StaminaBar");
+
+            try
+            {
+                root.name = "DouQuqu_StaminaBar";
+                root.transform.localPosition = Vector3.zero;
+                root.transform.localRotation = Quaternion.identity;
+                root.transform.localScale = Vector3.one;
+
+                DouQuquStaminaBar bar = root.GetComponent<DouQuquStaminaBar>();
+                if (bar == null) bar = root.AddComponent<DouQuquStaminaBar>();
+                bar.EnsureReady();
+
+                if (existed) PrefabUtility.SaveAsPrefabAsset(root, BarPath);
+                else
+                {
+                    PrefabUtility.SaveAsPrefabAsset(root, BarPath);
+                    Object.DestroyImmediate(root);
+                    root = null;
+                }
+            }
+            finally
+            {
+                if (root != null && existed) PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
         private static void AssignToBattleScene()
         {
-            var scene = EditorSceneManager.OpenScene(BattleScene);
-            DouQuquDemoView view = Object.FindObjectOfType<DouQuquDemoView>();
+            AssignBarToBattleScene(true);
+        }
+
+        /// <summary>
+        /// 把覆盖层预制体挂到战斗场景 DemoView。forceOpen 时允许加性打开战斗场景，不切走当前场景。
+        /// </summary>
+        private static void AssignBarToBattleScene(bool forceOpen)
+        {
+            Scene battle;
+            bool additive = false;
+            Scene active = EditorSceneManager.GetActiveScene();
+            if (active.path == BattleScene)
+                battle = active;
+            else if (!forceOpen && !File.Exists(BarPath))
+                return;
+            else if (!forceOpen)
+            {
+                battle = default;
+                for (int i = 0; i < EditorSceneManager.sceneCount; i++)
+                {
+                    Scene open = EditorSceneManager.GetSceneAt(i);
+                    if (open.path == BattleScene)
+                    {
+                        battle = open;
+                        break;
+                    }
+                }
+                if (!battle.IsValid())
+                {
+                    battle = EditorSceneManager.OpenScene(BattleScene, OpenSceneMode.Additive);
+                    additive = true;
+                }
+            }
+            else
+            {
+                battle = EditorSceneManager.OpenScene(BattleScene, OpenSceneMode.Additive);
+                additive = battle != active;
+            }
+
+            DouQuquDemoView view = FindView(battle);
             if (view == null)
             {
                 Debug.LogWarning("[DouQuqu] 战斗场景里没有 DouQuquDemoView，覆盖层预制体未自动挂上。");
+                if (additive) EditorSceneManager.CloseScene(battle, true);
                 return;
             }
 
             SerializedObject so = new SerializedObject(view);
             SetPrefab(so, "staminaRingPrefab", RingPath);
+            SetPrefab(so, "staminaBarPrefab", BarPath);
             SetPrefab(so, "chargeArrowPrefab", ArrowPath);
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(view);
-            EditorSceneManager.SaveScene(scene);
+            EditorSceneManager.MarkSceneDirty(battle);
+            EditorSceneManager.SaveScene(battle);
+            if (additive) EditorSceneManager.CloseScene(battle, true);
+        }
+
+        private static DouQuquDemoView FindView(Scene scene)
+        {
+            if (!scene.IsValid()) return null;
+            GameObject[] roots = scene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                DouQuquDemoView view = roots[i].GetComponentInChildren<DouQuquDemoView>(true);
+                if (view != null) return view;
+            }
+            return null;
         }
 
         private static void SetPrefab(SerializedObject so, string field, string path)

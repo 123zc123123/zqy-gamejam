@@ -28,6 +28,7 @@ namespace DouQuqu
         [SerializeField] private GameObject chargePrefab;
         [Header("覆盖层预制体")]
         [SerializeField] private GameObject staminaRingPrefab;
+        [SerializeField] private GameObject staminaBarPrefab;
         [SerializeField] private GameObject chargeArrowPrefab;
 
         [Header("显示")]
@@ -51,9 +52,11 @@ namespace DouQuqu
         private Transform nestRoot;
         private Transform arrowsRoot;
         private Transform ringsRoot;
+        private Transform barsRoot;
         private GameObject nestView;
         private readonly Dictionary<int, DouQuquChargeArrow> chargeArrows = new Dictionary<int, DouQuquChargeArrow>();
         private readonly Dictionary<int, DouQuquStaminaRing> staminaRings = new Dictionary<int, DouQuquStaminaRing>();
+        private readonly Dictionary<int, DouQuquStaminaBar> staminaBars = new Dictionary<int, DouQuquStaminaBar>();
         private bool warnedMissingOverlays;
 
         private static readonly Color[] PlayerColors =
@@ -139,6 +142,7 @@ namespace DouQuqu
             nestRoot = CreateRoot("Nest");
             arrowsRoot = CreateRoot("ChargeArrows");
             ringsRoot = CreateRoot("StaminaRings");
+            barsRoot = CreateRoot("StaminaBars");
         }
 
         private Transform CreateRoot(string rootName)
@@ -161,7 +165,7 @@ namespace DouQuqu
             RefreshPickups(state);
             RefreshNest(state);
             RefreshChargeArrows(state);
-            RefreshStaminaRings(state);
+            RefreshStaminaOverlays(state);
         }
 
         private void RefreshBugs(MatchState state)
@@ -363,7 +367,7 @@ namespace DouQuqu
             arrow.Apply(true, dist, fill, direction, position + Vector3.up * 0.08f, radius, ally);
         }
 
-        private void RefreshStaminaRings(MatchState state)
+        private void RefreshStaminaOverlays(MatchState state)
         {
             WarnIfOverlaysMissing();
             seenIds.Clear();
@@ -376,9 +380,12 @@ namespace DouQuqu
                     if (bug == null || !bug.alive) continue;
                     seenIds.Add(bug.id);
                     PlaceStaminaRing(bug, knobs);
+                    PlaceStaminaBar(bug, knobs);
                 }
             }
             foreach (KeyValuePair<int, DouQuquStaminaRing> pair in staminaRings)
+                if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
+            foreach (KeyValuePair<int, DouQuquStaminaBar> pair in staminaBars)
                 if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
         }
 
@@ -393,6 +400,17 @@ namespace DouQuqu
             ring.Apply(current / max, slots, bug.position + Vector3.up * bug.height, bug.radius, pending / max);
         }
 
+        private void PlaceStaminaBar(BugState bug, MatchKnobs knobs)
+        {
+            DouQuquStaminaBar bar = GetStaminaBar(bug.id);
+            if (bar == null) return;
+            float max = Mathf.Max(1f, knobs.staminaMax);
+            int slots = Mathf.Clamp(knobs.staminaSlots, 3, DouQuquStaminaBar.MaxSlots);
+            float current = Mathf.Max(0f, bug.stamina);
+            float pending = bug.charging ? DouQuquRules.JumpStaminaCost(knobs, bug) : 0f;
+            bar.Apply(current / max, slots, bug.position + Vector3.up * bug.height, bug.radius, pending / max);
+        }
+
         private DouQuquStaminaRing GetStaminaRing(int id)
         {
             DouQuquStaminaRing ring;
@@ -400,6 +418,15 @@ namespace DouQuqu
             ring = InstantiateOverlay<DouQuquStaminaRing>(staminaRingPrefab, ringsRoot, "StaminaRing_" + id);
             if (ring != null) staminaRings[id] = ring;
             return ring;
+        }
+
+        private DouQuquStaminaBar GetStaminaBar(int id)
+        {
+            DouQuquStaminaBar bar;
+            if (staminaBars.TryGetValue(id, out bar) && bar != null) return bar;
+            bar = InstantiateOverlay<DouQuquStaminaBar>(staminaBarPrefab, barsRoot, "StaminaBar_" + id);
+            if (bar != null) staminaBars[id] = bar;
+            return bar;
         }
 
         private DouQuquChargeArrow GetChargeArrow(int id)
@@ -422,9 +449,9 @@ namespace DouQuqu
         private void WarnIfOverlaysMissing()
         {
             if (warnedMissingOverlays) return;
-            if (staminaRingPrefab != null && chargeArrowPrefab != null) return;
+            if (staminaRingPrefab != null && staminaBarPrefab != null && chargeArrowPrefab != null) return;
             warnedMissingOverlays = true;
-            Debug.LogWarning("[DouQuqu] 缺少耐力环或蓄力箭头预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
+            Debug.LogWarning("[DouQuqu] 缺少耐力环、耐力条或蓄力箭头预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
         }
 
         private static void FaceXz(GameObject view, Vector3 velocity, Vector2 chargeDirection)

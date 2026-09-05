@@ -489,6 +489,7 @@ MonoBehaviour:
   shieldPrefab: {fileID: 5773856176217216292, guid: eb8e9847a98fdde4db9d3adc4c63a5a8, type: 3}
   chargePrefab: {fileID: 5942787168301102888, guid: b3c7379e88f371c458b737860d6a0a7d, type: 3}
   staminaRingPrefab: {fileID: 5101938472619384710, guid: 5a7c1e93d2b84f6a9e0c4d8b1f3a6720, type: 3}
+  staminaBarPrefab: {fileID: 6175969593939639869, guid: 2b3b0610772d5af40a3898fc5d8f1d90, type: 3}
   chargeArrowPrefab: {fileID: 6102849583720495820, guid: 6b8d2f04e3c9507b0f1d5e9c2a4b7831, type: 3}
   groundOffset: 0.35
   tintPlayers: 0
