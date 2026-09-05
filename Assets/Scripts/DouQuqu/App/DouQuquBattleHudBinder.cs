@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 namespace DouQuqu
 {
     /// <summary>
-    /// 战斗美术 HUD：把 DouQuquDemo 的真实对战场画进中间 Battlefield。
+    /// 战斗美术 HUD：把 Demo 的真实对战场画进中间 Battlefield。
     /// Battlefield 上已有 Image，不能再挂 RawImage，所以在子节点 BattleView 里显示。
     /// </summary>
     public sealed class DouQuquBattleHudBinder : MonoBehaviour
@@ -28,6 +28,8 @@ namespace DouQuqu
                 Debug.LogWarning("[DouQuqu] 战斗 HUD 里没有 Battlefield，无法嵌入对战场。");
                 yield break;
             }
+
+            DouQuquBattleIntro.HideChrome(transform as RectTransform);
 
             Canvas hud = GetComponent<Canvas>();
             if (hud != null)
@@ -54,12 +56,18 @@ namespace DouQuqu
             PreparePitView();
             yield return null;
             Canvas.ForceUpdateCanvases();
-            FitPitToHud();
             yield return LoadDemoIfNeeded();
             BindBattleCamera();
             RefreshTarget(true);
+            ApplyArenaFromPit();
             SilenceHudRaycasts();
+            BindMatchClock();
+            yield return DouQuquBattleIntro.Play(transform as RectTransform, pit);
+            RefreshTarget(true);
+            ApplyArenaFromPit();
             BindStick();
+            BindMatchClock();
+            StartMatchIfNeeded();
         }
 
         private void LateUpdate()
@@ -71,6 +79,16 @@ namespace DouQuqu
         private void OnDestroy()
         {
             ReleaseTarget();
+            DouQuquRules.ResetArenaSize();
+        }
+
+        private void ApplyArenaFromPit()
+        {
+            if (pit == null) return;
+            Canvas.ForceUpdateCanvases();
+            Rect rect = pit.rect;
+            DouQuquRules.ApplyArenaFromRect(rect.width, rect.height);
+            if (fitter != null) fitter.Fit();
         }
 
         private void PreparePitView()
@@ -114,14 +132,15 @@ namespace DouQuqu
         /// <summary>
         /// 新背景擂台比旧红框大。把 Battlefield 拉到顶栏头像和底栏卡之间，铺满坑。
         /// </summary>
-        private void FitPitToHud()
+private void FitPitToHud()
         {
             if (pit == null) return;
             RectTransform host = pit.parent as RectTransform;
             RectTransform top = FindNamed(transform, "PlayersRow") as RectTransform;
             RectTransform bottom = FindNamed(transform, "ScrollableTrack") as RectTransform;
-            float topEdge = top != null ? top.anchoredPosition.y - top.rect.height * 0.5f : 400f;
-            float bottomEdge = bottom != null ? bottom.anchoredPosition.y + bottom.rect.height * 0.5f : -400f;
+            // The legacy rows are optional; preserve the same arena window when they are removed.
+            float topEdge = top != null ? top.anchoredPosition.y - top.rect.height * 0.5f : 637f;
+            float bottomEdge = bottom != null ? bottom.anchoredPosition.y + bottom.rect.height * 0.5f : -617f;
             float hostWidth = host != null ? host.rect.width : 1080f;
             const float inset = 6f;
             float yMax = topEdge - inset;
@@ -170,9 +189,10 @@ namespace DouQuqu
             battleCam.enabled = true;
             battleCam.orthographic = true;
             battleCam.clearFlags = CameraClearFlags.SolidColor;
-            battleCam.backgroundColor = DouQuquBattleBoard.Sand;
+            battleCam.backgroundColor = new Color(0f, 0f, 0f, 0f);
             battleCam.depth = -1;
             DouQuquBattleBoard.Install();
+            DouQuquBattleBoard.HideSurface();
 
             AudioListener keep = battleCam.GetComponent<AudioListener>();
             if (keep == null) keep = battleCam.gameObject.AddComponent<AudioListener>();
@@ -200,6 +220,22 @@ namespace DouQuqu
             RawImage[] raws = GetComponentsInChildren<RawImage>(true);
             for (int i = 0; i < raws.Length; i++)
                 if (raws[i] != null) raws[i].raycastTarget = false;
+        }
+
+        private static void StartMatchIfNeeded()
+        {
+            DouQuquMatchController match = Object.FindObjectOfType<DouQuquMatchController>();
+            if (match != null && !match.IsStarted)
+                match.StartMatch();
+        }
+
+        private void BindMatchClock()
+        {
+            Transform clock = FindNamed(transform, "Countdown");
+            if (clock == null) return;
+            DouQuquMatchClockHud hud = clock.GetComponent<DouQuquMatchClockHud>();
+            if (hud == null) hud = clock.gameObject.AddComponent<DouQuquMatchClockHud>();
+            hud.Bind(Object.FindObjectOfType<DouQuquMatchController>());
         }
 
         private void BindStick()

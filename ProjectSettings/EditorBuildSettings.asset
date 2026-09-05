@@ -6,23 +6,32 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/DouQuquLogin.unity
+    path: Assets/Scenes/Login.unity
     guid: f029321914b3ae448b169f89053c3e5f
   - enabled: 1
-    path: Assets/Scenes/DouQuquMainMenu.unity
-    guid: 5c32f738f133c6f4ab57d6390d3b6479
+    path: Assets/Scenes/MainMenu.unity
+    guid: 6660787dc7452ae44b0b5a5caaacdc41
   - enabled: 1
-    path: Assets/Scenes/DouQuquMerge.unity
+    path: Assets/Scenes/Battle_Enter.unity
+    guid: eb680fba09754c459ac86352c4a0954f
+  - enabled: 1
+    path: Assets/Scenes/Merge.unity
     guid: d70677f7db5aa6149927e7d83c9c1b45
   - enabled: 1
-    path: Assets/Scenes/DouQuquMatchmaking.unity
+    path: Assets/Scenes/Battle_Matchmaking.unity
     guid: 4bb1c74ebd0ef7549a8ff71fac2a79c0
   - enabled: 1
-    path: Assets/Scenes/DouQuquCollection.unity
+    path: Assets/Scenes/Collection.unity
     guid: 52c99e59fa6b11f429ee856232388f68
   - enabled: 1
-    path: Assets/Scenes/DouQuquDemo.unity
+    path: Assets/Scenes/Battle_Main.unity
+    guid: 78820251065854e2841a38c246a7d111
+  - enabled: 1
+    path: Assets/Scenes/Demo.unity
     guid: a8e9ca13b3fef2f45a74b70de14b5209
+  - enabled: 1
+    path: Assets/Scenes/Preview/Demo_MainMenu.unity
+    guid: 5c32f738f133c6f4ab57d6390d3b6479
   - enabled: 1
     path: Assets/Game/UI/Home/Scenes/CricketHomepage.unity
     guid: 525e0b01dbd9e4046b5b7fd71ed3728f
@@ -41,16 +50,4 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Game/UI/BreedingBoard/Scenes/BreedingBoard.unity
     guid: 2a7cbb2c09bb80b4b88ed1c4d0ec517b
-  - enabled: 1
-    path: Assets/Scenes/ququxiangqing.unity
-    guid: f1dfc0c9abe3a514186605a9ede19feb
-  - enabled: 1
-    path: Assets/Scenes/douhuodong.unity
-    guid: eb680fba09754c459ac86352c4a0954f
-  - enabled: 1
-    path: Assets/Scenes/douququzhandou.unity
-    guid: 78820251065854e2841a38c246a7d111
-  - enabled: 1
-    path: Assets/Scenes/Dou Ququ Matchmaking.unity
-    guid: b16eb58b2d4b75842b60564d164cd675
   m_configObjects: {}

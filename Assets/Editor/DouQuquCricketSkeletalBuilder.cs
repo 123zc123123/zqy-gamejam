@@ -15,18 +15,18 @@ namespace DouQuqu.Editor
     /// </summary>
     public static class DouQuquCricketSkeletalBuilder
     {
-        public const string PsbPath = "Assets/Art/Characters/Crickets/Skins/defaultCrickets.psb";
-        public const string LayerNamesPath = "Assets/Art/Characters/Crickets/Skins/LAYER_NAMES.txt";
-        public const string RigFolder = "Assets/Art/Characters/Crickets/Rig";
-        public const string SkeletonPath = "Assets/Art/Characters/Crickets/Rig/CricketSkeleton.asset";
-        public const string SpriteLibraryPath = "Assets/Art/Characters/Crickets/Rig/CricketSkins.asset";
+        public const string PsbPath = "Assets/Art/Characters/Skins/defaultCrickets.psb";
+        public const string LayerNamesPath = "Assets/Art/Characters/Skins/LAYER_NAMES.txt";
+        public const string RigFolder = "Assets/Art/Characters/Rig";
+        public const string SkeletonPath = "Assets/Art/Characters/Rig/CricketSkeleton.asset";
+        public const string SpriteLibraryPath = "Assets/Art/Characters/Rig/CricketSkins.asset";
         public const string AnimFolder = "Assets/Animations/Characters/Crickets";
         public const string IdleClipPath = "Assets/Animations/Characters/Crickets/Cricket_Idle.anim";
         public const string ControllerPath = "Assets/Animations/Characters/Crickets/Cricket.controller";
-        public const string ShaderPath = "Assets/Art/Characters/Crickets/Shaders/SpriteOutline.shader";
-        public const string MaterialPath = "Assets/Art/Characters/Crickets/Materials/CricketBodyOutline.mat";
-        public const string PrefabPath = "Assets/Prefabs/Characters/Crickets/Cricket.prefab";
-        public const string BattleScenePath = "Assets/Scenes/DouQuquDemo.unity";
+        public const string ShaderPath = "Assets/Art/Characters/Shaders/SpriteOutline.shader";
+        public const string MaterialPath = "Assets/Art/Characters/Materials/CricketBodyOutline.mat";
+        public const string PrefabPath = "Assets/Art/Characters/Cricket.prefab";
+        public const string BattleScenePath = "Assets/Scenes/Demo.unity";
         public const string DefaultLabel = "Default";
 
         [InitializeOnLoadMethod]
@@ -80,15 +80,12 @@ namespace DouQuqu.Editor
         private static void EnsureFolders()
         {
             CreateFolder("Assets/Art", "Characters");
-            CreateFolder("Assets/Art/Characters", "Crickets");
-            CreateFolder("Assets/Art/Characters/Crickets", "Rig");
-            CreateFolder("Assets/Art/Characters/Crickets", "Skins");
-            CreateFolder("Assets/Art/Characters/Crickets", "Shaders");
-            CreateFolder("Assets/Art/Characters/Crickets", "Materials");
+            CreateFolder("Assets/Art/Characters", "Rig");
+            CreateFolder("Assets/Art/Characters", "Skins");
+            CreateFolder("Assets/Art/Characters", "Shaders");
+            CreateFolder("Assets/Art/Characters", "Materials");
             CreateFolder("Assets/Animations", "Characters");
             CreateFolder("Assets/Animations/Characters", "Crickets");
-            CreateFolder("Assets/Prefabs", "Characters");
-            CreateFolder("Assets/Prefabs/Characters", "Crickets");
         }
 
         private static void CreateFolder(string parent, string name)
@@ -230,9 +227,9 @@ namespace DouQuqu.Editor
             }
 
             material.SetColor("_Color", Color.white);
-            material.SetColor("_OutlineColor", new Color(0.22f, 0.92f, 0.82f, 1f));
-            material.SetFloat("_OutlineWidth", 20f);
-            material.SetFloat("_OutlineSoftness", 6f);
+            material.SetColor("_OutlineColor", Color.black);
+            material.SetFloat("_OutlineWidth", 16f);
+            material.SetFloat("_OutlineSoftness", 4f);
             material.SetFloat("_OutlineAlphaCutoff", 0.12f);
             material.SetFloat("_PixelsPerUnit", 100f);
             EditorUtility.SetDirty(material);
@@ -286,9 +283,10 @@ namespace DouQuqu.Editor
                     renderer.color = Color.white;
                     renderer.shadowCastingMode = ShadowCastingMode.Off;
                     renderer.receiveShadows = false;
-                    bool antenna = IsAntenna(renderer.name);
-                    bool isBody = renderer.name == "chest&body";
-                    renderer.sharedMaterial = isBody && outline != null ? outline : defaultMat;
+                    bool antenna = DouQuquCricketVisual.IsAntenna(renderer.name);
+                    bool isBody = DouQuquCricketVisual.IsBody(renderer.name);
+                    // 全部件共用描边材质：须/尾 width=0，仍写 stencil，避免主体描边盖到须上。
+                    renderer.sharedMaterial = outline != null ? outline : defaultMat;
                     if (isBody) bodyRenderer = renderer;
                     if (antenna && firstAntenna == null) firstAntenna = renderer;
 
@@ -330,11 +328,6 @@ namespace DouQuqu.Editor
             return null;
         }
 
-        private static bool IsAntenna(string partName)
-        {
-            return partName == "chujiao-l" || partName == "chujiao-r" || partName.StartsWith("chujiao");
-        }
-
         private static Material DefaultSpriteMaterial()
         {
             Material material = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
@@ -357,7 +350,7 @@ namespace DouQuqu.Editor
             DouQuquDemoView view = Object.FindObjectOfType<DouQuquDemoView>();
             if (view == null)
             {
-                Debug.LogWarning("[DouQuqu] 当前场景没有 DouQuquDemoView，预制体已生成但未挂到局内。打开 DouQuquDemo 后再跑一次菜单。");
+                Debug.LogWarning("[DouQuqu] 当前场景没有 DouQuquDemoView，预制体已生成但未挂到局内。打开 Demo 后再跑一次菜单。");
                 return;
             }
 
@@ -372,7 +365,7 @@ namespace DouQuqu.Editor
             EditorSceneManager.MarkSceneDirty(view.gameObject.scene);
             EditorSceneManager.SaveOpenScenes();
             if (opened)
-                Debug.Log("[DouQuqu] 已把骨骼 Cricket.prefab 挂到 DouQuquDemo 的青头 / 油葫芦 / 默认槽。");
+                Debug.Log("[DouQuqu] 已把骨骼 Cricket.prefab 挂到 Demo 的青头 / 油葫芦 / 默认槽。");
         }
 
         private static void SetPrefab(SerializedObject so, string field, string path)

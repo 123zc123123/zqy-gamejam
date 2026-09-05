@@ -9,7 +9,7 @@ namespace DouQuqu.Editor
     /// </summary>
     public sealed class DouQuquCricketArtImporter : AssetPostprocessor
     {
-        public const string Folder = "Assets/Art/Characters/Crickets";
+        public const string Folder = "Assets/Art/Characters";
 
         [InitializeOnLoadMethod]
         private static void EnsureImportedAsSprites()

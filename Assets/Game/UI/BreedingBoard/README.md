@@ -1,6 +1,6 @@
 # 育虫盘美术预制体
 
-正式玩法场景用 **`Assets/Scenes/DouQuquMerge.unity`**，里面放的是本目录的页面预制体，由 `DouQuquBreedingBoardView` 绑格子和按钮。
+正式玩法场景用 **`Assets/Scenes/Merge.unity`**，里面放的是本目录的页面预制体，由 `DouQuquBreedingBoardView` 绑格子和按钮。
 
 美术预览场景是 `Scenes/BreedingBoard.unity`，和正式场景用同一份页面，只用来对布局。
 
@@ -30,15 +30,16 @@ BreedingBoard                  页面壳 1080×1920
     │   └── BackpackButton     背包（当前 = 放一枚卵）
     ├── 棋盘 Board             4×5 共 20 格
     │   ├── 棋盘底 BoardBase
-    │   └── Cell1 … Cell20     左上到右下，行优先
-    └── BottomEventCarousel    底栏（名字像轮播，实际是导航）
+    │   └── Cell 1 … Cell 20   同一份格子预制体的 20 个实例，左上到右下，行优先
+    └── BottomEventCarousel    底栏（返回 + 可横滑的六个功能入口）
         ├── BackIcon           返回主界面
-        ├── BattleTab          斗蛐蛐
-        ├── BreedingTab        育虫盘（当前页）
-        └── RegistryTab        蛐蛐谱
+        └── TabViewport        RectMask2D 蒙版，宽度 = 原先三个页签总宽 780
+            └── TabContent     横滑内容
+                ├── BattleTab / BreedingTab / RegistryTab
+                └── RankingTab / ShopTab / AcademyTab
 ```
 
-格子编号：`Cell1` 左上，`Cell4` 右上，`Cell17` 左下，`Cell20` 右下。程序按这个编号对 `DouQuquMergeBoard` 的 0–19。
+格子编号：`Cell 1` 左上，`Cell 4` 右上，`Cell 17` 左下，`Cell 20` 右下。程序按这个编号对 `DouQuquMergeBoard` 的 0–19。场景对象名带空格，共用 `Prefabs/Parts/Cell.prefab`。
 
 点中间金圈（规则和背包之间）会在空格放一只幼虫。同级拖到一起合成：幼虫 → 中虫 → 成虫 → 精品虫。
 
@@ -63,7 +64,7 @@ BreedingBoard                  页面壳 1080×1920
 | --- | --- |
 | `BreedingBoard_Board.prefab` | 整块棋盘（含 20 格） |
 | `BreedingBoard_BoardBase.prefab` | 棋盘米色底板 |
-| `BreedingBoard_Cell1`～`Cell20` | 单个格子，带 Button，给拖合成用 |
+| `Cell.prefab` | 单个格子，带 Button，给拖合成用。棋盘上 20 格都是这份的实例 |
 
 ### 顶栏 / 操作
 
@@ -81,11 +82,9 @@ BreedingBoard                  页面壳 1080×1920
 
 | 文件 | 界面上是 |
 | --- | --- |
-| `BreedingBoard_BottomEventCarousel.prefab` | 底部整条导航（不是活动轮播） |
+| `BreedingBoard_BottomEventCarousel.prefab` | 底部整条导航：返回固定，右侧六个入口可横滑 |
 | `BreedingBoard_BackIcon.prefab` | 返回 |
-| `BreedingBoard_BattleTab.prefab` | 斗蛐蛐 |
-| `BreedingBoard_BreedingTab.prefab` | 育虫盘 |
-| `BreedingBoard_RegistryTab.prefab` | 蛐蛐谱 |
+| `BottomNavTab.prefab` | 六个功能入口共用这一份。实例只改名字、显示文案和 icon 路径 |
 
 ## 贴图
 

@@ -12,12 +12,12 @@ namespace DouQuqu.Editor
     /// </summary>
     public static class DouQuquCricketPrefabBuilder
     {
-        public const string BodyPath = "Assets/Art/Characters/Crickets/Cricket_Body.png";
-        public const string AntennaPath = "Assets/Art/Characters/Crickets/Cricket_Antenna.png";
-        public const string ShaderPath = "Assets/Art/Characters/Crickets/Shaders/SpriteOutline.shader";
-        public const string MaterialPath = "Assets/Art/Characters/Crickets/Materials/CricketBodyOutline.mat";
-        public const string PrefabPath = "Assets/Prefabs/Characters/Crickets/Cricket.prefab";
-        public const string BattleScenePath = "Assets/Scenes/DouQuquDemo.unity";
+        public const string BodyPath = "Assets/Art/Characters/Cricket_Body.png";
+        public const string AntennaPath = "Assets/Art/Characters/Cricket_Antenna.png";
+        public const string ShaderPath = "Assets/Art/Characters/Shaders/SpriteOutline.shader";
+        public const string MaterialPath = "Assets/Art/Characters/Materials/CricketBodyOutline.mat";
+        public const string PrefabPath = "Assets/Art/Characters/Cricket.prefab";
+        public const string BattleScenePath = "Assets/Scenes/Demo.unity";
 
         [InitializeOnLoadMethod]
         private static void AutoBuildIfMissing()
@@ -69,11 +69,8 @@ namespace DouQuqu.Editor
         private static void EnsureFolders()
         {
             CreateFolder("Assets/Art", "Characters");
-            CreateFolder("Assets/Art/Characters", "Crickets");
-            CreateFolder("Assets/Art/Characters/Crickets", "Shaders");
-            CreateFolder("Assets/Art/Characters/Crickets", "Materials");
-            CreateFolder("Assets/Prefabs", "Characters");
-            CreateFolder("Assets/Prefabs/Characters", "Crickets");
+            CreateFolder("Assets/Art/Characters", "Shaders");
+            CreateFolder("Assets/Art/Characters", "Materials");
         }
 
         private static void CreateFolder(string parent, string name)
@@ -101,7 +98,7 @@ namespace DouQuqu.Editor
             }
 
             material.SetColor("_Color", Color.white);
-            material.SetColor("_OutlineColor", new Color(0.22f, 0.92f, 0.82f, 1f));
+            material.SetColor("_OutlineColor", Color.black);
             material.SetFloat("_OutlineWidth", 20f);
             material.SetFloat("_OutlineSoftness", 6f);
             material.SetFloat("_OutlineAlphaCutoff", 0.12f);
@@ -222,7 +219,7 @@ namespace DouQuqu.Editor
             DouQuquDemoView view = Object.FindObjectOfType<DouQuquDemoView>();
             if (view == null)
             {
-                Debug.LogWarning("[DouQuqu] 当前场景没有 DouQuquDemoView，预制体已生成但未挂到局内。打开 DouQuquDemo 后再跑一次菜单。");
+                Debug.LogWarning("[DouQuqu] 当前场景没有 DouQuquDemoView，预制体已生成但未挂到局内。打开 Demo 后再跑一次菜单。");
                 return;
             }
 
@@ -237,7 +234,7 @@ namespace DouQuqu.Editor
             EditorSceneManager.MarkSceneDirty(view.gameObject.scene);
             EditorSceneManager.SaveOpenScenes();
             if (opened)
-                Debug.Log("[DouQuqu] 已把 Cricket.prefab 挂到 DouQuquDemo 的青头 / 油葫芦 / 默认槽。");
+                Debug.Log("[DouQuqu] 已把 Cricket.prefab 挂到 Demo 的青头 / 油葫芦 / 默认槽。");
         }
 
         private static void SetPrefab(SerializedObject so, string field, string path)

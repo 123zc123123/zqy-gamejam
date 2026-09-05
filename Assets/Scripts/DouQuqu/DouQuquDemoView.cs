@@ -53,23 +53,19 @@ namespace DouQuqu
         private Transform arrowsRoot;
         private Transform ringsRoot;
         private Transform barsRoot;
+        private Transform markersRoot;
         private GameObject nestView;
         private readonly Dictionary<int, DouQuquChargeArrow> chargeArrows = new Dictionary<int, DouQuquChargeArrow>();
         private readonly Dictionary<int, DouQuquStaminaRing> staminaRings = new Dictionary<int, DouQuquStaminaRing>();
         private readonly Dictionary<int, DouQuquStaminaBar> staminaBars = new Dictionary<int, DouQuquStaminaBar>();
+        private readonly Dictionary<int, DouQuquGroundMarker> groundMarkers = new Dictionary<int, DouQuquGroundMarker>();
         private readonly Dictionary<int, int> assignedBugProfiles = new Dictionary<int, int>();
         private Sprite[] premiumBugSprites;
         private MatchState assignedProfileState;
         private int assignedProfileSeed = int.MinValue;
         private bool warnedMissingOverlays;
 
-        private static readonly Color[] PlayerColors =
-        {
-            new Color(0.18f, 0.75f, 1f),
-            new Color(1f, 0.32f, 0.32f),
-            new Color(0.35f, 1f, 0.42f),
-            new Color(1f, 0.78f, 0.18f)
-        };
+        private static readonly Color[] PlayerColors = DouQuquGroundMarker.PlayerColors;
 
         private void Awake()
         {
@@ -166,6 +162,9 @@ namespace DouQuqu
             arrowsRoot = CreateRoot("ChargeArrows");
             ringsRoot = CreateRoot("StaminaRings");
             barsRoot = CreateRoot("StaminaBars");
+            markersRoot = CreateRoot("GroundMarkers");
+            if (ringsRoot != null) ringsRoot.gameObject.SetActive(false);
+            _ = staminaRingPrefab;
         }
 
         private Transform CreateRoot(string rootName)
@@ -188,6 +187,7 @@ namespace DouQuqu
             RefreshPickups(state);
             RefreshNest(state);
             RefreshChargeArrows(state);
+            RefreshGroundMarkers(state);
             RefreshStaminaOverlays(state);
         }
 
@@ -451,11 +451,9 @@ namespace DouQuqu
             arrow.Apply(true, dist, fill, direction, position + Vector3.up * 0.08f, radius, ally);
         }
 
-        private void RefreshStaminaOverlays(MatchState state)
+        private void RefreshGroundMarkers(MatchState state)
         {
-            WarnIfOverlaysMissing();
             seenIds.Clear();
-            MatchKnobs knobs = state.knobs;
             if (state.bugs != null)
             {
                 for (int i = 0; i < state.bugs.Length; i++)
@@ -463,25 +461,35 @@ namespace DouQuqu
                     BugState bug = state.bugs[i];
                     if (bug == null || !bug.alive) continue;
                     seenIds.Add(bug.id);
-                    PlaceStaminaRing(bug, knobs);
-                    PlaceStaminaBar(bug, knobs);
+                    PlaceGroundMarker(bug.id, bug.position, bug.radius, bug.height, bug.charging, DouQuquGroundMarker.ColorForPlayer(bug.id));
                 }
             }
-            foreach (KeyValuePair<int, DouQuquStaminaRing> pair in staminaRings)
-                if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
-            foreach (KeyValuePair<int, DouQuquStaminaBar> pair in staminaBars)
+            for (int i = 0; i < state.babies.Count; i++)
+            {
+                BabyState baby = state.babies[i];
+                if (baby == null || !baby.alive) continue;
+                int markerId = 1000 + baby.id;
+                seenIds.Add(markerId);
+                PlaceGroundMarker(markerId, baby.position, baby.radius, baby.height, baby.charging, DouQuquGroundMarker.ColorForPlayer(baby.ownerId));
+            }
+            foreach (KeyValuePair<int, DouQuquGroundMarker> pair in groundMarkers)
                 if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
         }
 
-        private void PlaceStaminaRing(BugState bug, MatchKnobs knobs)
+        private void PlaceGroundMarker(int id, Vector3 position, float radius, float height, bool charging, Color playerColor)
         {
-            DouQuquStaminaRing ring = GetStaminaRing(bug.id);
-            if (ring == null) return;
-            float max = Mathf.Max(1f, knobs.staminaMax);
-            int slots = Mathf.Clamp(knobs.staminaSlots, 3, DouQuquStaminaRing.MaxSlots);
-            float current = Mathf.Max(0f, bug.stamina);
-            float pending = bug.charging ? DouQuquRules.JumpStaminaCost(knobs, bug) : 0f;
-            ring.Apply(current / max, slots, bug.position + Vector3.up * bug.height, bug.radius, pending / max);
+            DouQuquGroundMarker marker = GetGroundMarker(id);
+            if (marker == null) return;
+            marker.Apply(position, radius, playerColor, height, charging);
+        }
+
+        private void RefreshStaminaOverlays(MatchState state)
+        {
+            WarnIfOverlaysMissing();
+            foreach (KeyValuePair<int, DouQuquStaminaRing> pair in staminaRings)
+                if (pair.Value != null) pair.Value.Hide();
+            foreach (KeyValuePair<int, DouQuquStaminaBar> pair in staminaBars)
+                if (pair.Value != null) pair.Value.Hide();
         }
 
         private void PlaceStaminaBar(BugState bug, MatchKnobs knobs)
@@ -495,13 +503,16 @@ namespace DouQuqu
             bar.Apply(current / max, slots, bug.position + Vector3.up * bug.height, bug.radius, pending / max);
         }
 
-        private DouQuquStaminaRing GetStaminaRing(int id)
+        private DouQuquGroundMarker GetGroundMarker(int id)
         {
-            DouQuquStaminaRing ring;
-            if (staminaRings.TryGetValue(id, out ring) && ring != null) return ring;
-            ring = InstantiateOverlay<DouQuquStaminaRing>(staminaRingPrefab, ringsRoot, "StaminaRing_" + id);
-            if (ring != null) staminaRings[id] = ring;
-            return ring;
+            DouQuquGroundMarker marker;
+            if (groundMarkers.TryGetValue(id, out marker) && marker != null) return marker;
+            Transform parent = markersRoot != null ? markersRoot : transform;
+            GameObject view = new GameObject("GroundMarker_" + id);
+            view.transform.SetParent(parent, false);
+            marker = view.AddComponent<DouQuquGroundMarker>();
+            groundMarkers[id] = marker;
+            return marker;
         }
 
         private DouQuquStaminaBar GetStaminaBar(int id)
@@ -533,9 +544,9 @@ namespace DouQuqu
         private void WarnIfOverlaysMissing()
         {
             if (warnedMissingOverlays) return;
-            if (staminaRingPrefab != null && staminaBarPrefab != null && chargeArrowPrefab != null) return;
+            if (staminaBarPrefab != null && chargeArrowPrefab != null) return;
             warnedMissingOverlays = true;
-            Debug.LogWarning("[DouQuqu] 缺少耐力环、耐力条或蓄力箭头预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
+            Debug.LogWarning("[DouQuqu] 缺少耐力条或蓄力箭头预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
         }
 
         /// <summary>

@@ -107,10 +107,32 @@ namespace DouQuqu
     /// </summary>
     public static class DouQuquRules
     {
-        public const float ArenaHalfWidth = 21.2f;
-        public const float ArenaHalfDepth = 31.8f;
-        public const float ArenaCorner = 7.2f;
+        public const float DefaultArenaHalfWidth = 21.2f;
+        public const float DefaultArenaHalfDepth = 31.8f;
+        public const float DefaultArenaCorner = 7.2f;
+        public static float ArenaHalfWidth = DefaultArenaHalfWidth;
+        public static float ArenaHalfDepth = DefaultArenaHalfDepth;
+        public static float ArenaCorner = DefaultArenaCorner;
         public static readonly string[] ItemKinds = { "size", "shield", "charge" };
+
+        public static void ResetArenaSize()
+        {
+            ArenaHalfWidth = DefaultArenaHalfWidth;
+            ArenaHalfDepth = DefaultArenaHalfDepth;
+            ArenaCorner = DefaultArenaCorner;
+        }
+
+        /// <summary>
+        /// HUD 场地窗矩形控制出界：高度保持默认世界尺度，宽度跟矩形宽高比。
+        /// </summary>
+        public static void ApplyArenaFromRect(float width, float height)
+        {
+            float w = Mathf.Max(1f, width);
+            float h = Mathf.Max(1f, height);
+            ArenaHalfDepth = DefaultArenaHalfDepth;
+            ArenaHalfWidth = DefaultArenaHalfDepth * (w / h);
+            ArenaCorner = Mathf.Min(DefaultArenaCorner, ArenaHalfWidth * 0.95f, ArenaHalfDepth * 0.95f);
+        }
 
         /// <summary>返回一份默认规则参数。</summary>
         public static MatchKnobs DefaultKnobs()
@@ -134,6 +156,24 @@ namespace DouQuqu
         public static bool IsRage(MatchKnobs knobs, float time)
         {
             return time >= knobs.regTime && time < HardStop(knobs);
+        }
+
+        /// <summary>
+        /// HUD 倒计时秒数：正赛显示距加时，狂暴显示距硬截止。未开赛按正赛全长。
+        /// </summary>
+        public static float RemainingClock(MatchKnobs knobs, float time, bool started)
+        {
+            if (knobs == null) knobs = DefaultKnobs();
+            if (!started) return Mathf.Max(0f, knobs.regTime);
+            if (IsRage(knobs, time)) return Mathf.Max(0f, HardStop(knobs) - time);
+            return Mathf.Max(0f, knobs.regTime - time);
+        }
+
+        /// <summary>与 HTML 原型相同：ceil 到整秒，再格式成 m:ss。</summary>
+        public static string FormatClock(float seconds)
+        {
+            int total = Mathf.Max(0, Mathf.CeilToInt(seconds));
+            return (total / 60) + ":" + (total % 60).ToString("00");
         }
 
         /// <summary>根据时间返回当前玩法阶段。</summary>

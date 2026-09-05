@@ -39,7 +39,6 @@ namespace DouQuqu
                 // 直接从编辑器运行战斗场景时保留单机四人 AI 测试能力。
                 match.Configure(MatchRunMode.Offline, DouQuquMatchController.MaxPlayers);
                 match.ResetMatch(DouQuquMatchController.MaxPlayers, System.Environment.TickCount);
-                match.StartMatch();
             }
 
             DouQuquTouchInput touchInput = GetComponent<DouQuquTouchInput>();

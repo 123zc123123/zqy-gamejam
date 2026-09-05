@@ -150,7 +150,7 @@ namespace DouQuqu
         private void Back()
         {
             network.CancelAutomaticMatchmaking();
-            DouQuquSceneNames.Load(DouQuquSceneNames.MainMenu);
+            DouQuquSceneNames.Load(DouQuquSceneNames.BattleEnter);
         }
     }
 }

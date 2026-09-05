@@ -25,6 +25,7 @@ namespace DouQuqu
         private Vector2 flyDirection = Vector2.up;
         private bool holding;
         private bool summoned;
+        private static Sprite circleSprite;
 
         public static DouQuquHudStick Create(RectTransform battlefield, Canvas hudCanvas, DouQuquMatchController controller, int localPlayerId)
         {
@@ -69,7 +70,7 @@ namespace DouQuqu
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = new Vector2(Size, Size);
             UnityEngine.UI.Image image = go.GetComponent<UnityEngine.UI.Image>();
-            image.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+            image.sprite = CircleSprite();
             image.color = new Color(0.06f, 0.07f, 0.06f, 0.72f);
             image.raycastTarget = true;
             DouQuquHudStick owner = parent.GetComponentInParent<DouQuquHudStick>();
@@ -88,7 +89,7 @@ namespace DouQuqu
             rect.anchoredPosition = Vector2.zero;
             rect.sizeDelta = new Vector2(Knob, Knob);
             UnityEngine.UI.Image image = go.GetComponent<UnityEngine.UI.Image>();
-            image.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+            image.sprite = CircleSprite();
             image.color = new Color(0.54f, 0.29f, 0.23f, 0.95f);
             image.raycastTarget = false;
             return rect;
@@ -101,6 +102,39 @@ namespace DouQuqu
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
             rect.localScale = Vector3.one;
+        }
+
+        private static Sprite CircleSprite()
+        {
+            if (circleSprite != null) return circleSprite;
+
+            const int size = 64;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.name = "HudStickCircleTex";
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            tex.hideFlags = HideFlags.HideAndDontSave;
+
+            float r = (size - 1) * 0.5f;
+            Color32[] pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - r;
+                    float dy = y - r;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    byte a = (byte)Mathf.RoundToInt(Mathf.Clamp01(r - d) * 255f);
+                    pixels[y * size + x] = new Color32(255, 255, 255, a);
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.Apply(false, true);
+            circleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            circleSprite.name = "HudStickCircle";
+            circleSprite.hideFlags = HideFlags.HideAndDontSave;
+            return circleSprite;
         }
 
         private void LateUpdate()

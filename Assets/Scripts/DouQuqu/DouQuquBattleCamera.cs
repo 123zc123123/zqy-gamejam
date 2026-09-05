@@ -77,7 +77,7 @@ namespace DouQuqu
         public void UseHudFill()
         {
             fillView = true;
-            padding = 0.25f;
+            padding = 0f;
             Fit();
         }
 

@@ -19,6 +19,8 @@ namespace DouQuqu
         private static readonly Color TextColor = new Color(0.92f, 0.97f, 1f, 1f);
 
         /// <summary>创建适配横屏手机的根 Canvas，并补齐触摸事件系统。</summary>
+        public static TMP_FontAsset Font => GetRuntimeFontAsset();
+
         public static RectTransform CreateScreen(string name)
         {
             EnsureEventSystem();
@@ -138,8 +140,8 @@ namespace DouQuqu
         {
             if (runtimeFontAsset != null) return runtimeFontAsset;
 
-            // 优先加载项目内的中文字体。TMP 默认的 LiberationSans 不包含中文，
-            // 如果先取 TMP_Settings.defaultFontAsset，会把中文替换成方框。
+            // 主字体是资源圆体 Medium 烘焙的 DouQuquChinese SDF。动态图集会按新字补字形。
+            // TMP 默认 LiberationSans 不含中文，先取它会把中文变成方框。
             runtimeFontAsset = Resources.Load<TMP_FontAsset>("Fonts/DouQuquChinese SDF");
             if (runtimeFontAsset == null)
                 runtimeFontAsset = Resources.Load<TMP_FontAsset>("Fonts/NotoSansSC-VF SDF");
@@ -148,7 +150,7 @@ namespace DouQuqu
 
             if (runtimeFontAsset == null)
             {
-                Font dynamicFont = Font.CreateDynamicFontFromOSFont(
+                UnityEngine.Font dynamicFont = UnityEngine.Font.CreateDynamicFontFromOSFont(
                     new[] { "Microsoft YaHei UI", "Microsoft YaHei", "SimSun", "Arial" }, 64);
                 if (dynamicFont != null)
                 {

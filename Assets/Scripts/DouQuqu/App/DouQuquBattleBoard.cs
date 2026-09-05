@@ -5,12 +5,12 @@ namespace DouQuqu
 {
     /// <summary>
     /// 红框里的棋盘底。旧 Ground / 围栏关掉，铺一块可替换的板。
-    /// 正式图放到 Resources/Battle/Board/BattleBoard.png 即可，不必改代码。
+    /// 正式图放到 Resources/Battle/Board/Textures/BattleBoard.png 即可，不必改代码。
     /// </summary>
     public static class DouQuquBattleBoard
     {
         public const string SlotName = "BattleBoard";
-        public const string ResourcePath = "Battle/Board/BattleBoard";
+        public const string ResourcePath = "Battle/Board/Textures/BattleBoard";
 
         public static readonly Color Sand = new Color(0.76f, 0.62f, 0.40f, 1f);
 
@@ -18,6 +18,13 @@ namespace DouQuqu
         {
             HideLegacyArena();
             EnsureBoard();
+        }
+
+        /// <summary>HUD 用 2D 战斗盘时关掉 3D 板，避免盖住 table 贴图。</summary>
+        public static void HideSurface()
+        {
+            GameObject board = GameObject.Find(SlotName);
+            if (board != null) board.SetActive(false);
         }
 
         private static void HideLegacyArena()

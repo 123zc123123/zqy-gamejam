@@ -17,7 +17,7 @@ namespace DouQuqu
         [SerializeField] private Color plateColor = new Color(0.05f, 0.07f, 0.07f, 0.55f);
         [SerializeField] private float widthScale = 2.2f;
         [SerializeField] private float thicknessScale = 0.22f;
-        [SerializeField] private float belowScale = 1.18f;
+        [SerializeField] private float belowScale = 1.85f;
         [SerializeField] private float minWidth = 1.2f;
         [SerializeField] private float minThickness = 0.12f;
         [SerializeField] private float minBelow = 0.55f;
