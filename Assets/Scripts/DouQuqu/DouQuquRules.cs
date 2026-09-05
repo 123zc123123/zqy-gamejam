@@ -760,6 +760,7 @@ namespace DouQuqu
     public sealed class BugState
     {
         public int id;
+        public int catalogId;
         public bool alive = true;
         public Vector3 position;
         public Vector3 previousPosition;

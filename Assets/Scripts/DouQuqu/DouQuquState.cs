@@ -96,10 +96,20 @@ namespace DouQuqu
     }
 
     [Serializable]
+    /// <summary>匹配时选中的一只蟋蟀。选人界面未完成前 catalogId=0 表示占位。</summary>
+    public sealed class CricketPick
+    {
+        public int catalogId;
+        public int quality = 1;
+        public int temperament = 1;
+    }
+
+    [Serializable]
     /// <summary>随网络快照发送的可序列化蟋蟀状态。</summary>
     public sealed class BugSnapshot
     {
         public int id;
+        public int catalogId;
         public bool alive;
         public Vector3 position;
         public Vector3 velocity;
@@ -172,11 +182,11 @@ namespace DouQuqu
 
     [Serializable]
     /// <summary>
-    /// 完整权威状态。v5 含耐力；v4 含经济和巢穴游标，使客户端或恢复后的主机可以继续确定性运行。
+    /// 完整权威状态。v6 含三条命阵容与出局名次；v5 含耐力；v4 含经济和巢穴游标。
     /// </summary>
     public sealed class MatchSnapshot
     {
-        public int version = 5;
+        public int version = 6;
         public int tick;
         public int playerCount;
         public int randomSeed;
@@ -186,6 +196,13 @@ namespace DouQuqu
         public int winnerId = -1;
         public MatchPhase phase;
         public MatchKnobs knobs;
+        public int[] cricketIndex;
+        public bool[] playerIn;
+        public int[] place;
+        public int[] matchScore;
+        public int[] rosterCatalog;
+        public int[] rosterQuality;
+        public int[] rosterTemperament;
         public BugSnapshot[] bugs;
         public PickupSnapshot[] pickups;
         public EggSnapshot[] eggs;
@@ -220,6 +237,11 @@ namespace DouQuqu
         public MatchKnobs knobs;
         public BugState[] bugs = new BugState[0];
         public bool[] humanPlayers = new bool[0];
+        public CricketPick[][] roster;
+        public int[] cricketIndex = new int[0];
+        public bool[] playerIn = new bool[0];
+        public int[] place = new int[0];
+        public int[] matchScore = new int[0];
         public readonly List<PickupState> pickups = new List<PickupState>();
         public readonly List<EggState> eggs = new List<EggState>();
         public readonly List<BabyState> babies = new List<BabyState>();

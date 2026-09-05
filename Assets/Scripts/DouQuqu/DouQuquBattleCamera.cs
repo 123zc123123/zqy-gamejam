@@ -11,6 +11,7 @@ namespace DouQuqu
     {
         [SerializeField] private float padding = 1.6f;
         [SerializeField] private bool lockPortrait = true;
+        [SerializeField] private bool fillView;
 
         private Camera cam;
         private int lastWidth;
@@ -45,24 +46,39 @@ namespace DouQuqu
 
         private void LateUpdate()
         {
-            if (Screen.width != lastWidth || Screen.height != lastHeight)
+            Camera battleCam = Cam;
+            int width = battleCam != null ? Mathf.Max(1, battleCam.pixelWidth) : Screen.width;
+            int height = battleCam != null ? Mathf.Max(1, battleCam.pixelHeight) : Screen.height;
+            if (width != lastWidth || height != lastHeight)
                 Fit();
         }
 
-        /// <summary>按当前宽高比把整场（加边）塞进画面，不裁切圆角。</summary>
+        /// <summary>
+        /// 按当前渲染目标宽高比把整场（加边）塞进画面。
+        /// 嵌进 HUD 的 Battlefield 时用 RenderTexture 的像素尺寸，而不是整个 Game 窗口。
+        /// </summary>
         public void Fit()
         {
             Camera battleCam = Cam;
             if (battleCam == null) return;
             battleCam.orthographic = true;
-            lastWidth = Mathf.Max(1, Screen.width);
-            lastHeight = Mathf.Max(1, Screen.height);
+            lastWidth = Mathf.Max(1, battleCam.pixelWidth);
+            lastHeight = Mathf.Max(1, battleCam.pixelHeight);
             float aspect = lastWidth / (float)lastHeight;
             float pad = Mathf.Max(0f, padding);
             float needX = DouQuquRules.ArenaHalfWidth + pad;
             float needZ = DouQuquRules.ArenaHalfDepth + pad;
-            float size = Mathf.Max(needZ, needX / Mathf.Max(0.01f, aspect));
-            battleCam.orthographicSize = size;
+            float contain = Mathf.Max(needZ, needX / Mathf.Max(0.01f, aspect));
+            float cover = Mathf.Min(needZ, needX / Mathf.Max(0.01f, aspect));
+            battleCam.orthographicSize = fillView ? cover : contain;
+        }
+
+        /// <summary>嵌进 HUD 时铺满 Battlefield，避免罐子两侧留出空边。</summary>
+        public void UseHudFill()
+        {
+            fillView = true;
+            padding = 0.25f;
+            Fit();
         }
 
         /// <summary>

@@ -12,6 +12,7 @@ namespace DouQuqu
     {
         // Demo 固定最多四名玩家；输入、状态数组和局域网槽位统一使用此常量。
         public const int MaxPlayers = 4;
+        public const int LivesPerPlayer = 3;
         // 使用固定模拟时间，保证主机和客户端快照可以确定性重放。
         public const float FixedDeltaTime = 1f / 60f;
         private const int MovementSubsteps = 6;
@@ -33,6 +34,7 @@ namespace DouQuqu
         // 只有主机/单机控制器推进状态；局域网客户端只应用快照，
         // 将此对象作为表现层读取模型。
         private MatchState state;
+        private CricketPick[][] pendingRoster;
         private float accumulator;
         private int inputSequence;
 
@@ -54,6 +56,8 @@ namespace DouQuqu
 
         public event Action<MatchSnapshot> SnapshotReady;
         public event Action<MatchState> StateChanged;
+        public event Action<int, int> CricketOut;
+        public event Action<int, int> CricketIn;
         public event Action<int> PlayerEliminated;
         public event Action<string, Vector3> GameplayEvent;
 
@@ -74,6 +78,56 @@ namespace DouQuqu
                 Tick(FixedDeltaTime);
                 accumulator -= FixedDeltaTime;
             }
+        }
+
+        /// <summary>
+        /// 匹配选人完成后写入上场顺序。未调用时默认每人三只占位蟋蟀。
+        /// 须在 StartMatch 前设置。
+        /// </summary>
+        public void SetRoster(int playerId, CricketPick[] picks)
+        {
+            configuredPlayers = Mathf.Clamp(configuredPlayers, 1, MaxPlayers);
+            if (playerId < 0 || playerId >= MaxPlayers) return;
+            StoreRoster(ref pendingRoster, configuredPlayers, playerId, picks);
+            if (state != null)
+            {
+                StoreRoster(ref state.roster, configuredPlayers, playerId, picks);
+                if (state.bugs != null && playerId < state.bugs.Length)
+                    ApplyPickToBug(state.bugs[playerId], playerId, CricketIndex(playerId));
+            }
+        }
+
+        public int CricketIndex(int playerId)
+        {
+            if (state == null || state.cricketIndex == null || playerId < 0 || playerId >= state.cricketIndex.Length) return 0;
+            return state.cricketIndex[playerId];
+        }
+
+        public int LivesLeft(int playerId)
+        {
+            if (state == null || state.bugs == null || playerId < 0 || playerId >= state.bugs.Length) return 0;
+            if (state.playerIn != null && playerId < state.playerIn.Length && !state.playerIn[playerId]) return 0;
+            int unused = LivesPerPlayer - CricketIndex(playerId) - 1;
+            int current = state.bugs[playerId] != null && state.bugs[playerId].alive ? 1 : 0;
+            return current + Mathf.Max(0, unused);
+        }
+
+        public bool PlayerStillIn(int playerId)
+        {
+            if (state == null || state.playerIn == null || playerId < 0 || playerId >= state.playerIn.Length) return false;
+            return state.playerIn[playerId];
+        }
+
+        public int Place(int playerId)
+        {
+            if (state == null || state.place == null || playerId < 0 || playerId >= state.place.Length) return 0;
+            return state.place[playerId];
+        }
+
+        public int MatchScore(int playerId)
+        {
+            if (state == null || state.matchScore == null || playerId < 0 || playerId >= state.matchScore.Length) return 0;
+            return state.matchScore[playerId];
         }
 
         /// <summary>在重置前配置运行模式和玩家数量。</summary>
@@ -119,11 +173,13 @@ namespace DouQuqu
             };
             state.bugs = new BugState[configuredPlayers];
             state.humanPlayers = new bool[configuredPlayers];
+            EnsureRoster(configuredPlayers);
             for (int i = 0; i < state.bugs.Length; i++)
             {
                 state.bugs[i] = new BugState(i, spawns[i], knobs);
                 state.bugs[i].chargeDirection = (new Vector2(-spawns[i].x, -spawns[i].z)).normalized;
                 state.bugs[i].slideMu = knobs.mu;
+                ApplyPickToBug(state.bugs[i], i, 0);
                 // 客户端不推进本地模拟；主机和离线模式只保留本地真人槽位，其余交给确定性 AI。
                 state.humanPlayers[i] = runMode == MatchRunMode.Client || i < offlineHumanPlayers;
             }
@@ -158,6 +214,7 @@ namespace DouQuqu
         public void SetInput(InputFrame frame)
         {
             if (state == null || frame == null || frame.playerId < 0 || frame.playerId >= state.bugs.Length || state.over) return;
+            if (state.playerIn != null && frame.playerId < state.playerIn.Length && !state.playerIn[frame.playerId]) return;
             InputFrame current = inputs[frame.playerId];
             if (current != null && frame.sequence > 0 && frame.sequence < current.sequence) return;
             frame.sequence = frame.sequence > 0 ? frame.sequence : ++inputSequence;
@@ -221,7 +278,7 @@ namespace DouQuqu
             if (state == null) return null;
             MatchSnapshot snapshot = new MatchSnapshot
             {
-                version = 5,
+                version = 6,
                 tick = state.tick,
                 playerCount = state.playerCount,
                 randomSeed = state.randomSeed,
@@ -244,14 +301,19 @@ namespace DouQuqu
                 nextNestAt = state.nextNestAt,
                 lastNestClearAt = state.lastNestClearAt,
                 pendingNestOwnerId = state.pendingNestOwnerId,
-                nestChainActive = state.nestChainActive
+                nestChainActive = state.nestChainActive,
+                cricketIndex = CopyInts(state.cricketIndex),
+                playerIn = CopyBools(state.playerIn),
+                place = CopyInts(state.place),
+                matchScore = CopyInts(state.matchScore)
             };
+            PackRoster(snapshot);
             for (int i = 0; i < state.bugs.Length; i++)
             {
                 BugState b = state.bugs[i];
                 snapshot.bugs[i] = new BugSnapshot
                 {
-                    id = b.id, alive = b.alive, position = b.position, velocity = b.velocity,
+                    id = b.id, catalogId = b.catalogId, alive = b.alive, position = b.position, velocity = b.velocity,
                     height = b.height, verticalVelocity = b.verticalVelocity, radius = b.radius,
                     chargeTime = b.chargeTime, stamina = b.stamina, grow = b.grow, score = b.score, lastHitId = b.lastHitId,
                     buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
@@ -315,7 +377,7 @@ namespace DouQuqu
             {
                 BugSnapshot s = snapshot.bugs[i];
                 BugState b = state.bugs[i];
-                b.id = s.id; b.alive = s.alive; b.position = s.position; b.previousPosition = s.position - s.velocity * FixedDeltaTime;
+                b.id = s.id; b.catalogId = s.catalogId; b.alive = s.alive; b.position = s.position; b.previousPosition = s.position - s.velocity * FixedDeltaTime;
                 b.velocity = s.velocity; b.height = s.height; b.verticalVelocity = s.verticalVelocity; b.airborne = s.airborne || s.height > 0.03f || s.verticalVelocity > 0f;
                 b.radius = s.radius; b.chargeTime = s.chargeTime; b.grow = s.grow; b.score = s.score; b.lastHitId = s.lastHitId;
                 b.stamina = snapshot.version >= 5 ? Mathf.Max(0f, s.stamina) : Mathf.Max(0f, knobs.staminaMax);
@@ -363,6 +425,7 @@ namespace DouQuqu
                 for (int i = 0; i < state.babies.Count; i++)
                     state.nextBabyId = Mathf.Max(state.nextBabyId, state.babies[i].id + 1);
             }
+            UnpackRoster(snapshot);
             state.nest = snapshot.nest == null ? null : new NestState { position = snapshot.nest.position, hp = snapshot.nest.hp, alive = snapshot.nest.alive };
             if (snapshot.version < 4)
             {
@@ -410,8 +473,11 @@ namespace DouQuqu
             bug.airborne = true;
             BugState killer = FindBug(bug.lastHitId);
             if (killer != null && killer != bug) AddGrow(killer);
-            PlayerEliminated?.Invoke(bug.id);
+            int slot = CricketIndex(bug.id);
+            CricketOut?.Invoke(bug.id, slot);
             Emit("out", bug.position);
+            if (TrySpawnNext(bug.id)) return;
+            EliminatePlayer(bug.id);
         }
 
         private BugState FindBug(int id)
@@ -432,10 +498,11 @@ namespace DouQuqu
         private void CheckEnd(MatchPhase phase)
         {
             if (state.playerCount <= 1) return;
-            int alive = 0;
-            for (int i = 0; i < state.bugs.Length; i++) if (state.bugs[i].alive) alive++;
-            if (alive > 1 && phase != MatchPhase.Over) return;
-            state.winnerId = alive == 1 ? FindOnlyAlive() : DouQuquRules.CenterWinner(state.bugs);
+            int remaining = CountPlayersIn();
+            if (remaining > 1 && phase != MatchPhase.Over) return;
+            int winner = remaining == 1 ? FindOnlyPlayerIn() : DouQuquRules.CenterWinner(state.bugs);
+            if (winner >= 0) AwardPlace(winner, 1);
+            state.winnerId = winner;
             state.over = true;
             state.started = false;
             Emit("match-over", Vector3.zero);
@@ -445,6 +512,263 @@ namespace DouQuqu
         {
             for (int i = 0; i < state.bugs.Length; i++) if (state.bugs[i].alive) return state.bugs[i].id;
             return -1;
+        }
+
+        private int FindOnlyPlayerIn()
+        {
+            if (state.playerIn == null) return FindOnlyAlive();
+            for (int i = 0; i < state.playerIn.Length; i++) if (state.playerIn[i]) return i;
+            return -1;
+        }
+
+        private int CountPlayersIn()
+        {
+            if (state.playerIn == null) return 0;
+            int count = 0;
+            for (int i = 0; i < state.playerIn.Length; i++) if (state.playerIn[i]) count++;
+            return count;
+        }
+
+        private void EliminatePlayer(int playerId)
+        {
+            if (state.playerIn == null || playerId < 0 || playerId >= state.playerIn.Length) return;
+            if (!state.playerIn[playerId]) return;
+            state.playerIn[playerId] = false;
+            AwardPlace(playerId, CountPlayersIn() + 1);
+            PlayerEliminated?.Invoke(playerId);
+            Emit("player-out", state.bugs[playerId].position);
+        }
+
+        private void AwardPlace(int playerId, int place)
+        {
+            if (state.place == null || playerId < 0 || playerId >= state.place.Length) return;
+            if (state.place[playerId] > 0) return;
+            state.place[playerId] = Mathf.Max(1, place);
+            state.matchScore[playerId] = Mathf.Max(1, state.playerCount - state.place[playerId] + 1);
+        }
+
+        private bool TrySpawnNext(int playerId)
+        {
+            if (state.cricketIndex == null || playerId < 0 || playerId >= state.cricketIndex.Length) return false;
+            int next = state.cricketIndex[playerId] + 1;
+            if (next >= LivesPerPlayer) return false;
+            state.cricketIndex[playerId] = next;
+            RecycleBug(state.bugs[playerId], SpawnPoint(playerId));
+            ApplyPickToBug(state.bugs[playerId], playerId, next);
+            CricketIn?.Invoke(playerId, next);
+            Emit("cricket-in", state.bugs[playerId].position);
+            return true;
+        }
+
+        private void RecycleBug(BugState bug, Vector3 spawn)
+        {
+            bug.alive = true;
+            bug.position = spawn;
+            bug.previousPosition = spawn;
+            bug.velocity = Vector3.zero;
+            bug.initialSpeed = 0f;
+            bug.height = 0f;
+            bug.verticalVelocity = 0f;
+            bug.airborne = false;
+            bug.charging = false;
+            bug.holding = false;
+            bug.pendingCharge = false;
+            bug.chargeTime = 0f;
+            bug.initialSpeed = 0f;
+            bug.chargeDirection = new Vector2(-spawn.x, -spawn.z);
+            if (bug.chargeDirection.sqrMagnitude < 0.01f) bug.chargeDirection = Vector2.up;
+            else bug.chargeDirection.Normalize();
+            bug.slideMu = knobs.mu;
+            bug.grow = 0;
+            bug.lastHitId = -1;
+            bug.hitTier = HitTier.None;
+            bug.buffSizeT = 0f;
+            bug.buffShieldT = 0f;
+            bug.buffChargeT = 0f;
+            bug.rageSize = false;
+            bug.rageCharge = false;
+            bug.score = 0;
+            bug.stamina = knobs == null ? 5f : Mathf.Max(0f, knobs.staminaMax);
+            DouQuquRules.RefreshBody(knobs, bug);
+        }
+
+        private Vector3 SpawnPoint(int playerId)
+        {
+            Vector3[] spawns =
+            {
+                new Vector3(0f, 0f, -DouQuquRules.ArenaHalfDepth * 0.38f),
+                new Vector3(0f, 0f, DouQuquRules.ArenaHalfDepth * 0.38f),
+                new Vector3(-DouQuquRules.ArenaHalfWidth * 0.38f, 0f, 0f),
+                new Vector3(DouQuquRules.ArenaHalfWidth * 0.38f, 0f, 0f)
+            };
+            return spawns[Mathf.Clamp(playerId, 0, spawns.Length - 1)];
+        }
+
+        private void EnsureRoster(int playerCount)
+        {
+            if (state == null) return;
+            playerCount = Mathf.Clamp(playerCount, 1, MaxPlayers);
+            state.roster = CloneRoster(pendingRoster, playerCount);
+            state.cricketIndex = new int[playerCount];
+            state.playerIn = new bool[playerCount];
+            state.place = new int[playerCount];
+            state.matchScore = new int[playerCount];
+            for (int i = 0; i < playerCount; i++)
+            {
+                state.playerIn[i] = true;
+                if (state.roster[i] == null) state.roster[i] = DefaultPicks();
+            }
+        }
+
+        private void ApplyPickToBug(BugState bug, int playerId, int slot)
+        {
+            if (bug == null) return;
+            CricketPick pick = GetPick(playerId, slot);
+            bug.catalogId = pick == null ? 0 : pick.catalogId;
+        }
+
+        private CricketPick GetPick(int playerId, int slot)
+        {
+            if (state == null || state.roster == null || playerId < 0 || playerId >= state.roster.Length) return null;
+            CricketPick[] picks = state.roster[playerId];
+            if (picks == null || slot < 0 || slot >= picks.Length) return null;
+            return picks[slot];
+        }
+
+        private static void StoreRoster(ref CricketPick[][] target, int playerCount, int playerId, CricketPick[] picks)
+        {
+            playerCount = Mathf.Max(playerCount, playerId + 1);
+            if (target == null || target.Length < playerCount)
+            {
+                CricketPick[][] next = new CricketPick[playerCount][];
+                if (target != null)
+                    for (int i = 0; i < target.Length; i++) next[i] = target[i];
+                target = next;
+            }
+            target[playerId] = DefaultPicks();
+            if (picks == null) return;
+            for (int i = 0; i < LivesPerPlayer && i < picks.Length; i++)
+            {
+                CricketPick pick = picks[i] ?? new CricketPick();
+                target[playerId][i] = new CricketPick
+                {
+                    catalogId = pick.catalogId,
+                    quality = Mathf.Clamp(pick.quality, 1, 4),
+                    temperament = Mathf.Clamp(pick.temperament, 1, 4)
+                };
+            }
+        }
+
+        private static CricketPick[][] CloneRoster(CricketPick[][] source, int playerCount)
+        {
+            CricketPick[][] copy = new CricketPick[playerCount][];
+            for (int i = 0; i < playerCount; i++)
+            {
+                copy[i] = DefaultPicks();
+                if (source == null || i >= source.Length || source[i] == null) continue;
+                for (int s = 0; s < LivesPerPlayer && s < source[i].Length; s++)
+                {
+                    CricketPick pick = source[i][s] ?? new CricketPick();
+                    copy[i][s] = new CricketPick
+                    {
+                        catalogId = pick.catalogId,
+                        quality = pick.quality,
+                        temperament = pick.temperament
+                    };
+                }
+            }
+            return copy;
+        }
+
+        private static CricketPick[] DefaultPicks()
+        {
+            CricketPick[] picks = new CricketPick[LivesPerPlayer];
+            for (int i = 0; i < picks.Length; i++)
+                picks[i] = new CricketPick { catalogId = 0, quality = 1, temperament = 1 };
+            return picks;
+        }
+
+        private void PackRoster(MatchSnapshot snapshot)
+        {
+            int count = state.playerCount;
+            snapshot.rosterCatalog = new int[count * LivesPerPlayer];
+            snapshot.rosterQuality = new int[count * LivesPerPlayer];
+            snapshot.rosterTemperament = new int[count * LivesPerPlayer];
+            if (state.roster == null) return;
+            for (int i = 0; i < count; i++)
+            {
+                CricketPick[] picks = i < state.roster.Length ? state.roster[i] : null;
+                for (int s = 0; s < LivesPerPlayer; s++)
+                {
+                    int index = i * LivesPerPlayer + s;
+                    CricketPick pick = picks != null && s < picks.Length ? picks[s] : null;
+                    snapshot.rosterCatalog[index] = pick == null ? 0 : pick.catalogId;
+                    snapshot.rosterQuality[index] = pick == null ? 1 : pick.quality;
+                    snapshot.rosterTemperament[index] = pick == null ? 1 : pick.temperament;
+                }
+            }
+        }
+
+        private void UnpackRoster(MatchSnapshot snapshot)
+        {
+            int count = state.playerCount;
+            if (snapshot.version < 6 || snapshot.cricketIndex == null)
+            {
+                EnsureRoster(count);
+                if (state.bugs == null) return;
+                for (int i = 0; i < count && i < state.bugs.Length; i++)
+                {
+                    if (state.bugs[i] != null && state.bugs[i].alive) continue;
+                    state.cricketIndex[i] = LivesPerPlayer;
+                    state.playerIn[i] = false;
+                }
+                return;
+            }
+
+            state.cricketIndex = CopyInts(snapshot.cricketIndex, count);
+            state.playerIn = CopyBools(snapshot.playerIn, count);
+            state.place = CopyInts(snapshot.place, count);
+            state.matchScore = CopyInts(snapshot.matchScore, count);
+            state.roster = new CricketPick[count][];
+            for (int i = 0; i < count; i++)
+            {
+                state.roster[i] = DefaultPicks();
+                if (snapshot.rosterCatalog == null) continue;
+                for (int s = 0; s < LivesPerPlayer; s++)
+                {
+                    int index = i * LivesPerPlayer + s;
+                    if (index >= snapshot.rosterCatalog.Length) break;
+                    state.roster[i][s] = new CricketPick
+                    {
+                        catalogId = snapshot.rosterCatalog[index],
+                        quality = snapshot.rosterQuality != null && index < snapshot.rosterQuality.Length ? snapshot.rosterQuality[index] : 1,
+                        temperament = snapshot.rosterTemperament != null && index < snapshot.rosterTemperament.Length ? snapshot.rosterTemperament[index] : 1
+                    };
+                }
+            }
+        }
+
+        private static int[] CopyInts(int[] source, int length = -1)
+        {
+            if (source == null) return length > 0 ? new int[length] : Array.Empty<int>();
+            int count = length > 0 ? length : source.Length;
+            int[] copy = new int[count];
+            Array.Copy(source, copy, Mathf.Min(source.Length, count));
+            return copy;
+        }
+
+        private static bool[] CopyBools(bool[] source, int length = -1)
+        {
+            if (source == null)
+            {
+                bool[] empty = length > 0 ? new bool[length] : Array.Empty<bool>();
+                for (int i = 0; i < empty.Length; i++) empty[i] = true;
+                return empty;
+            }
+            int count = length > 0 ? length : source.Length;
+            bool[] copy = new bool[count];
+            Array.Copy(source, copy, Mathf.Min(source.Length, count));
+            return copy;
         }
 
         private void Emit(string kind, Vector3 position)

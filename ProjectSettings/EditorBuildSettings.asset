@@ -47,4 +47,10 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/douhuodong.unity
     guid: eb680fba09754c459ac86352c4a0954f
+  - enabled: 1
+    path: Assets/Scenes/douququzhandou.unity
+    guid: 78820251065854e2841a38c246a7d111
+  - enabled: 1
+    path: Assets/Scenes/Dou Ququ Matchmaking.unity
+    guid: b16eb58b2d4b75842b60564d164cd675
   m_configObjects: {}

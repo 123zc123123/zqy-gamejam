@@ -57,6 +57,10 @@ namespace DouQuqu
         private readonly Dictionary<int, DouQuquChargeArrow> chargeArrows = new Dictionary<int, DouQuquChargeArrow>();
         private readonly Dictionary<int, DouQuquStaminaRing> staminaRings = new Dictionary<int, DouQuquStaminaRing>();
         private readonly Dictionary<int, DouQuquStaminaBar> staminaBars = new Dictionary<int, DouQuquStaminaBar>();
+        private readonly Dictionary<int, int> assignedBugProfiles = new Dictionary<int, int>();
+        private Sprite[] premiumBugSprites;
+        private MatchState assignedProfileState;
+        private int assignedProfileSeed = int.MinValue;
         private bool warnedMissingOverlays;
 
         private static readonly Color[] PlayerColors =
@@ -72,8 +76,27 @@ namespace DouQuqu
             propertyBlock = new MaterialPropertyBlock();
             if (match == null) match = GetComponent<DouQuquMatchController>();
             if (match == null) match = FindObjectOfType<DouQuquMatchController>();
+            LoadPremiumBugSprites();
             EnsureBattleCamera();
             EnsureRoots();
+        }
+
+        /// <summary>
+        /// 加载育虫盘已经使用的 4×4 精品虫立绘。资源放在 Resources 下，后续替换动画时
+        /// 只需在战斗虫根节点下增加动画组件即可，不需要改战斗状态或碰撞逻辑。
+        /// </summary>
+        private void LoadPremiumBugSprites()
+        {
+            premiumBugSprites = new Sprite[16];
+            for (int quality = 1; quality <= 4; quality++)
+            {
+                for (int temperament = 1; temperament <= 4; temperament++)
+                {
+                    int index = (quality - 1) * 4 + (temperament - 1);
+                    premiumBugSprites[index] = Resources.Load<Sprite>(
+                        "Merge/MergeQualities/quality-" + quality + "-" + temperament);
+                }
+            }
         }
 
         private static void EnsureBattleCamera()
@@ -170,6 +193,12 @@ namespace DouQuqu
 
         private void RefreshBugs(MatchState state)
         {
+            if (!ReferenceEquals(assignedProfileState, state) || assignedProfileSeed != state.randomSeed)
+            {
+                assignedBugProfiles.Clear();
+                assignedProfileState = state;
+                assignedProfileSeed = state.randomSeed;
+            }
             seenIds.Clear();
             if (state.bugs == null) return;
             for (int i = 0; i < state.bugs.Length; i++)
@@ -179,10 +208,20 @@ namespace DouQuqu
                 seenIds.Add(bug.id);
                 GameObject view = GetOrCreate(bugViews, bug.id, PrefabForBug(bug.id), bugsRoot, "Bug_" + bug.id);
                 if (view == null) continue;
+                int profile = VisualProfileForBug(state, bug);
+                int assignedProfile;
+                if (!assignedBugProfiles.TryGetValue(bug.id, out assignedProfile) || assignedProfile != profile)
+                {
+                    // 骨骼蛐蛐走 Sprite Library，不能把身体 Sprite 换成精品立绘。
+                    if (view.GetComponent<DouQuquCricketVisual>() == null)
+                        ApplyPremiumBugSprite(view, profile);
+                    assignedBugProfiles[bug.id] = profile;
+                }
                 view.SetActive(bug.alive);
                 if (!bug.alive) continue;
                 view.transform.position = bug.position + Vector3.up * (groundOffset + bug.height);
                 view.transform.localScale = Vector3.one * VisualScale(view, bug.radius, state.knobs.bugR);
+                // 蓄力中跟摇杆（图片上部=头）；飞行中跟速度。空中不改朝向。
                 FaceXz(view, bug.charging ? Vector3.zero : bug.velocity, bug.chargeDirection);
                 DouQuquCricketVisual cricket = view.GetComponent<DouQuquCricketVisual>();
                 if (cricket != null)
@@ -201,6 +240,51 @@ namespace DouQuqu
                 }
             }
             HideUnseen(bugViews, seenIds);
+        }
+
+        private int VisualProfileForBug(MatchState state, BugState bug)
+        {
+            // 已接入选虫数据时沿用真实品质/性格；占位选虫则按对局种子分散到不同品质。
+            int quality = 0;
+            int temperament = 0;
+            int slot = state.cricketIndex != null && bug.id >= 0 && bug.id < state.cricketIndex.Length
+                ? state.cricketIndex[bug.id] : 0;
+            if (state.roster != null && bug.id >= 0 && bug.id < state.roster.Length)
+            {
+                CricketPick[] picks = state.roster[bug.id];
+                CricketPick pick = picks != null && slot >= 0 && slot < picks.Length ? picks[slot] : null;
+                if (pick != null && pick.catalogId != 0)
+                {
+                    quality = Mathf.Clamp(pick.quality, 1, 4);
+                    temperament = Mathf.Clamp(pick.temperament, 1, 4);
+                }
+            }
+
+            if (quality == 0)
+            {
+                // 轮换品质保证一局里能看到不同档位，同时仍由 seed 决定，回放/联机不会漂移。
+                // slot 参与计算，虫子换代时会得到新的外观。
+                quality = PositiveModulo(state.randomSeed + bug.id + slot * 17, 4) + 1;
+                temperament = PositiveModulo((state.randomSeed / 7) + bug.id * 3 + slot * 11, 4) + 1;
+            }
+
+            return (quality - 1) * 4 + (temperament - 1);
+        }
+
+        private static int PositiveModulo(int value, int modulus)
+        {
+            int result = value % modulus;
+            return result < 0 ? result + modulus : result;
+        }
+
+        private void ApplyPremiumBugSprite(GameObject view, int profile)
+        {
+            if (premiumBugSprites == null || premiumBugSprites.Length == 0) return;
+            profile = Mathf.Clamp(profile, 0, premiumBugSprites.Length - 1);
+            Sprite sprite = premiumBugSprites[profile];
+            if (sprite == null) return;
+            SpriteRenderer renderer = view.GetComponentInChildren<SpriteRenderer>();
+            if (renderer != null && renderer.sprite != sprite) renderer.sprite = sprite;
         }
 
         private void RefreshBabies(MatchState state)
@@ -454,13 +538,17 @@ namespace DouQuqu
             Debug.LogWarning("[DouQuqu] 缺少耐力环、耐力条或蓄力箭头预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
         }
 
+        /// <summary>
+        /// 顶视朝向。精品立绘的图片上部是头：Sprite 本地 +Y 对准蓄力/飞行方向，
+        /// 贴图正面朝上对着顶视相机。不用 Euler(90, yaw, 0)，避免 X=90 万向节锁把偏航吃掉。
+        /// </summary>
         private static void FaceXz(GameObject view, Vector3 velocity, Vector2 chargeDirection)
         {
             Vector2 face = new Vector2(velocity.x, velocity.z);
             if (face.sqrMagnitude < 0.04f) face = chargeDirection;
             if (face.sqrMagnitude < 0.0001f) face = Vector2.up;
-            float yaw = Mathf.Atan2(face.x, face.y) * Mathf.Rad2Deg + 180f;
-            view.transform.rotation = Quaternion.Euler(90f, yaw, 0f);
+            Vector3 head = new Vector3(face.x, 0f, face.y);
+            view.transform.rotation = Quaternion.LookRotation(Vector3.up, head);
         }
 
         private GameObject PrefabForPickup(string kind)
