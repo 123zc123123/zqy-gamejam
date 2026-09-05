@@ -12,10 +12,7 @@ namespace ZqyGameJam.UI.AdditionalScreens.Editor
     public static class CricketAdditionalScreensBuilder
     {
         private const string Root = "Assets/Game/UI/AdditionalScreens";
-        private const string Prefabs = Root + "/Prefabs";
-        private const string Parts = Prefabs + "/Parts";
         private const string Scenes = Root + "/Scenes";
-        private const string Textures = Root + "/Textures/Figma";
 
         private sealed class ButtonSpec
         {
@@ -40,17 +37,15 @@ namespace ZqyGameJam.UI.AdditionalScreens.Editor
 [MenuItem("Tools/Cricket UI/Build Figma Screen Prefabs")]
         public static void Build()
         {
-            EnsureFolder("Assets/Game"); EnsureFolder("Assets/Game/UI"); EnsureFolder(Root);
-            EnsureFolder(Prefabs); EnsureFolder(Parts); EnsureFolder(Scenes);
-            EnsureFolder(Root + "/Textures"); EnsureFolder(Textures); AssetDatabase.Refresh();
-
-            // Delete each root before its nested canvas/parts, preventing transient
-            // missing-nested-prefab imports while rebuilding existing pages.
+            EnsureFolder(Scenes);
             foreach (string id in new[] { "Screen10_593", "Screen63_5", "Screen10_368" })
             {
-                AssetDatabase.DeleteAsset(Prefabs + "/" + id + ".prefab");
-                AssetDatabase.DeleteAsset(Prefabs + "/" + id + "Canvas.prefab");
+                GetDest(id, out string prefabs, out string parts, out _);
+                EnsureFolder(prefabs); EnsureFolder(parts);
+                AssetDatabase.DeleteAsset(prefabs + "/" + id + ".prefab");
+                AssetDatabase.DeleteAsset(prefabs + "/" + id + "Canvas.prefab");
             }
+            AssetDatabase.Refresh();
             DeleteLegacyScreen10368Parts();
 
             BuildPage("Screen10_593", CreateEvent593Regions());
@@ -58,7 +53,8 @@ namespace ZqyGameJam.UI.AdditionalScreens.Editor
             BuildPage("Screen10_368", CreateRegistry368Regions());
             UpdateBuildSettings();
             AssetDatabase.SaveAssets(); AssetDatabase.Refresh();
-            Selection.activeObject = AssetDatabase.LoadAssetAtPath<GameObject>(Prefabs + "/Screen10_593.prefab");
+            GetDest("Screen10_593", out string activityPrefabs, out _, out _);
+            Selection.activeObject = AssetDatabase.LoadAssetAtPath<GameObject>(activityPrefabs + "/Screen10_593.prefab");
             Debug.Log("Figma uGUI screens built as peer root prefabs: Screen10_593, Screen63_5, Screen10_368.");
         }
 
@@ -118,18 +114,41 @@ namespace ZqyGameJam.UI.AdditionalScreens.Editor
         private static ButtonSpec Button(string name, float x, float y, float width, float height)
         { return new ButtonSpec(name, x, y, width, height); }
 
+        private static void GetDest(string id, out string prefabs, out string parts, out string textures)
+        {
+            if (id == "Screen10_593")
+            {
+                prefabs = "Assets/Resources/Activity/Screen593/Prefabs";
+                parts = prefabs + "/Parts";
+                textures = "Assets/Resources/Activity/Screen593/Textures";
+                return;
+            }
+            if (id == "Screen63_5")
+            {
+                prefabs = "Assets/Resources/Battle/Lineup/Prefabs";
+                parts = prefabs + "/Parts";
+                textures = "Assets/Resources/Battle/Lineup/Textures";
+                return;
+            }
+            prefabs = "Assets/Resources/Collection/Prefabs";
+            parts = prefabs + "/Parts";
+            textures = "Assets/Resources/Collection/Textures";
+        }
+
 private static void BuildPage(string id, RegionSpec[] regions)
         {
-            string canvasPath = Prefabs + "/" + id + "Canvas.prefab", pagePath = Prefabs + "/" + id + ".prefab", scenePath = Scenes + "/" + id + ".unity";
+            GetDest(id, out string prefabs, out string parts, out string textures);
+            EnsureFolder(prefabs); EnsureFolder(parts); EnsureFolder(textures);
+            string canvasPath = prefabs + "/" + id + "Canvas.prefab", pagePath = prefabs + "/" + id + ".prefab", scenePath = Scenes + "/" + id + ".unity";
             AssetDatabase.DeleteAsset(pagePath);
             AssetDatabase.DeleteAsset(canvasPath);
             AssetDatabase.DeleteAsset(scenePath);
             var regionPrefabs = new List<GameObject>();
             foreach (RegionSpec spec in regions)
             {
-                string partPath = Parts + "/" + id + "_" + spec.Name + ".prefab"; AssetDatabase.DeleteAsset(partPath);
-                Sprite sprite = PrepareSprite(Textures + "/" + spec.Texture);
-                if (sprite == null) throw new FileNotFoundException("Missing Figma texture", Textures + "/" + spec.Texture);
+                string partPath = parts + "/" + id + "_" + spec.Name + ".prefab"; AssetDatabase.DeleteAsset(partPath);
+                Sprite sprite = PrepareSprite(textures + "/" + spec.Texture);
+                if (sprite == null) throw new FileNotFoundException("Missing Figma texture", textures + "/" + spec.Texture);
                 regionPrefabs.Add(SaveRegion(id, spec, sprite, partPath));
             }
             AssetDatabase.SaveAssets();
@@ -189,7 +208,8 @@ private static void BuildPage(string id, RegionSpec[] regions)
         private static void DeleteLegacyScreen10368Parts()
         {
             string[] legacy = { "Background", "Header", "Footer", "BackButton", "CardA", "CardB", "CardC", "PrimaryButton" };
-            foreach (string suffix in legacy) AssetDatabase.DeleteAsset(Parts + "/Screen10_368" + suffix + ".prefab");
+            GetDest("Screen10_368", out _, out string parts, out _);
+            foreach (string suffix in legacy) AssetDatabase.DeleteAsset(parts + "/Screen10_368" + suffix + ".prefab");
         }
 
         private static void UpdateBuildSettings()

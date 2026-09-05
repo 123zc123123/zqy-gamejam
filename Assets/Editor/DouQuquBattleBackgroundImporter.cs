@@ -5,14 +5,14 @@ using UnityEngine.UI;
 namespace DouQuqu.Editor
 {
     /// <summary>
-    /// 战斗全屏背景：正式图放在 zhandou/Textures/（不进 Figma），
+    /// 战斗全屏背景：正式图放在 Resources/Battle/Hud/Textures/，
     /// 导入成 Sprite (2D and UI) 并接到 ArenaBackgroundScenery。
     /// 不手改 .prefab / .meta。
     /// </summary>
     public sealed class DouQuquBattleBackgroundImporter : AssetPostprocessor
     {
-        private const string TexturePath = "Assets/Game/UI/zhandou/Textures/ArenaBackgroundScenery.png";
-        private const string PrefabPath = "Assets/Game/UI/zhandou/Prefabs/Leaf/ArenaBackgroundScenery.prefab";
+        private const string TexturePath = "Assets/Resources/Battle/Hud/Textures/ArenaBackgroundScenery.png";
+        private const string PrefabPath = "Assets/Resources/Battle/Hud/Prefabs/Leaf/ArenaBackgroundScenery.prefab";
 
         [InitializeOnLoadMethod]
         private static void EnsureAssigned()

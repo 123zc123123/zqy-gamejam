@@ -15,9 +15,9 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
     /// <summary>Builds Figma 10:527 entirely from editable nested prefabs; the full-page PNG is reference-only.</summary>
     public static class QuquXiangqingModularFigmaBuilder
     {
-        const string Root="Assets/Game/UI/QuquXiangqing", Prefabs=Root+"/Prefabs", Parts=Prefabs+"/Parts";
+        const string Root="Assets/Resources/Collection", Prefabs=Root+"/Prefabs", Parts=Prefabs+"/Parts";
         const string Textures=Root+"/Textures/Figma", PagePath=Prefabs+"/详情页.prefab";
-        const string CanvasPath=Prefabs+"/Canvas.prefab", ScenePath="Assets/Scenes/ququxiangqing.unity";
+        const string CanvasPath=Prefabs+"/Canvas.prefab", ScenePath="Assets/Scenes/Preview/ququxiangqing.unity";
         const string ReferenceExport=Textures+"/QuquXiangqing_10_527.png";
         const string CricketPath=Textures+"/VioletCricketIllustration.png", LinePath=Textures+"/DecorativeLine.svg";
         const string FontPath="Assets/Resources/Fonts/DouQuquChinese SDF.asset";

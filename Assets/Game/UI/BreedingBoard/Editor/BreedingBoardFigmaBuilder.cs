@@ -12,10 +12,10 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
     /// <summary>Rebuilds Figma node 91:8 as a faithful, component-level uGUI prefab hierarchy.</summary>
     public static class BreedingBoardFigmaBuilder
     {
-        const string Root = "Assets/Game/UI/BreedingBoard";
+        const string Root = "Assets/Resources/Merge";
         const string Prefabs = Root + "/Prefabs";
         const string Parts = Prefabs + "/Parts";
-        const string Scenes = Root + "/Scenes";
+        const string Scenes = "Assets/Game/UI/BreedingBoard/Scenes";
         const string Textures = Root + "/Textures/Figma";
         const string PagePath = Prefabs + "/育虫盘.prefab";
         const string CanvasPath = Prefabs + "/Canvas.prefab";
@@ -71,6 +71,8 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
 
             GameObject boardBase = BuildPanelPart("棋盘底", new Vector2(952,1193), Vector2.zero, new Color(0.824f,0.769f,0.522f,0.7f), new Color(0.55f,0.4f,0.26f,0.35f), 3, false);
             boardBase = SaveExisting(boardBase, Parts + "/BoardBase.prefab");
+            GameObject cellPrefab = BuildPanelPart("Cell", new Vector2(213,213), Vector2.zero, new Color(1f,0.9221698f,0.8443396f,1f), new Color(0.9528302f,0.87595683f,0.8224902f,1f), 2, true);
+            cellPrefab = SaveExisting(cellPrefab, Parts + "/Cell.prefab");
             GameObject board = BuildEmptyPart("棋盘", new Vector2(912,1145), new Vector2(0,81.5f));
             AddNested(board, boardBase, Vector2.zero);
             float[] xs = {-349.5f,-116.5f,116.5f,349.5f};
@@ -78,9 +80,8 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             int cell = 1;
             foreach (float y in ys) foreach (float x in xs)
             {
-                GameObject cellPrefab = BuildPanelPart("Cell " + cell, new Vector2(213,213), Vector2.zero, new Color(0.76f,0.58f,0.40f,1f), new Color(0.55f,0.4f,0.26f,1f), 2, true);
-                cellPrefab = SaveExisting(cellPrefab, Parts + "/Cell" + cell + ".prefab");
                 AddNested(board, cellPrefab, new Vector2(x,y));
+                board.transform.GetChild(board.transform.childCount - 1).name = "Cell " + cell;
                 cell++;
             }
             board = SaveExisting(board, Parts + "/Board.prefab");
@@ -101,14 +102,12 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             if (backImage != null) backImage.raycastTarget = true;
             if (backImage != null) { Button backButton = backIcon.AddComponent<Button>(); backButton.targetGraphic = backImage; Navigation nav = backButton.navigation; nav.mode = Navigation.Mode.None; backButton.navigation = nav; }
             backIcon = SaveExisting(backIcon, Parts + "/BackIcon.prefab");
-            GameObject tabFight = BuildTab("BattleTab", "斗蛐蛐", -218.5f);
-            GameObject tabBreed = BuildTab("BreedingTab", "育虫盘", 57.5f);
-            GameObject tabRegistry = BuildTab("RegistryTab", "蛐蛐谱", 342.5f);
+            GameObject tabPrefab = BuildBottomNavTab();
             GameObject carousel = BuildPanelPart("bottom-event-carousel", new Vector2(1080,200), new Vector2(0,-860), new Color(0.624f,0.604f,0.431f,1), Color.clear, 0, false);
             AddNested(carousel, backIcon, new Vector2(-441,12));
-            AddNested(carousel, tabFight, new Vector2(-218.5f,0));
-            AddNested(carousel, tabBreed, new Vector2(57.5f,0));
-            AddNested(carousel, tabRegistry, new Vector2(342.5f,0));
+            BuildCarouselTabs(carousel, tabPrefab);
+            if (carousel.GetComponent<DouQuqu.DouQuquBottomNavBar>() == null)
+                carousel.AddComponent<DouQuqu.DouQuquBottomNavBar>();
             carousel = SaveExisting(carousel, Parts + "/BottomEventCarousel.prefab");
 
             GameObject goldIcon = BuildImagePart("Coins", new Vector2(38,38), Color.white, coin);
@@ -145,16 +144,89 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             AssetDatabase.DeleteAsset(Prefabs + "/BreedingBoard_Hud.prefab");
             AssetDatabase.DeleteAsset(Parts + "/BreedingBoard_Background.prefab");
             AssetDatabase.DeleteAsset(Parts + "/BreedingBoard_InteractionOverlay.prefab");
-            AssetDatabase.DeleteAsset(Textures + "/BreedingBoard_91_8.png");;
+            AssetDatabase.DeleteAsset(Textures + "/BreedingBoard_91_8.png");
+            for (int i = 1; i <= 20; i++)
+                AssetDatabase.DeleteAsset(Parts + "/Cell" + i + ".prefab");
         }
 
-        static GameObject BuildTab(string name, string label, float x)
+        static GameObject BuildBottomNavTab()
         {
-            GameObject tab = BuildButtonPart("tab-0", new Vector2(219,150), new Color(0.384f,0.380f,0.20f,1), new Color(0.341f,0.36f,0.09f,1));
-            GameObject text = BuildTextPart("text", label, new Vector2(120,48), 40, Gold, TextAnchor.MiddleCenter);
+            GameObject tab = BuildButtonPart("BottomNavTab", new Vector2(219,150), new Color(0.384f,0.380f,0.20f,1), new Color(0.341f,0.36f,0.09f,1));
+            GameObject icon = BuildImagePart("Icon", new Vector2(72,72), Color.white, null);
+            Image iconImage = icon.GetComponent<Image>();
+            iconImage.enabled = false;
+            iconImage.preserveAspect = true;
+            AddNested(tab, icon, new Vector2(0,22));
+            GameObject text = BuildTextPart("Label", "功能", new Vector2(120,48), 40, Gold, TextAnchor.MiddleCenter);
             AddNested(tab, text, new Vector2(-0.5f,-39));
-            SaveExisting(tab, Parts + "/" + name + ".prefab");
-            return AssetDatabase.LoadAssetAtPath<GameObject>(Parts + "/" + name + ".prefab");
+            LayoutElement layout = tab.GetComponent<LayoutElement>();
+            if (layout == null) layout = tab.AddComponent<LayoutElement>();
+            layout.preferredWidth = 219f;
+            layout.preferredHeight = 150f;
+            layout.minWidth = 219f;
+            layout.minHeight = 150f;
+            DouQuqu.DouQuquBottomNavTab hook = tab.GetComponent<DouQuqu.DouQuquBottomNavTab>();
+            if (hook == null) hook = tab.AddComponent<DouQuqu.DouQuquBottomNavTab>();
+            hook.Configure(DouQuqu.DouQuquBottomNavTab.NavModule.Battle, "功能", "");
+            SaveExisting(tab, Parts + "/BottomNavTab.prefab");
+            return AssetDatabase.LoadAssetAtPath<GameObject>(Parts + "/BottomNavTab.prefab");
+        }
+
+        static void BuildCarouselTabs(GameObject carousel, GameObject tabPrefab)
+        {
+            GameObject viewport = BuildPanelPart("TabViewport", new Vector2(780,150), new Vector2(62,0), new Color(1,1,1,0), Color.clear, 0, false);
+            Image viewportImage = viewport.GetComponent<Image>();
+            viewportImage.raycastTarget = true;
+            if (viewport.GetComponent<RectMask2D>() == null) viewport.AddComponent<RectMask2D>();
+            viewport.transform.SetParent(carousel.transform, false);
+            RectTransform viewportRect = viewport.GetComponent<RectTransform>();
+            viewportRect.anchoredPosition = new Vector2(62f, 0f);
+
+            GameObject content = BuildEmptyPart("TabContent", new Vector2(0,150), Vector2.zero);
+            content.transform.SetParent(viewport.transform, false);
+            RectTransform contentRect = content.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 0.5f);
+            contentRect.anchorMax = new Vector2(0f, 0.5f);
+            contentRect.pivot = new Vector2(0f, 0.5f);
+            contentRect.anchoredPosition = Vector2.zero;
+            HorizontalLayoutGroup layout = content.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 61.5f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            ContentSizeFitter fitter = content.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            ScrollRect scroll = viewport.AddComponent<ScrollRect>();
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.content = contentRect;
+            scroll.viewport = viewportRect;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.inertia = true;
+            scroll.scrollSensitivity = 40f;
+
+            var tabs = new[]
+            {
+                new { name = "BattleTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Battle, label = "斗蛐蛐" },
+                new { name = "BreedingTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Breeding, label = "育虫盘" },
+                new { name = "RegistryTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Registry, label = "蛐蛐谱" },
+                new { name = "RankingTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Ranking, label = "排行榜" },
+                new { name = "ShopTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Shop, label = "小铺" },
+                new { name = "AcademyTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Academy, label = "日勤学" }
+            };
+            for (int i = 0; i < tabs.Length; i++)
+            {
+                GameObject instance = PrefabUtility.InstantiatePrefab(tabPrefab, content.transform) as GameObject;
+                if (instance == null) continue;
+                instance.name = tabs[i].name;
+                DouQuqu.DouQuquBottomNavTab hook = instance.GetComponent<DouQuqu.DouQuquBottomNavTab>();
+                if (hook == null) hook = instance.AddComponent<DouQuqu.DouQuquBottomNavTab>();
+                hook.Configure(tabs[i].module, tabs[i].label, "");
+            }
         }
 
         static GameObject BuildEmptyPart(string name, Vector2 size, Vector2 position)
@@ -205,8 +277,9 @@ static void AddNested(GameObject parent, GameObject child, Vector2 position)
             else if (displayName == "ArenaStatus") displayName = "Frame 2";
             else if (displayName == "BottomEventCarousel") displayName = "bottom-event-carousel";
             else if (displayName == "BackIcon") displayName = "返回icon";
-            else if (displayName == "BattleTab" || displayName == "BreedingTab" || displayName == "RegistryTab") displayName = "tab-0";
-            else if (displayName.StartsWith("Cell")) displayName = "Cell " + displayName.Substring("Cell".Length);
+            else if (displayName == "BottomNavTab") displayName = "BottomNavTab";
+            else if (displayName.StartsWith("Cell") && displayName.Length > 4)
+                displayName = "Cell " + displayName.Substring(4);
             instance.name = displayName;
             RectTransform rect = instance.GetComponent<RectTransform>();
             if (rect != null) rect.anchoredPosition = position;

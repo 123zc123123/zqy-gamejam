@@ -12,12 +12,12 @@ namespace DouQuqu.Editor
     /// </summary>
     public static class DouQuquOverlayPrefabBuilder
     {
-        private const string RingPath = "Assets/Prefabs/DouQuqu/DouQuqu_StaminaRing.prefab";
-        private const string BarPath = "Assets/Prefabs/DouQuqu/DouQuqu_StaminaBar.prefab";
-        private const string ArrowPath = "Assets/Prefabs/DouQuqu/DouQuqu_ChargeArrow.prefab";
-        private const string FillSvg = "Assets/Art/DouQuqu2D/DouQuqu_ChargeFill.svg";
-        private const string ChevronSvg = "Assets/Art/DouQuqu2D/DouQuqu_ChargeChevron.svg";
-        private const string BattleScene = "Assets/Scenes/DouQuquDemo.unity";
+        private const string RingPath = "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_StaminaRing.prefab";
+        private const string BarPath = "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_StaminaBar.prefab";
+        private const string ArrowPath = "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_ChargeArrow.prefab";
+        private const string FillSvg = "Assets/Resources/Battle/Entities/Textures/DouQuqu_ChargeFill.svg";
+        private const string ChevronSvg = "Assets/Resources/Battle/Entities/Textures/DouQuqu_ChargeChevron.svg";
+        private const string BattleScene = "Assets/Scenes/Demo.unity";
 
         [InitializeOnLoadMethod]
         private static void AutoBuildBarIfMissing()

@@ -10,13 +10,13 @@ namespace ZqyGameJam.UI.Home.Editor
 {
     public static class CricketHomepageUguiBuilder
     {
-        private const string RootFolder = "Assets/Game/UI/Home/Prefabs";
+        private const string RootFolder = "Assets/Resources/MainMenu/Home/Prefabs";
         private const string PartsFolder = RootFolder + "/Parts";
         private const string PrefabPath = RootFolder + "/CricketHomepage.prefab";
         private const string CanvasPath = RootFolder + "/CricketCanvas.prefab";
         private const string ScenePath = "Assets/Game/UI/Home/Scenes/CricketHomepage.unity";
-        private const string BackgroundPath = "Assets/FigmaImport/CricketUI/Textures/village-background.png";
-        private const string AvatarPath = "Assets/FigmaImport/CricketUI/Textures/player-profile.png";
+        private const string BackgroundPath = "Assets/Resources/MainMenu/Textures/FigmaImport/village-background.png";
+        private const string AvatarPath = "Assets/Resources/MainMenu/Textures/FigmaImport/player-profile.png";
 
         [MenuItem("Tools/Cricket UI/Rebuild Modular Canvas Prefabs")]
         public static void Rebuild()

@@ -10,10 +10,10 @@ namespace DouQuqu.Editor
     /// </summary>
     public static class DouQuquSceneMenu
     {
-        public const string BattlePath = "Assets/Scenes/DouQuquDemo.unity";
-        public const string MergePath = "Assets/Scenes/DouQuquMerge.unity";
-        private const string MergeUxmlPath = "Assets/UI/DouQuquMergeHUD.uxml";
-        private const string PanelSettingsPath = "Assets/FigmaImport/CricketUI/UI/CricketPanelSettings.asset";
+        public const string BattlePath = "Assets/Scenes/Demo.unity";
+        public const string MergePath = "Assets/Scenes/Merge.unity";
+        private const string MergeUxmlPath = "Assets/Resources/Battle/Hud/UIToolkit/DouQuquMergeHUD.uxml";
+        private const string PanelSettingsPath = "Assets/Resources/Battle/Hud/UIToolkit/DouQuquPanelSettings.asset";
 
         [MenuItem("DouQuqu/Open Battle Scene")]
         public static void OpenBattleScene()

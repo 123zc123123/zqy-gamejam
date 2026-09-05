@@ -44,7 +44,7 @@ namespace DouQuqu
             if (match == null) match = GetComponent<DouQuquMatchController>();
             if (lan == null) lan = GetComponent<DouQuquLanSession>();
             if (uiDocument == null) uiDocument = GetComponent<UIDocument>();
-            if (theme == null) theme = Resources.Load<DouQuquStickTheme>("DouQuquStickTheme");
+            if (theme == null) theme = Resources.Load<DouQuquStickTheme>("Battle/Stick/DouQuquStickTheme");
         }
 
         private void OnEnable()

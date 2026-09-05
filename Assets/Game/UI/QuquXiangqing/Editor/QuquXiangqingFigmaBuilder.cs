@@ -12,14 +12,14 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
     /// <summary>Builds Figma node 10:527 as a standalone, debug-friendly uGUI page.</summary>
     public static class QuquXiangqingFigmaBuilder
     {
-        private const string Root = "Assets/Game/UI/QuquXiangqing";
+        private const string Root = "Assets/Resources/Collection";
         private const string Prefabs = Root + "/Prefabs";
         private const string Parts = Prefabs + "/Parts";
         private const string Textures = Root + "/Textures/Figma";
-        private const string Scripts = Root + "/Scripts";
+        private const string Scripts = "Assets/Game/UI/QuquXiangqing/Scripts";
         private const string PagePath = Prefabs + "/详情页.prefab";
         private const string CanvasPath = Prefabs + "/Canvas.prefab";
-        private const string ScenePath = "Assets/Scenes/ququxiangqing.unity";
+        private const string ScenePath = "Assets/Scenes/Preview/ququxiangqing.unity";
         private const string ExportPath = Textures + "/QuquXiangqing_10_527.png";
         private const string CricketPath = Textures + "/VioletCricketIllustration.png";
         private const string ViewScriptPath = Scripts + "/QuquXiangqingView.cs";

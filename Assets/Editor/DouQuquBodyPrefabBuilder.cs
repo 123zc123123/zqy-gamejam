@@ -26,10 +26,10 @@ namespace DouQuqu.Editor
 
         private static readonly BodyEntry[] Entries =
         {
-            new BodyEntry("Assets/Art/DouQuqu2D/DouQuqu_QingTou.svg", "Assets/Prefabs/DouQuqu/DouQuqu_QingTou.prefab", 20),
-            new BodyEntry("Assets/Art/DouQuqu2D/DouQuqu_YouHulu.svg", "Assets/Prefabs/DouQuqu/DouQuqu_YouHulu.prefab", 20),
-            new BodyEntry("Assets/Art/DouQuqu2D/DouQuqu_Cricket.svg", "Assets/Prefabs/DouQuqu/DouQuqu_Cricket.prefab", 20),
-            new BodyEntry("Assets/Art/DouQuqu2D/DouQuqu_Baby.svg", "Assets/Prefabs/DouQuqu/DouQuqu_Baby.prefab", 18)
+            new BodyEntry("Assets/Resources/Battle/Entities/Textures/DouQuqu_QingTou.svg", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_QingTou.prefab", 20),
+            new BodyEntry("Assets/Resources/Battle/Entities/Textures/DouQuqu_YouHulu.svg", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_YouHulu.prefab", 20),
+            new BodyEntry("Assets/Resources/Battle/Entities/Textures/DouQuqu_Cricket.svg", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Cricket.prefab", 20),
+            new BodyEntry("Assets/Resources/Battle/Entities/Textures/DouQuqu_Baby.svg", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Baby.prefab", 18)
         };
 
         [MenuItem("DouQuqu/Rebuild Body Prefabs")]
@@ -111,11 +111,11 @@ namespace DouQuqu.Editor
             // 局内成虫已切到零件预制体时，不要把青头 / 油葫芦槽盖回旧 SVG。
             if (!System.IO.File.Exists(DouQuquCricketPrefabBuilder.PrefabPath))
             {
-                SetPrefab(so, "bugPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_QingTou.prefab");
-                SetPrefab(so, "qingTouPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_QingTou.prefab");
-                SetPrefab(so, "youHuluPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_YouHulu.prefab");
+                SetPrefab(so, "bugPrefab", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_QingTou.prefab");
+                SetPrefab(so, "qingTouPrefab", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_QingTou.prefab");
+                SetPrefab(so, "youHuluPrefab", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_YouHulu.prefab");
             }
-            SetPrefab(so, "babyPrefab", "Assets/Prefabs/DouQuqu/DouQuqu_Baby.prefab");
+            SetPrefab(so, "babyPrefab", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Baby.prefab");
             SerializedProperty tint = so.FindProperty("tintPlayers");
             if (tint != null) tint.boolValue = false;
             so.ApplyModifiedPropertiesWithoutUndo();

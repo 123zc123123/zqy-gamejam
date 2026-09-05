@@ -28,15 +28,15 @@ namespace DouQuqu.Editor
 
         private static readonly PrefabEntry[] Entries =
         {
-            new PrefabEntry("Assets/Prefabs/DouQuqu/DouQuqu_Cricket.prefab", "Assets/Art/DouQuqu2D/DouQuqu_Cricket.svg", true, 20),
-            new PrefabEntry("Assets/Prefabs/DouQuqu/DouQuqu_Baby.prefab", "Assets/Art/DouQuqu2D/DouQuqu_Baby.svg", true, 18),
-            new PrefabEntry("Assets/Prefabs/DouQuqu/DouQuqu_Egg.prefab", "Assets/Art/DouQuqu2D/DouQuqu_Egg.svg", true, 10),
-            new PrefabEntry("Assets/Prefabs/DouQuqu/DouQuqu_Nest.prefab", "Assets/Art/DouQuqu2D/DouQuqu_Nest.svg", false, 5),
-            new PrefabEntry("Assets/Prefabs/DouQuqu/DouQuqu_Heart.prefab", "Assets/Art/DouQuqu2D/DouQuqu_Heart.svg", false, 12),
-            new PrefabEntry("Assets/Prefabs/DouQuqu/DouQuqu_Size.prefab", "Assets/Art/DouQuqu2D/DouQuqu_Size.svg", false, 12),
-            new PrefabEntry("Assets/Prefabs/DouQuqu/DouQuqu_Shield.prefab", "Assets/Art/DouQuqu2D/DouQuqu_Shield.svg", false, 12),
-            new PrefabEntry("Assets/Prefabs/DouQuqu/DouQuqu_Charge.prefab", "Assets/Art/DouQuqu2D/DouQuqu_Charge.svg", true, 12),
-            new PrefabEntry("Assets/Prefabs/DouQuqu/DouQuqu_MergePiece.prefab", "Assets/Art/DouQuqu2D/DouQuqu_MergePiece.svg", false, 15)
+            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Cricket.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Cricket.svg", true, 20),
+            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Baby.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Baby.svg", true, 18),
+            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Egg.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Egg.svg", true, 10),
+            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Nest.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Nest.svg", false, 5),
+            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Heart.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Heart.svg", false, 12),
+            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Size.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Size.svg", false, 12),
+            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Shield.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Shield.svg", false, 12),
+            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Charge.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Charge.svg", true, 12),
+            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_MergePiece.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_MergePiece.svg", false, 15)
         };
 
         [MenuItem("DouQuqu/Convert Demo Prefabs To 2D")]

@@ -7,7 +7,7 @@ namespace ZqyGameJam.UI.Ququzhunbei.Editor
 {
     public static class DouQuquBackpackBuilder
     {
-        const string Root = "Assets/Game/UI/ququzhunbei";
+        const string Root = "Assets/Resources/Matchmaking";
         const string PrefabRoot = Root + "/Prefabs";
         const string Parts = PrefabRoot + "/Backpack172_469";
         const string TextureRoot = Root + "/Textures/Figma/Backpack172_469";
