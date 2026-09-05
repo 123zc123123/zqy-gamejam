@@ -486,10 +486,22 @@ namespace DouQuqu
         private void RefreshStaminaOverlays(MatchState state)
         {
             WarnIfOverlaysMissing();
+            seenIds.Clear();
+            MatchKnobs knobs = state.knobs;
+            if (state.bugs != null && knobs != null)
+            {
+                for (int i = 0; i < state.bugs.Length; i++)
+                {
+                    BugState bug = state.bugs[i];
+                    if (bug == null || !bug.alive) continue;
+                    seenIds.Add(bug.id);
+                    PlaceStaminaBar(bug, knobs);
+                }
+            }
             foreach (KeyValuePair<int, DouQuquStaminaRing> pair in staminaRings)
                 if (pair.Value != null) pair.Value.Hide();
             foreach (KeyValuePair<int, DouQuquStaminaBar> pair in staminaBars)
-                if (pair.Value != null) pair.Value.Hide();
+                if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
         }
 
         private void PlaceStaminaBar(BugState bug, MatchKnobs knobs)
