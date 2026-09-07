@@ -17,7 +17,7 @@ namespace DouQuqu
         [SerializeField] private DouQuquMergeBoard board;
         [SerializeField] private GameObject canvasPrefab;
         [SerializeField] private bool autoReset = true;
-        [SerializeField] private int randomSeed = 20260902;
+        [SerializeField] private int randomSeed = 0;
         [SerializeField] private Sprite[] levelSprites;
         [SerializeField] private GameObject xiangqingPrefab;
 
@@ -209,23 +209,24 @@ namespace DouQuqu
             string rank;
             string title;
             string desc;
+            string subtitle;
             if (piece.level >= 4 && piece.isDrawResult)
             {
                 rank = DouQuquCricketCatalog.QualityName(piece.drawA);
-                title = piece.drawA >= 4
-                    ? DouQuquCricketCatalog.UltimateName(piece.drawB) + " · " + DouQuquCricketCatalog.Idiom(piece.drawB)
-                    : DouQuquCricketCatalog.TemperamentName(piece.drawB);
+                title = DouQuquCricketCatalog.CricketName(piece.drawA, piece.drawB);
+                subtitle = DouQuquCricketCatalog.TemperamentName(piece.drawB);
                 desc = DouQuquCricketCatalog.Blurb(piece.drawB);
             }
             else
             {
                 rank = piece.level == 1 ? "幼虫" : (piece.level == 2 ? "中虫" : "成虫");
                 title = rank;
+                subtitle = rank;
                 desc = "继续合成可成长为精品虫。";
             }
             Sprite sprite = piece.level >= 4 ? SpriteForQuality(piece.drawA, piece.drawB) : SpriteForLevel(piece.level);
             if (sprite == null) sprite = SpriteForLevel(piece.level);
-            detailView.Show(rank, title, desc, sprite);
+            detailView.Show(rank, title, desc, sprite, subtitle);
         }
 
         private bool EnsureDetailView()

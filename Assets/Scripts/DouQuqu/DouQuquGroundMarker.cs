@@ -8,13 +8,40 @@ namespace DouQuqu
     /// </summary>
     public sealed class DouQuquGroundMarker : MonoBehaviour
     {
+        /// <summary>与战斗 HUD FigmaPlayer1–4 头像底色同一套：棕、红、绿、蓝。</summary>
         public static readonly Color[] PlayerColors =
         {
-            new Color(0.16f, 0.80f, 0.69f, 1f),
-            new Color(0.89f, 0.20f, 0.52f, 1f),
-            new Color(0.35f, 0.82f, 0.28f, 1f),
-            new Color(1.00f, 0.78f, 0.18f, 1f)
+            new Color(0.90f, 0.68f, 0.08f, 1f),
+            new Color(0.62f, 0.17f, 0.17f, 1f),
+            new Color(0.18f, 0.35f, 0.15f, 1f),
+            new Color(0.43f, 0.53f, 0.87f, 1f)
         };
+
+        public static void SyncFromHud(Transform hudRoot)
+        {
+            if (hudRoot == null) return;
+            for (int i = 0; i < PlayerColors.Length; i++)
+            {
+                Transform card = FindNamed(hudRoot, "FigmaPlayer" + (i + 1));
+                if (card == null) continue;
+                UnityEngine.UI.Image plate = card.GetComponent<UnityEngine.UI.Image>();
+                if (plate == null) continue;
+                Color c = plate.color;
+                c.a = 1f;
+                PlayerColors[i] = c;
+            }
+        }
+
+        static Transform FindNamed(Transform root, string objectName)
+        {
+            if (root.name == objectName) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform hit = FindNamed(root.GetChild(i), objectName);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
 
         [SerializeField] private SpriteRenderer shadow;
         [SerializeField] private SpriteRenderer fill;

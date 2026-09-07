@@ -30,6 +30,15 @@ namespace DouQuqu
         public static readonly string[] TemperamentNames = { "", "强攻", "灵巧", "智控", "稳重" };
         public static readonly string[] UltimateNames = { "", "吕布", "貂蝉", "诸葛亮", "关羽" };
         public static readonly string[] Idioms = { "", "天下无双", "闭月羞花", "神机妙算", "义薄云天" };
+        /// <summary>16 只精品虫的名字：行=品质，列=性格。极品沿用三国名。</summary>
+        public static readonly string[][] CricketNames =
+        {
+            null,
+            new[] { "", "草莽", "蹦蹦", "细须", "土狗" },
+            new[] { "", "青项", "麻翅", "黄头", "铜头" },
+            new[] { "", "紫牙青", "金翅", "白牙青", "墨牙" },
+            new[] { "", "吕布", "貂蝉", "诸葛亮", "关羽" }
+        };
         public static readonly string[] TemperamentBlurbs =
         {
             "",
@@ -75,6 +84,13 @@ namespace DouQuqu
             return UltimateNames[temperament];
         }
 
+        public static string CricketName(int quality, int temperament)
+        {
+            quality = Mathf.Clamp(quality, 1, 4);
+            temperament = Mathf.Clamp(temperament, 1, 4);
+            return CricketNames[quality][temperament];
+        }
+
         public static string Idiom(int temperament)
         {
             temperament = Mathf.Clamp(temperament, 1, 4);
@@ -87,20 +103,17 @@ namespace DouQuqu
             return TemperamentBlurbs[temperament];
         }
 
-        /// <summary>棋盘格短名：凡品·强攻；极品显示成语。</summary>
+        /// <summary>棋盘格短名：名字 + 性格。</summary>
         public static string ShortLabel(int quality, int temperament)
         {
             if (quality < 1) return "";
-            string left = QualityName(quality);
-            string right = quality >= 4 ? Idiom(temperament) : TemperamentName(temperament);
-            return left + "\n" + right;
+            return CricketName(quality, temperament) + "\n" + TemperamentName(temperament);
         }
 
         public static string FullName(int quality, int temperament)
         {
             if (quality < 1) return "未成型";
-            if (quality >= 4) return "极品·" + Idiom(temperament);
-            return QualityName(quality) + "·" + TemperamentName(temperament);
+            return CricketName(quality, temperament) + " · " + QualityName(quality) + " · " + TemperamentName(temperament);
         }
 
         /// <summary>把品质强度和性格倾向叠到战斗参数上，供对局读取。</summary>

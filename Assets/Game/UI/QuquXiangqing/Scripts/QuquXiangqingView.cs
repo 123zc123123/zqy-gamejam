@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,9 +10,10 @@ namespace ZqyGameJam.UI.QuquXiangqing
         public Button sellButton;
         public Button storeButton;
         public Button closeButton;
-        public Text nameText;
-        public Text rankText;
-        public Text descriptionText;
+        public TMP_Text titleText;
+        public TMP_Text nameText;
+        public TMP_Text rankText;
+        public TMP_Text descriptionText;
         public Image portrait;
 
         public event System.Action Closed;
@@ -24,13 +26,14 @@ namespace ZqyGameJam.UI.QuquXiangqing
             CacheLabels();
         }
 
-        public void Show(string rank, string displayName, string description, Sprite sprite)
+        public void Show(string rank, string displayName, string description, Sprite sprite, string subtitle = null)
         {
             CacheLabels();
             gameObject.SetActive(true);
-            if (rankText != null) rankText.text = rank ?? "";
-            if (nameText != null) nameText.text = displayName ?? "";
-            if (descriptionText != null) descriptionText.text = description ?? "";
+            Write(titleText, "◇ " + (string.IsNullOrEmpty(displayName) ? "促织" : displayName) + " ◇");
+            Write(nameText, string.IsNullOrEmpty(subtitle) ? (displayName ?? "") : subtitle);
+            Write(rankText, rank ?? "");
+            Write(descriptionText, description ?? "");
             if (portrait != null)
             {
                 portrait.sprite = sprite;
@@ -45,22 +48,43 @@ namespace ZqyGameJam.UI.QuquXiangqing
             Closed?.Invoke();
         }
 
-        private void CacheLabels()
+        private static void Write(TMP_Text label, string value)
         {
-            if (nameText == null) nameText = FindLabel("NameText");
-            if (rankText == null) rankText = FindLabel("RankText");
-            if (descriptionText == null) descriptionText = FindLabel("DescriptionText");
-            if (portrait == null)
-            {
-                Transform found = FindDeep(transform, "Portrait");
-                if (found != null) portrait = found.GetComponent<Image>();
-            }
+            if (label == null) return;
+            label.text = value;
+            label.ForceMeshUpdate();
         }
 
-        private Text FindLabel(string objectName)
+        private void CacheLabels()
         {
-            Transform found = FindDeep(transform, objectName);
-            return found != null ? found.GetComponent<Text>() : null;
+            TMP_Text[] labels = GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                TMP_Text label = labels[i];
+                if (label == null) continue;
+                string objectName = label.name;
+                string text = label.text ?? "";
+                if (titleText == null && (objectName == "TitleText" || text.IndexOf("促织", System.StringComparison.Ordinal) >= 0))
+                    titleText = label;
+                else if (nameText == null && (objectName == "NameText" || text.IndexOf("正紫龟", System.StringComparison.Ordinal) >= 0))
+                    nameText = label;
+                else if (rankText == null && (objectName == "RankText" || text.IndexOf("领军将", System.StringComparison.Ordinal) >= 0))
+                    rankText = label;
+                else if (descriptionText == null && (objectName == "DescriptionText" || text.IndexOf("龟形", System.StringComparison.Ordinal) >= 0))
+                    descriptionText = label;
+            }
+
+            if (portrait == null)
+            {
+                string[] portraitNames = { "Portrait", "CricketPortrait", "violet-cricket-illustration", "InsectPortraitArea" };
+                for (int i = 0; i < portraitNames.Length && portrait == null; i++)
+                {
+                    Transform found = FindDeep(transform, portraitNames[i]);
+                    if (found == null) continue;
+                    portrait = found.GetComponent<Image>();
+                    if (portrait == null) portrait = found.GetComponentInChildren<Image>(true);
+                }
+            }
         }
 
         private static Transform FindDeep(Transform root, string objectName)

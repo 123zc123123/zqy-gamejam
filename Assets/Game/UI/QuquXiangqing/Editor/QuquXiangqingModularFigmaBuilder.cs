@@ -42,11 +42,9 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
             public Stat(string l,string v,float x,float w){label=l;value=v;valueX=x;valueWidth=w;}
         }
         static readonly Stat[,] Stats={
-            {new Stat("体魄","131",384,30),new Stat("威势","16",392,22)},
-            {new Stat("斗志","121",384,30),new Stat("灵巧","6",401,13)},
-            {new Stat("耐久","7/25",372,42),new Stat("牙口","7",403,11)},
-            {new Stat("打牙","132",381,33),new Stat("重量","8.0厘",366,48)},
-            {new Stat("年龄","6岁",383,31),new Stat("寿命","8年",383,31)}
+            {new Stat("重量","—",384,48),new Stat("抓地力","—",384,48)},
+            {new Stat("蓄力速度","—",360,72),new Stat("蓄力时间上限","—",330,96)},
+            {new Stat("耐力恢复速度","—",330,96),new Stat("耐力上限","—",360,72)}
         };
 
         [MenuItem("Tools/Cricket UI/Rebuild Ququ Detail (Figma 10:527, Modular)")]
@@ -149,7 +147,8 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
         {
             GameObject table=Rect("stats-table",new Vector2(876,279),At(56,715,876,279));
             float[] tops={12,67,122,177,232};
-            for(int row=0;row<5;row++)
+            int rowCount=Stats.GetLength(0);
+            for(int row=0;row<rowCount;row++)
             {
                 GameObject rowObject=Rect("Frame-Row"+(row+1),new Vector2(876,47),Vector2.zero);
                 for(int col=0;col<2;col++)
@@ -170,7 +169,7 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
             GameObject value=SavePart(TextNode(stat.value,stat.value,new Vector2(stat.valueWidth,22),18,Green,true),"Stat"+n+"_"+stat.label+"_Value.prefab");
             GameObject card=Rect("Frame-"+stat.label,new Vector2(430,47),Vector2.zero);
             BorderedPanel(card,CardWhite,PaperBorder,1,true).raycastTarget=true;
-            Nest(card,label,Inside(16,10,36,27,430,47)); Nest(card,value,Inside(stat.valueX,12.5f,stat.valueWidth,22,430,47));
+            Nest(card,label,Inside(16,10,130,27,430,47)); Nest(card,value,Inside(stat.valueX,12.5f,stat.valueWidth,22,430,47));
             return SavePart(card,"StatCard"+n+"_"+stat.label+".prefab");
         }
 

@@ -63,12 +63,14 @@ namespace DouQuqu
             SilenceHudRaycasts();
             BindMatchClock();
             BindScoreHud();
+            DouQuquGroundMarker.SyncFromHud(transform);
             yield return DouQuquBattleIntro.Play(transform as RectTransform, pit);
             RefreshTarget(true);
             ApplyArenaFromPit();
             BindStick();
             BindMatchClock();
             BindScoreHud();
+            DouQuquGroundMarker.SyncFromHud(transform);
             StartMatchIfNeeded();
         }
 
