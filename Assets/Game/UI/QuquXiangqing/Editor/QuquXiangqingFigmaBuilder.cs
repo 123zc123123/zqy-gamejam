@@ -54,8 +54,6 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
 
             GameObject canvas = BuildCanvas(background, header, portrait, nameTag, stats, actions, overlay);
             GameObject root = BuildPage(canvas);
-            BuildScene();
-            AppendBuildSettings(ScenePath);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();

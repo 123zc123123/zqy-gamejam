@@ -130,8 +130,6 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
 
             GameObject page = BuildEmptyPart("育虫盘", new Vector2(1080,1920), Vector2.zero);
             AddNested(page, savedCanvas, Vector2.zero); SavePrefab(page, PagePath);
-            SaveScene();
-            AppendBuildSettings(ScenePath);
             AssetDatabase.SaveAssets(); AssetDatabase.Refresh();
             Selection.activeObject = AssetDatabase.LoadAssetAtPath<GameObject>(PagePath);
             Debug.Log("Rebuilt Figma 91:8 with peer-level component prefabs and Figma-matching hierarchy.");

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using ZqyGameJam.UI.Home;
 
 namespace DouQuqu
 {
@@ -8,11 +9,55 @@ namespace DouQuqu
     /// </summary>
     public sealed class DouQuquMainMenuController : MonoBehaviour
     {
+        private void Awake()
+        {
+            if (GetComponent<DouQuquLobby>() == null)
+                gameObject.AddComponent<DouQuquLobby>();
+        }
+
         private void Start()
         {
             if (!DouQuquPlayerDataService.RequireLogin()) return;
+            BindHomepageView();
             if (TryBindArtMenu()) return;
+            if (DouQuquLobby.Instance != null) return;
             BuildLegacyUi();
+        }
+
+        private void BindHomepageView()
+        {
+            CricketHomepageView view = FindObjectOfType<CricketHomepageView>(true);
+            if (view == null) return;
+            view.NavigationRequested -= OnHomepageNav;
+            view.NavigationRequested += OnHomepageNav;
+            view.SetPlayer(DouQuquPlayerDataService.CurrentPlayerName, 0);
+        }
+
+        private static void OnHomepageNav(CricketHomepageView.Destination destination)
+        {
+            switch (destination)
+            {
+                case CricketHomepageView.Destination.Battle:
+                case CricketHomepageView.Destination.Enter:
+                case CricketHomepageView.Destination.Arena:
+                    DouQuquLobby.Show(DouQuquLobby.Page.BattleEnter);
+                    return;
+                case CricketHomepageView.Destination.Collection:
+                    DouQuquLobby.Show(DouQuquLobby.Page.Collection);
+                    return;
+                case CricketHomepageView.Destination.Cage:
+                case CricketHomepageView.Destination.Training:
+                    DouQuquLobby.Show(DouQuquLobby.Page.Merge);
+                    return;
+                case CricketHomepageView.Destination.Festival:
+                    DouQuquLobby.Show(DouQuquLobby.Page.BattleEnter);
+                    return;
+                case CricketHomepageView.Destination.Shop:
+                    DouQuquLobby.Show(DouQuquLobby.Page.Shop);
+                    return;
+                default:
+                    return;
+            }
         }
 
         private bool TryBindArtMenu()
@@ -24,7 +69,8 @@ namespace DouQuqu
             Bind(menu, "MenuButtonBattle", DouQuquSceneNames.BattleEnter);
             Bind(menu, "MenuButtonBreeding", DouQuquSceneNames.Merge);
             Bind(menu, "MenuButtonCatalogue", DouQuquSceneNames.Collection);
-            BindClick(menu, "SideButtonActivity", DouQuquActivityPopup.Show);
+            Bind(menu, "MenuButtonShop", DouQuquSceneNames.Shop);
+            BindClick(menu, "SideButtonActivity", () => DouQuquLobby.Show(DouQuquLobby.Page.BattleEnter));
 
             Text profileName = FindLabel(menu.transform, "ProfileName");
             if (profileName != null)

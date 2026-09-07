@@ -76,6 +76,8 @@ namespace DouQuqu
 
         private void BuildResultUi()
         {
+            if (TryBuildArtResult()) return;
+
             RectTransform root = DouQuquUiFactory.CreateScreen("BattleResultCanvas");
             root.GetComponent<Canvas>().sortingOrder = 100;
             // 结算界面平时必须是透明覆盖层，否则隐藏的 ResultPanel 仍会因为
@@ -94,6 +96,39 @@ namespace DouQuqu
             DouQuquUiFactory.CreateButton(panel, "ReturnButton", "返回匹配界面", ReturnToMatchmaking,
                 new Vector2(0.20f, 0.16f), new Vector2(0.80f, 0.36f), Vector2.zero, Vector2.zero);
             resultPanel.SetActive(false);
+        }
+
+        private bool TryBuildArtResult()
+        {
+            GameObject prefab = Resources.Load<GameObject>("Settlement/Prefabs/Jiesuan");
+            if (prefab == null) return false;
+
+            RectTransform overlay = DouQuquUiFactory.CreateOverlay("BattleResultCanvas", 300);
+            GameObject page = Instantiate(prefab, overlay, false);
+            page.name = "Jiesuan";
+            RectTransform pageRect = page.GetComponent<RectTransform>();
+            if (pageRect != null)
+            {
+                pageRect.anchorMin = new Vector2(0.5f, 0.5f);
+                pageRect.anchorMax = new Vector2(0.5f, 0.5f);
+                pageRect.pivot = new Vector2(0.5f, 0.5f);
+                pageRect.anchoredPosition = Vector2.zero;
+                pageRect.sizeDelta = new Vector2(1080f, 1920f);
+                pageRect.localScale = Vector3.one;
+            }
+
+            resultPanel = overlay.gameObject;
+            resultText = overlay.GetComponentInChildren<TMP_Text>(true);
+            if (resultText == null)
+            {
+                resultText = DouQuquUiFactory.CreateText(overlay, "ResultTMP", "对局结束", 48f,
+                    new Vector2(0.10f, 0.78f), new Vector2(0.90f, 0.90f), Vector2.zero, Vector2.zero);
+            }
+
+            DouQuquUiFactory.CreateButton(overlay, "ReturnButton", "返回匹配界面", ReturnToMatchmaking,
+                new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
+            resultPanel.SetActive(false);
+            return true;
         }
 
         private void OnStateChanged(MatchState state)

@@ -77,7 +77,6 @@ namespace ZqyGameJam.UI.Home.Editor
 
             GameObject canvasPrefab = BuildCanvasPrefab(backgroundPrefab, topShadePrefab, playerProfilePrefab, resourcePrefab, attendancePrefab, buttonPrefabs, sectionPrefab, hintPrefab);
             BuildRootPrefab(canvasPrefab, buttonNames);
-            BuildScene();
 
             Selection.activeObject = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
             AssetDatabase.SaveAssets();

@@ -2,7 +2,7 @@ using UnityEngine.SceneManagement;
 
 namespace DouQuqu
 {
-    /// <summary>集中保存场景名称，避免各界面散落字符串并便于统一维护构建顺序。</summary>
+    /// <summary>集中保存场景名称。大厅页走 Prefab 路由，只有登录和对局才真正切 Scene。</summary>
     public static class DouQuquSceneNames
     {
         public const string Login = "Login";
@@ -12,11 +12,14 @@ namespace DouQuqu
         public const string Collection = "Collection";
         public const string Battle = "Battle_Main";
         public const string BattleDemo = "Demo";
-        public const string BattleEnter = "Battle_Enter";
+        public const string BattleEntrance = "Battle_Enter";
+        public const string BattleEnter = BattleEntrance;
+        public const string Shop = "Shop";
 
-        /// <summary>以单场景模式切换，确保上一界面的对象和资源会被完整卸载。</summary>
+        /// <summary>大厅页切换 Prefab；登录 / 对局仍 LoadScene(Single)。</summary>
         public static void Load(string sceneName)
         {
+            if (DouQuquLobby.TryShow(sceneName)) return;
             SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
         }
     }

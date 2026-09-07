@@ -21,6 +21,21 @@ namespace DouQuqu
         /// <summary>创建适配横屏手机的根 Canvas，并补齐触摸事件系统。</summary>
         public static TMP_FontAsset Font => GetRuntimeFontAsset();
 
+        public static RectTransform CreateOverlay(string name, int sortingOrder)
+        {
+            EnsureEventSystem();
+            GameObject canvasObject = new GameObject(name, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            Canvas canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = sortingOrder;
+            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.matchWidthOrHeight = 1f;
+            Stretch(canvasObject.GetComponent<RectTransform>());
+            return canvasObject.GetComponent<RectTransform>();
+        }
+
         public static RectTransform CreateScreen(string name)
         {
             EnsureEventSystem();

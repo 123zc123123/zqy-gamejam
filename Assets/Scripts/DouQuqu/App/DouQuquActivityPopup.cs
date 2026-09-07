@@ -4,14 +4,39 @@ using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>主界面「活动介绍」弹层。运行时创建，盖在村子主页上。</summary>
+    /// <summary>主界面「活动介绍」与进战页「玩法规则」共用同一形式的说明弹层。</summary>
     public sealed class DouQuquActivityPopup : MonoBehaviour
     {
         private static DouQuquActivityPopup instance;
+        private TMP_Text title;
+        private TMP_Text body;
+
+        private const string ActivityBody =
+            "一戳一蹦跶 · 斗蛐蛐\n\n把对手撞出圈即胜。\n正赛 90 秒，未分胜负进入 30 秒狂暴加时。\n\n停稳后才能蓄力；蓄不满松手会取消。\n空中不能转向。护盾只挡一次出圈。";
+
+        private const string RulesBody =
+            "四人同场，把对手撞出圈即胜。\n正赛 90 秒，未分胜负进入 30 秒狂暴加时。\n\n停稳后才能蓄力；蓄不满松手会取消。\n空中不能转向。护盾只挡一次出圈。\n\n随机匹配与好友组队各开一房，满员后进入准备。";
 
         public static void Show()
         {
+            ShowActivity();
+        }
+
+        public static void ShowActivity()
+        {
+            Show("活动介绍", ActivityBody);
+        }
+
+        public static void ShowRules()
+        {
+            Show("玩法规则", RulesBody);
+        }
+
+        private static void Show(string titleText, string bodyText)
+        {
             if (instance == null) instance = Create();
+            if (instance.title != null) instance.title.text = titleText;
+            if (instance.body != null) instance.body.text = bodyText;
             instance.gameObject.SetActive(true);
         }
 
@@ -50,13 +75,11 @@ namespace DouQuqu
             outline.effectColor = new Color(0.55f, 0.38f, 0.16f, 1f);
             outline.effectDistance = new Vector2(5f, -5f);
 
-            MakeLabel(panelRect, "Title", "活动介绍", 58f,
+            popup.title = MakeLabel(panelRect, "Title", "活动介绍", 58f,
                 new Vector2(0.08f, 0.78f), new Vector2(0.92f, 0.94f),
                 new Color(0.45f, 0.18f, 0.12f, 1f), TextAlignmentOptions.Center);
 
-            MakeLabel(panelRect, "Body",
-                "一戳一蹦跶 · 开罐斗蛐蛐\n\n把对手撞出圈即胜。\n正赛 90 秒，未分胜负进入 30 秒狂暴加时。\n\n停稳后才能蓄力；蓄不满松手会取消。\n空中不能转向。护盾只挡一次出圈。",
-                34f,
+            popup.body = MakeLabel(panelRect, "Body", ActivityBody, 34f,
                 new Vector2(0.10f, 0.24f), new Vector2(0.90f, 0.76f),
                 new Color(0.28f, 0.16f, 0.10f, 1f), TextAlignmentOptions.TopLeft);
 

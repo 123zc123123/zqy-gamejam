@@ -1,0 +1,441 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 119c1bd3601648f28a252a6030e067b6, type: 3}
+  m_Name: UnityFigmaBridgeSettings
+  m_EditorClassIdentifier: 
+  DocumentUrl: https://www.figma.com/design/5jALrfLrmLV0NIOxaQURCu/dou-ququ?node-id=10-6
+  BuildPrototypeFlow: 0
+  RunTimeAssetsScenePath: 
+  EnableAutoLayout: 0
+  ScreenBindingNamespace: 
+  ServerRenderImageScale: 1
+  EnableGoogleFontsDownloads: 0
+  CreateScreenNameCSharpFile: 0
+  GenerateNodesMarkedForExport: 0
+  OnlyImportSelectedPages: 0
+  OnlyImportSelectedFrames: 1
+  PageDataList:
+  - Name: Page 1
+    NodeId: 0:1
+    Selected: 1
+  - Name: Page 2
+    NodeId: 241:2682
+    Selected: 0
+  FrameDataList:
+  - Name: Group 12
+    NodeId: 241:2090
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: CricketCard
+    NodeId: 240:874
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: Component 1
+    NodeId: 240:876
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: Component 3
+    NodeId: 240:901
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: CricketCard
+    NodeId: 10:50
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: CricketCard
+    NodeId: 10:58
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: CricketCard
+    NodeId: 10:66
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: details-popup-card
+    NodeId: 10:527
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: start-game-cta
+    NodeId: 238:726
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: start-game-cta
+    NodeId: 161:341
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: player-card
+    NodeId: 169:54
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: progress-card
+    NodeId: 238:528
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: Group 1
+    NodeId: 241:2151
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u517B\u866B\u68CB\u76D8"
+    NodeId: 91:8
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: "\u80CC\u5305\u4E0A\u4E0B\u62C9"
+    NodeId: 205:1956
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u9009\u62E9\u7684\u80CC\u5305"
+    NodeId: 172:469
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: Frame 7
+    NodeId: 173:475
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u9009\u62E9\u540D\u89D2\u80CC\u5305"
+    NodeId: 238:1117
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: player-2-zone
+    NodeId: 238:777
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: Component 4
+    NodeId: 241:1373
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: ready-badge
+    NodeId: 238:849
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: compact-cricket-slot
+    NodeId: 238:778
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u672A\u9009\u5B9A"
+    NodeId: 238:1054
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: INSTANCE
+    Selected: 0
+  - Name: scrollable-track-outer
+    NodeId: 55:187
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: scrollable-track-outer
+    NodeId: 63:193
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: cricket-wooden-dish
+    NodeId: 64:4
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: download _1_
+    NodeId: 120:2
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: player-row
+    NodeId: 165:25
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: progress-card
+    NodeId: 241:1547
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: INSTANCE
+    Selected: 0
+  - Name: reward-tier
+    NodeId: 217:497
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: icon-slot-1
+    NodeId: 228:738
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: icon-slot-1
+    NodeId: 228:1381
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: INSTANCE
+    Selected: 0
+  - Name: icon-slot-1
+    NodeId: 228:1384
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: INSTANCE
+    Selected: 0
+  - Name: icon-slot-1
+    NodeId: 228:1387
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: INSTANCE
+    Selected: 0
+  - Name: "MenuButton_\u6392\u884C\u699C"
+    NodeId: 185:153
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: Banner_Title
+    NodeId: 185:127
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: HUD_Top
+    NodeId: 185:167
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: HUDRight
+    NodeId: 185:170
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: setting
+    NodeId: 185:173
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: GoldDisplay
+    NodeId: 185:176
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: ProfileDetails
+    NodeId: 185:180
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: battle_main
+    NodeId: 185:219
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: btn-ready
+    NodeId: 238:1691
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: player_left
+    NodeId: 185:228
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: my-detailed-roster-preview
+    NodeId: 55:143
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: player_right
+    NodeId: 185:233
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u6218\u6597-\u7528\u6237\u5934\u50CF"
+    NodeId: 185:239
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u6218\u6597-\u87CB\u87C0\u7EC4\u5408\u5143\u4EF6"
+    NodeId: 185:243
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u6218\u6597-\u87CB\u87C0\u7EC4\u5408"
+    NodeId: 185:247
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u5012\u8BA1\u65F6"
+    NodeId: 192:429
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: _______
+    NodeId: 226:481
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: parchment-scroll-card
+    NodeId: 228:552
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: price-button
+    NodeId: 254:2761
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: 233de5cbcdd214c955d17557212e3c35 1
+    NodeId: 238:526
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
+    Selected: 0
+  - Name: "\u54C1\u7EA7"
+    NodeId: 238:1215
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u6781\u54C1_1"
+    NodeId: 238:1139
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: "\u6781\u54C1_1"
+    NodeId: 238:1151
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: INSTANCE
+    Selected: 0
+  - Name: "\u6781\u54C1_1"
+    NodeId: 238:1158
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: INSTANCE
+    Selected: 0
+  - Name: "\u6781\u54C1_1"
+    NodeId: 238:1165
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: INSTANCE
+    Selected: 0
+  - Name: Group 16
+    NodeId: 241:2598
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: cricket-battle-royale
+    NodeId: 55:4
+    PageName: Page 2
+    PageId: 241:2682
+    NodeType: FRAME
+    Selected: 1
+  - Name: cricket-collection
+    NodeId: 10:6
+    PageName: Page 2
+    PageId: 241:2682
+    NodeType: FRAME
+    Selected: 0
+  - Name: event-face-painting
+    NodeId: 10:593
+    PageName: Page 2
+    PageId: 241:2682
+    NodeType: FRAME
+    Selected: 0
+  - Name: battle-over
+    NodeId: 143:193
+    PageName: Page 2
+    PageId: 241:2682
+    NodeType: FRAME
+    Selected: 0
+  - Name: "\u6392\u884C\u699C"
+    NodeId: 220:994
+    PageName: Page 2
+    PageId: 241:2682
+    NodeType: FRAME
+    Selected: 0
+  - Name: renwu
+    NodeId: 217:333
+    PageName: Page 2
+    PageId: 241:2682
+    NodeType: FRAME
+    Selected: 0
+  - Name: cricket-homepage
+    NodeId: 185:123
+    PageName: Page 2
+    PageId: 241:2682
+    NodeType: FRAME
+    Selected: 0
+  - Name: baixi-market-shop
+    NodeId: 225:532
+    PageName: Page 2
+    PageId: 241:2682
+    NodeType: FRAME
+    Selected: 0

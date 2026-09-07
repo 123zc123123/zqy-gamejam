@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace DouQuqu
@@ -13,6 +12,18 @@ namespace DouQuqu
         private GameObject comingSoonRoot;
         private Text comingSoonLabel;
         private float comingSoonUntil;
+
+        /// <summary>大厅壳占用底栏后，把各页自带的旧底栏藏起来。</summary>
+        public static void SuppressEmbedded(Transform canvasRoot)
+        {
+            if (canvasRoot == null) return;
+            HideLegacyCarousels(canvasRoot, null);
+            DouQuquBottomNavBar[] bars = canvasRoot.GetComponentsInChildren<DouQuquBottomNavBar>(true);
+            for (int i = 0; i < bars.Length; i++)
+            {
+                if (bars[i] != null) bars[i].gameObject.SetActive(false);
+            }
+        }
 
         /// <summary>把同一份可横滑底栏挂到任意功能页 Canvas 上。已有则复用。</summary>
         public static DouQuquBottomNavBar EnsureOn(Transform canvasRoot)
@@ -109,6 +120,9 @@ namespace DouQuqu
                 case DouQuquBottomNavTab.NavModule.Registry:
                     Go(DouQuquSceneNames.Collection);
                     return;
+                case DouQuquBottomNavTab.NavModule.Shop:
+                    Go(DouQuquSceneNames.Shop);
+                    return;
                 default:
                     ShowComingSoon(title);
                     return;
@@ -117,7 +131,6 @@ namespace DouQuqu
 
         private static void Go(string sceneName)
         {
-            if (SceneManager.GetActiveScene().name == sceneName) return;
             DouQuquSceneNames.Load(sceneName);
         }
 
@@ -201,7 +214,8 @@ namespace DouQuqu
         {
             "BottomCarousel",
             "Screen10_593_BottomCarousel",
-            "bottom-event-carousel"
+            "bottom-event-carousel",
+            "下方菜单"
         };
 
         private static RectTransform FindLegacyCarousel(Transform canvasRoot)

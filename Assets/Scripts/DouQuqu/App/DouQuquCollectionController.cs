@@ -5,15 +5,29 @@ using UnityEngine;
 
 namespace DouQuqu
 {
-    /// <summary>图鉴场景：按 A、B 两个参数汇总玩家已经合成出的蟋蟀数量。</summary>
+    /// <summary>图鉴页：绑 cricket-collection Prefab，把收集数写到「收集总数」。</summary>
     public sealed class DouQuquCollectionController : MonoBehaviour
     {
+        private const int CatalogSize = 16;
+
         private TMP_Text collectionText;
+        private TMP_Text countText;
+        private bool bound;
+
+        public void BindPage(GameObject pageRoot)
+        {
+            if (pageRoot == null) return;
+            bound = true;
+            DouQuquBottomNavBar.SuppressEmbedded(pageRoot.transform);
+            countText = FindCountLabel(pageRoot.transform);
+            collectionText = FindListLabel(pageRoot.transform);
+            RefreshCollection();
+        }
 
         private void Start()
         {
             if (!DouQuquPlayerDataService.RequireLogin()) return;
-            BuildUi();
+            if (!bound) BuildUi();
             RefreshCollection();
         }
 
@@ -40,10 +54,52 @@ namespace DouQuqu
             DouQuquBottomNavBar.EnsureOn(root);
         }
 
+        private static TMP_Text FindListLabel(Transform root)
+        {
+            Transform found = FindNamed(root, "CollectionList");
+            if (found == null) found = FindNamed(root, "CatalogList");
+            if (found == null) return null;
+            return found.GetComponent<TMP_Text>();
+        }
+
+        private static TMP_Text FindCountLabel(Transform root)
+        {
+            Transform found = FindNamed(root, "收集总数_ 1 _ 5");
+            if (found == null) found = FindNamedContains(root, "收集总数");
+            if (found == null) return null;
+            return found.GetComponent<TMP_Text>();
+        }
+
+        private static Transform FindNamedContains(Transform root, string fragment)
+        {
+            if (root == null) return null;
+            if (root.name.IndexOf(fragment) >= 0) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform hit = FindNamedContains(root.GetChild(i), fragment);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+
+        private static Transform FindNamed(Transform root, string objectName)
+        {
+            if (root == null) return null;
+            if (root.name == objectName) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform hit = FindNamed(root.GetChild(i), objectName);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+
         private void RefreshCollection()
         {
-            if (collectionText == null) return;
             List<CricketCollectionEntry> entries = DouQuquPlayerDataService.GetCollectionSnapshot();
+            if (countText != null)
+                countText.text = "收集总数: " + entries.Count + " / " + CatalogSize;
+            if (collectionText == null) return;
             if (entries.Count == 0)
             {
                 collectionText.text = "还没有蟋蟀。\n把两只成虫合成精品虫即可收入图鉴。";

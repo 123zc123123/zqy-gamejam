@@ -40,9 +40,16 @@ namespace DouQuqu
             new Color(0.82f, 0.48f, 0.22f, 1f)
         };
 
+        public void AttachCanvas(GameObject canvas)
+        {
+            canvasInstance = canvas;
+        }
+
         private void Awake()
         {
             if (board == null) board = GetComponent<DouQuquMergeBoard>();
+            if (canvasPrefab == null) canvasPrefab = Resources.Load<GameObject>("Merge/Prefabs/Canvas");
+            if (xiangqingPrefab == null) xiangqingPrefab = Resources.Load<GameObject>("Collection/Prefabs/详情页");
             EnsureEventSystem();
         }
 
@@ -116,6 +123,7 @@ namespace DouQuqu
         private void SpawnCanvas()
         {
             if (canvasInstance != null) return;
+            if (DouQuquLobby.Instance != null) return;
             GameObject placed = GameObject.Find("BreedingBoard");
             if (placed == null) placed = GameObject.Find("BreedingBoardCanvas");
             if (placed != null)
@@ -171,18 +179,25 @@ namespace DouQuqu
         private void BindHud()
         {
             if (canvasInstance == null) return;
-            DouQuquBottomNavBar nav = DouQuquBottomNavBar.EnsureOn(canvasInstance.transform);
-            if (nav == null)
+            if (DouQuquLobby.Instance != null)
             {
-                Button back = FindButtonByChildName(canvasInstance.transform, "返回icon");
-                if (back == null) back = FindButtonByLabel("返回");
-                if (back != null) back.onClick.AddListener(() => DouQuquSceneNames.Load(DouQuquSceneNames.MainMenu));
+                DouQuquBottomNavBar.SuppressEmbedded(canvasInstance.transform);
+            }
+            else
+            {
+                DouQuquBottomNavBar nav = DouQuquBottomNavBar.EnsureOn(canvasInstance.transform);
+                if (nav == null)
+                {
+                    Button back = FindButtonByChildName(canvasInstance.transform, "返回icon");
+                    if (back == null) back = FindButtonByLabel("返回");
+                    if (back != null) back.onClick.AddListener(() => DouQuquSceneNames.Load(DouQuquSceneNames.MainMenu));
 
-                Button fight = FindButtonByLabel("斗蛐蛐");
-                if (fight != null) fight.onClick.AddListener(() => DouQuquSceneNames.Load(DouQuquSceneNames.BattleEnter));
+                    Button fight = FindButtonByLabel("斗蛐蛐");
+                    if (fight != null) fight.onClick.AddListener(() => DouQuquSceneNames.Load(DouQuquSceneNames.BattleEnter));
 
-                Button registry = FindButtonByLabel("蛐蛐谱");
-                if (registry != null) registry.onClick.AddListener(() => DouQuquSceneNames.Load(DouQuquSceneNames.Collection));
+                    Button registry = FindButtonByLabel("蛐蛐谱");
+                    if (registry != null) registry.onClick.AddListener(() => DouQuquSceneNames.Load(DouQuquSceneNames.Collection));
+                }
             }
 
             Transform[] all = canvasInstance.GetComponentsInChildren<Transform>(true);

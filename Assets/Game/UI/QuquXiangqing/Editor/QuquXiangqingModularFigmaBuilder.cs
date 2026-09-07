@@ -61,7 +61,7 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
 
             GameObject[] regions={BuildSurface(),BuildOrnateBorder(),BuildHeader(line),BuildPortraitArea(cricket),BuildDescription(),BuildStatsTable(),BuildActions()};
             GameObject canvas=BuildCanvas(regions);
-            BuildPage(canvas); BuildScene(); AppendBuildSettings(ScenePath);
+            BuildPage(canvas);
             AssetDatabase.SaveAssets(); AssetDatabase.Refresh(); Validate();
             Selection.activeObject=AssetDatabase.LoadAssetAtPath<GameObject>(PagePath);
             Debug.Log("Rebuilt Figma 10:527: full Canvas is composed from editable nested component prefabs.");

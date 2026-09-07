@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d6408b731c84d2fb7196c3994be7c4d, type: 3}
+  m_Name: FigmaFontMapping
+  m_EditorClassIdentifier: 
+  DefaultFont: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
+  Entries:
+  - FigmaFontFamily: Spectral
+    FigmaFontStyle: ExtraBold
+    FigmaFontPostScriptName: 
+    MinWeight: 800
+    MaxWeight: 800
+    UsageCount: 32
+    SampleText: "\u6597\u86D0\u86D0"
+    LastSeenAt: 2026-09-07T13:03:54.0453027Z
+    FontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
+    FontStyle: 0
+  - FigmaFontFamily: Spectral
+    FigmaFontStyle: Bold
+    FigmaFontPostScriptName: 
+    MinWeight: 700
+    MaxWeight: 700
+    UsageCount: 15
+    SampleText: "\u6536\u96C6\u603B\u6570: 1 /  5"
+    LastSeenAt: 2026-09-07T13:03:40.5162868Z
+    FontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
+    FontStyle: 0
+  - FigmaFontFamily: Inter
+    FigmaFontStyle: Extra Bold
+    FigmaFontPostScriptName: 
+    MinWeight: 800
+    MaxWeight: 800
+    UsageCount: 5
+    SampleText: "\u6218\u6597\u7ED3\u675F"
+    LastSeenAt: 2026-09-07T13:00:28.5522940Z
+    FontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
+    FontStyle: 0
+  - FigmaFontFamily: Inter
+    FigmaFontStyle: Semi Bold
+    FigmaFontPostScriptName: 
+    MinWeight: 600
+    MaxWeight: 600
+    UsageCount: 5
+    SampleText: "\u672C\u5C40\u7ED3\u7B97 \xB7 \u6392\u540D\u7EDF\u8BA1"
+    LastSeenAt: 2026-09-07T13:00:28.5522940Z
+    FontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
+    FontStyle: 0
+  - FigmaFontFamily: Inter
+    FigmaFontStyle: Bold
+    FigmaFontPostScriptName: 
+    MinWeight: 700
+    MaxWeight: 700
+    UsageCount: 20
+    SampleText: "\u6392\u884C\u699C"
+    LastSeenAt: 2026-09-07T13:00:28.5522940Z
+    FontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
+    FontStyle: 0

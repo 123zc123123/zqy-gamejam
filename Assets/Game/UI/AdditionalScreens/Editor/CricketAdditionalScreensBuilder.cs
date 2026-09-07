@@ -38,7 +38,7 @@ namespace ZqyGameJam.UI.AdditionalScreens.Editor
         public static void Build()
         {
             EnsureFolder(Scenes);
-            foreach (string id in new[] { "Screen10_593", "Screen63_5", "Screen10_368" })
+            foreach (string id in new[] { "Screen10_593", "Screen63_5" })
             {
                 GetDest(id, out string prefabs, out string parts, out _);
                 EnsureFolder(prefabs); EnsureFolder(parts);
@@ -46,16 +46,13 @@ namespace ZqyGameJam.UI.AdditionalScreens.Editor
                 AssetDatabase.DeleteAsset(prefabs + "/" + id + "Canvas.prefab");
             }
             AssetDatabase.Refresh();
-            DeleteLegacyScreen10368Parts();
 
             BuildPage("Screen10_593", CreateEvent593Regions());
             BuildPage("Screen63_5", CreateBattle63Regions());
-            BuildPage("Screen10_368", CreateRegistry368Regions());
-            UpdateBuildSettings();
             AssetDatabase.SaveAssets(); AssetDatabase.Refresh();
             GetDest("Screen10_593", out string activityPrefabs, out _, out _);
             Selection.activeObject = AssetDatabase.LoadAssetAtPath<GameObject>(activityPrefabs + "/Screen10_593.prefab");
-            Debug.Log("Figma uGUI screens built as peer root prefabs: Screen10_593, Screen63_5, Screen10_368.");
+            Debug.Log("Figma uGUI screens built as peer root prefabs: Screen10_593, Screen63_5.");
         }
 
         private static RegionSpec[] CreateEvent593Regions()
@@ -92,23 +89,6 @@ namespace ZqyGameJam.UI.AdditionalScreens.Editor
             };
         }
 
-        private static RegionSpec[] CreateRegistry368Regions()
-        {
-            var catalogButtons = new List<ButtonSpec>(); float[] xs = { -322, 0, 322 }; float[] ys = { 464, 208, -48 }; int index = 1;
-            for (int row = 0; row < ys.Length; row++) for (int column = 0; column < xs.Length; column++)
-                catalogButtons.Add(Button("CricketCell" + index++ + "Button", xs[column], ys[row], 280, 224));
-            catalogButtons.Add(Button("PreviousPageButton", -430, -533, 64, 64));
-            catalogButtons.Add(Button("NextPageButton", 430, -533, 64, 64));
-            return new[] {
-                Region("Background", "Registry368_Background.png", 1080, 1920, 0, 0),
-                Region("TopBar", "Registry368_TopBar.png", 972, 120, 0, 846, Button("BackButton", -450, 0, 72, 72)),
-                Region("FeaturedCricket", "Registry368_Featured.png", 972, 268, 0, 620),
-                Region("FilterSortBar", "Registry368_Filter.png", 972, 80, 0, 414,
-                    Button("SortButton", -390.5f, 0, 159, 54), Button("DirectoryButton", 367.5f, 0.5f, 63, 45), Button("PawnshopButton", 438.5f, 0, 63, 45)),
-                Region("Catalog", "Registry368_Catalog.png", 972, 1200, 0, -258, catalogButtons.ToArray())
-            };
-        }
-
         private static RegionSpec Region(string name, string texture, float width, float height, float x, float y, params ButtonSpec[] buttons)
         { return new RegionSpec(name, texture, width, height, x, y, buttons); }
         private static ButtonSpec Button(string name, float x, float y, float width, float height)
@@ -130,9 +110,7 @@ namespace ZqyGameJam.UI.AdditionalScreens.Editor
                 textures = "Assets/Resources/Battle/Lineup/Textures";
                 return;
             }
-            prefabs = "Assets/Resources/Collection/Prefabs";
-            parts = prefabs + "/Parts";
-            textures = "Assets/Resources/Collection/Textures";
+            throw new System.ArgumentException("Unknown additional screen " + id);
         }
 
 private static void BuildPage(string id, RegionSpec[] regions)
@@ -162,9 +140,6 @@ private static void BuildPage(string id, RegionSpec[] regions)
             foreach (GameObject regionPrefab in regionPrefabs) PrefabUtility.InstantiatePrefab(regionPrefab, canvasObject.transform);
             GameObject savedCanvas = PrefabUtility.SaveAsPrefabAsset(canvasObject, canvasPath); Object.DestroyImmediate(canvasObject);
             GameObject page = new GameObject(id); PrefabUtility.InstantiatePrefab(savedCanvas, page.transform); PrefabUtility.SaveAsPrefabAsset(page, pagePath); Object.DestroyImmediate(page);
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            GameObject pageInstance = PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(pagePath)) as GameObject;
-            SceneManager.MoveGameObjectToScene(pageInstance, SceneManager.GetActiveScene()); CreateSceneSupport(); EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), scenePath);
         }
 
         private static GameObject SaveRegion(string pageId, RegionSpec spec, Sprite sprite, string path)
@@ -203,13 +178,6 @@ private static void BuildPage(string id, RegionSpec[] regions)
             GameObject lightObject = new GameObject("Directional Light"); Light light = lightObject.AddComponent<Light>(); light.type = LightType.Directional;
             light.intensity = 1; lightObject.transform.rotation = Quaternion.Euler(50, -30, 0);
             GameObject eventSystem = new GameObject("EventSystem"); eventSystem.AddComponent<EventSystem>(); eventSystem.AddComponent<StandaloneInputModule>();
-        }
-
-        private static void DeleteLegacyScreen10368Parts()
-        {
-            string[] legacy = { "Background", "Header", "Footer", "BackButton", "CardA", "CardB", "CardC", "PrimaryButton" };
-            GetDest("Screen10_368", out _, out string parts, out _);
-            foreach (string suffix in legacy) AssetDatabase.DeleteAsset(parts + "/Screen10_368" + suffix + ".prefab");
         }
 
         private static void UpdateBuildSettings()
