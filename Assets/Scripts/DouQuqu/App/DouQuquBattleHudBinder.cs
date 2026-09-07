@@ -62,11 +62,13 @@ namespace DouQuqu
             ApplyArenaFromPit();
             SilenceHudRaycasts();
             BindMatchClock();
+            BindScoreHud();
             yield return DouQuquBattleIntro.Play(transform as RectTransform, pit);
             RefreshTarget(true);
             ApplyArenaFromPit();
             BindStick();
             BindMatchClock();
+            BindScoreHud();
             StartMatchIfNeeded();
         }
 
@@ -235,6 +237,13 @@ private void FitPitToHud()
             if (clock == null) return;
             DouQuquMatchClockHud hud = clock.GetComponent<DouQuquMatchClockHud>();
             if (hud == null) hud = clock.gameObject.AddComponent<DouQuquMatchClockHud>();
+            hud.Bind(Object.FindObjectOfType<DouQuquMatchController>());
+        }
+
+        private void BindScoreHud()
+        {
+            DouQuquBattleScoreHud hud = GetComponent<DouQuquBattleScoreHud>();
+            if (hud == null) hud = gameObject.AddComponent<DouQuquBattleScoreHud>();
             hud.Bind(Object.FindObjectOfType<DouQuquMatchController>());
         }
 

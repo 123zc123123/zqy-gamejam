@@ -130,6 +130,12 @@ namespace DouQuqu
             return state.matchScore[playerId];
         }
 
+        public int KillStreak(int playerId)
+        {
+            if (state == null || state.killStreak == null || playerId < 0 || playerId >= state.killStreak.Length) return 0;
+            return state.killStreak[playerId];
+        }
+
         /// <summary>在重置前配置运行模式和玩家数量。</summary>
         public void Configure(MatchRunMode mode, int playerCount, MatchKnobs matchKnobs = null)
         {
@@ -257,6 +263,7 @@ namespace DouQuqu
                 // 后续子步可能失去完成最终碰撞的机会。
                 movement.TickMotion(state, inputs, subDt, Emit, null);
                 collision.Resolve(state, Emit, null, OnNestHit);
+                economy.ResolvePickups(state, AddGrow, Emit);
             }
             for (int i = 0; i < state.bugs.Length; i++)
                 if (state.bugs[i].alive && !DouQuquRules.InsideArena(state.bugs[i].position)) MarkOut(state.bugs[i]);
@@ -278,7 +285,7 @@ namespace DouQuqu
             if (state == null) return null;
             MatchSnapshot snapshot = new MatchSnapshot
             {
-                version = 6,
+                version = 7,
                 tick = state.tick,
                 playerCount = state.playerCount,
                 randomSeed = state.randomSeed,
@@ -305,7 +312,8 @@ namespace DouQuqu
                 cricketIndex = CopyInts(state.cricketIndex),
                 playerIn = CopyBools(state.playerIn),
                 place = CopyInts(state.place),
-                matchScore = CopyInts(state.matchScore)
+                matchScore = CopyInts(state.matchScore),
+                killStreak = CopyInts(state.killStreak)
             };
             PackRoster(snapshot);
             for (int i = 0; i < state.bugs.Length; i++)
@@ -471,8 +479,9 @@ namespace DouQuqu
             bug.holding = false;
             bug.pendingCharge = false;
             bug.airborne = true;
+            ResetKillStreak(bug.id);
             BugState killer = FindBug(bug.lastHitId);
-            if (killer != null && killer != bug) AddGrow(killer);
+            if (killer != null && killer != bug) AwardKill(killer);
             int slot = CricketIndex(bug.id);
             CricketOut?.Invoke(bug.id, slot);
             Emit("out", bug.position);
@@ -490,9 +499,36 @@ namespace DouQuqu
         {
             if (bug == null || !bug.alive) return;
             if (bug.grow < 6) bug.grow++;
-            bug.score++;
             DouQuquRules.RefreshBody(knobs, bug);
             Emit("grow", bug.position);
+        }
+
+        private void AwardKill(BugState killer)
+        {
+            if (killer == null || !killer.alive || state == null) return;
+            int id = killer.id;
+            EnsureScoreArrays(state.playerCount);
+            if (id < 0 || id >= state.killStreak.Length) return;
+            state.killStreak[id]++;
+            int points = DouQuquRules.KillScoreBase * state.killStreak[id];
+            state.matchScore[id] += points;
+            killer.score = state.matchScore[id];
+            Emit("kill", killer.position);
+        }
+
+        private void ResetKillStreak(int playerId)
+        {
+            if (state == null || state.killStreak == null || playerId < 0 || playerId >= state.killStreak.Length) return;
+            state.killStreak[playerId] = 0;
+        }
+
+        private void EnsureScoreArrays(int playerCount)
+        {
+            playerCount = Mathf.Max(1, playerCount);
+            if (state.matchScore == null || state.matchScore.Length < playerCount)
+                state.matchScore = CopyInts(state.matchScore, playerCount);
+            if (state.killStreak == null || state.killStreak.Length < playerCount)
+                state.killStreak = CopyInts(state.killStreak, playerCount);
         }
 
         private void CheckEnd(MatchPhase phase)
@@ -544,7 +580,6 @@ namespace DouQuqu
             if (state.place == null || playerId < 0 || playerId >= state.place.Length) return;
             if (state.place[playerId] > 0) return;
             state.place[playerId] = Mathf.Max(1, place);
-            state.matchScore[playerId] = Mathf.Max(1, state.playerCount - state.place[playerId] + 1);
         }
 
         private bool TrySpawnNext(int playerId)
@@ -613,6 +648,7 @@ namespace DouQuqu
             state.playerIn = new bool[playerCount];
             state.place = new int[playerCount];
             state.matchScore = new int[playerCount];
+            state.killStreak = new int[playerCount];
             for (int i = 0; i < playerCount; i++)
             {
                 state.playerIn[i] = true;
@@ -729,6 +765,9 @@ namespace DouQuqu
             state.playerIn = CopyBools(snapshot.playerIn, count);
             state.place = CopyInts(snapshot.place, count);
             state.matchScore = CopyInts(snapshot.matchScore, count);
+            state.killStreak = snapshot.version >= 7
+                ? CopyInts(snapshot.killStreak, count)
+                : new int[count];
             state.roster = new CricketPick[count][];
             for (int i = 0; i < count; i++)
             {

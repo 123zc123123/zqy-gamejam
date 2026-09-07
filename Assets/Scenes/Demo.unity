@@ -518,7 +518,7 @@ MonoBehaviour:
     staminaCost: 0.8
     staminaJump: 0.2
     staminaRegen: 0.48
-    staminaRegenCharge: 0.5
+    staminaRegenCharge: 0.75
     staminaSlots: 5
     dMin: 8
     vRate: 80

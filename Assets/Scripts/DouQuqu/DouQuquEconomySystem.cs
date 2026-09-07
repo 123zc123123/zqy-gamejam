@@ -7,10 +7,9 @@ namespace DouQuqu
     /// <summary>负责饲料球、限时道具、生成位置约束和拾取效果。</summary>
     public sealed class DouQuquEconomySystem
     {
-        /// <summary>先结算场上拾取，再按当前对局时间处理饲料球和道具生成。</summary>
+        /// <summary>按对局时间补饲料球和道具。拾取在移动子步里单独结算。</summary>
         public void Tick(MatchState state, Action<BugState> addGrow, Action<string, Vector3> emit)
         {
-            ResolvePickups(state, addGrow, emit);
             SpawnHearts(state, emit);
             SpawnItems(state, emit);
         }
@@ -25,20 +24,21 @@ namespace DouQuqu
                 state.pickups.Add(new PickupState(state.nextPickupId++, PlacePoint(state, state.knobs.heartMinEdge, false), "heart"));
         }
 
-        // 同时重叠时，按稳定的数组顺序由第一个符合条件且着地的角色拾取，
-        // 避免结果依赖运行时遍历顺序。
-        private void ResolvePickups(MatchState state, Action<BugState> addGrow, Action<string, Vector3> emit)
+        // 只看地面 XZ，不看高度。用本子步起点→终点扫掠，空中擦过也算。
+        // 多名角色同时压上时按 bugs 数组顺序，先到先得。
+        public void ResolvePickups(MatchState state, Action<BugState> addGrow, Action<string, Vector3> emit)
         {
+            if (state == null || state.pickups == null) return;
             for (int i = state.pickups.Count - 1; i >= 0; i--)
             {
                 PickupState pickup = state.pickups[i];
                 if (!pickup.alive) continue;
+                float pickupR = pickup.kind == "heart" ? 0.3f : state.knobs.itemR;
                 for (int b = 0; b < state.bugs.Length; b++)
                 {
                     BugState bug = state.bugs[b];
-                    if (!bug.alive || bug.height > 0.3f) continue;
-                    float distance = Vector2.Distance(new Vector2(bug.position.x, bug.position.z), new Vector2(pickup.position.x, pickup.position.z));
-                    if (distance > bug.radius + (pickup.kind == "heart" ? 0.3f : state.knobs.itemR)) continue;
+                    if (!bug.alive) continue;
+                    if (!SweepHits(bug.previousPosition, bug.position, pickup.position, bug.radius + pickupR)) continue;
                     if (pickup.kind == "heart") addGrow?.Invoke(bug);
                     else DouQuquRules.ApplyItem(state.knobs, bug, pickup.kind);
                     pickup.alive = false;
@@ -50,9 +50,8 @@ namespace DouQuqu
                     for (int b = 0; b < state.babies.Count; b++)
                     {
                         BabyState baby = state.babies[b];
-                        if (!baby.alive || baby.height > 0.3f) continue;
-                        float distance = Vector2.Distance(new Vector2(baby.position.x, baby.position.z), new Vector2(pickup.position.x, pickup.position.z));
-                        if (distance > baby.radius + (pickup.kind == "heart" ? 0.3f : state.knobs.itemR)) continue;
+                        if (!baby.alive) continue;
+                        if (!SweepHits(baby.previousPosition, baby.position, pickup.position, baby.radius + pickupR)) continue;
                         if (pickup.kind == "heart") AddBabyGrow(state.knobs, baby);
                         else DouQuquRules.ApplyItem(state.knobs, baby, pickup.kind);
                         pickup.alive = false;
@@ -62,6 +61,18 @@ namespace DouQuqu
                 }
             }
             state.pickups.RemoveAll(p => !p.alive);
+        }
+
+        static bool SweepHits(Vector3 from, Vector3 to, Vector3 target, float radius)
+        {
+            Vector2 a = new Vector2(from.x, from.z);
+            Vector2 b = new Vector2(to.x, to.z);
+            Vector2 p = new Vector2(target.x, target.z);
+            Vector2 ab = b - a;
+            float lengthSq = ab.sqrMagnitude;
+            float t = lengthSq < 1e-8f ? 0f : Mathf.Clamp01(Vector2.Dot(p - a, ab) / lengthSq);
+            Vector2 closest = a + ab * t;
+            return (p - closest).sqrMagnitude <= radius * radius;
         }
 
         private void AddBabyGrow(MatchKnobs knobs, BabyState baby)

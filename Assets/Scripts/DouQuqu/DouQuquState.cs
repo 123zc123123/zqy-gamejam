@@ -182,11 +182,11 @@ namespace DouQuqu
 
     [Serializable]
     /// <summary>
-    /// 完整权威状态。v6 含三条命阵容与出局名次；v5 含耐力；v4 含经济和巢穴游标。
+    /// 完整权威状态。v7 含连杀；v6 含三条命阵容与出局名次；v5 含耐力；v4 含经济和巢穴游标。
     /// </summary>
     public sealed class MatchSnapshot
     {
-        public int version = 6;
+        public int version = 7;
         public int tick;
         public int playerCount;
         public int randomSeed;
@@ -200,6 +200,7 @@ namespace DouQuqu
         public bool[] playerIn;
         public int[] place;
         public int[] matchScore;
+        public int[] killStreak;
         public int[] rosterCatalog;
         public int[] rosterQuality;
         public int[] rosterTemperament;
@@ -242,6 +243,7 @@ namespace DouQuqu
         public bool[] playerIn = new bool[0];
         public int[] place = new int[0];
         public int[] matchScore = new int[0];
+        public int[] killStreak = new int[0];
         public readonly List<PickupState> pickups = new List<PickupState>();
         public readonly List<EggState> eggs = new List<EggState>();
         public readonly List<BabyState> babies = new List<BabyState>();

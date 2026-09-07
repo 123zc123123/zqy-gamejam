@@ -32,7 +32,7 @@ namespace DouQuqu
         public float staminaCost = 0.8f; // 蓄满时的蓄力耐力；实际扣 = 该值 × 蓄力比例
         public float staminaJump = 0.2f; // 每次有效起跳固定加扣；点跳只扣这一笔
         public float staminaRegen = 0.48f; // 落地未蓄力时的耐力恢复（/秒）；空中不恢复
-        public float staminaRegenCharge = 0.5f; // 蓄力时恢复 = staminaRegen × 该值；0 = 蓄力不回
+        public float staminaRegenCharge = 0.75f; // 蓄力时恢复 = staminaRegen × 该值；0 = 蓄力不回
         public int staminaSlots = 5; // 身周耐力圆环格数
         [HideInInspector]
         public float dMin = 8f; // 废止：旧版点跳距离，现由 tFloor 反推
@@ -114,6 +114,7 @@ namespace DouQuqu
         public static float ArenaHalfDepth = DefaultArenaHalfDepth;
         public static float ArenaCorner = DefaultArenaCorner;
         public static readonly string[] ItemKinds = { "size", "shield", "charge" };
+        public const int KillScoreBase = 10;
 
         public static void ResetArenaSize()
         {
