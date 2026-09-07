@@ -15,6 +15,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
         public TMP_Text rankText;
         public TMP_Text descriptionText;
         public Image portrait;
+        public TMP_Text[] statValues;
 
         public event System.Action Closed;
 
@@ -26,7 +27,10 @@ namespace ZqyGameJam.UI.QuquXiangqing
             CacheLabels();
         }
 
-        public void Show(string rank, string displayName, string description, Sprite sprite, string subtitle = null)
+        static readonly Color StatNormal = new Color(0.176471f, 0.352941f, 0.152941f, 1f);
+        static readonly Color StatStrong = new Color(0.619608f, 0.164706f, 0.168627f, 1f);
+
+        public void Show(string rank, string displayName, string description, Sprite sprite, string subtitle = null, string[] stats = null, bool[] strongStats = null)
         {
             CacheLabels();
             gameObject.SetActive(true);
@@ -40,6 +44,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
                 portrait.enabled = sprite != null;
                 portrait.preserveAspect = true;
             }
+            WriteStats(stats, strongStats);
         }
 
         public void Hide()
@@ -53,6 +58,23 @@ namespace ZqyGameJam.UI.QuquXiangqing
             if (label == null) return;
             label.text = value;
             label.ForceMeshUpdate();
+        }
+
+        private void WriteStats(string[] stats, bool[] strongStats)
+        {
+            if (statValues == null) return;
+            for (int i = 0; i < statValues.Length; i++)
+            {
+                TMP_Text label = statValues[i];
+                string value = stats != null && i < stats.Length && !string.IsNullOrEmpty(stats[i])
+                    ? stats[i]
+                    : "—";
+                bool strong = strongStats != null && i < strongStats.Length && strongStats[i] && value != "—";
+                Write(label, value);
+                if (label == null) continue;
+                label.fontStyle = strong ? FontStyles.Bold : FontStyles.Normal;
+                label.color = strong ? StatStrong : StatNormal;
+            }
         }
 
         private void CacheLabels()
@@ -74,6 +96,16 @@ namespace ZqyGameJam.UI.QuquXiangqing
                     descriptionText = label;
             }
 
+            if (statValues == null || statValues.Length < 6)
+                statValues = new TMP_Text[6];
+            for (int i = 0; i < labels.Length; i++)
+            {
+                TMP_Text label = labels[i];
+                if (label == null) continue;
+                int index = StatValueIndex(label.name);
+                if (index >= 0 && index < statValues.Length) statValues[index] = label;
+            }
+
             if (portrait == null)
             {
                 string[] portraitNames = { "Portrait", "CricketPortrait", "violet-cricket-illustration", "InsectPortraitArea" };
@@ -85,6 +117,19 @@ namespace ZqyGameJam.UI.QuquXiangqing
                     if (portrait == null) portrait = found.GetComponentInChildren<Image>(true);
                 }
             }
+        }
+
+        private static int StatValueIndex(string objectName)
+        {
+            if (string.IsNullOrEmpty(objectName) || objectName.IndexOf("_Value", System.StringComparison.Ordinal) < 0)
+                return -1;
+            if (objectName.IndexOf("Stat01", System.StringComparison.Ordinal) >= 0) return 0;
+            if (objectName.IndexOf("Stat02", System.StringComparison.Ordinal) >= 0) return 1;
+            if (objectName.IndexOf("Stat03", System.StringComparison.Ordinal) >= 0) return 2;
+            if (objectName.IndexOf("Stat04", System.StringComparison.Ordinal) >= 0) return 3;
+            if (objectName.IndexOf("Stat05", System.StringComparison.Ordinal) >= 0) return 4;
+            if (objectName.IndexOf("Stat06", System.StringComparison.Ordinal) >= 0) return 5;
+            return -1;
         }
 
         private static Transform FindDeep(Transform root, string objectName)

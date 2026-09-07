@@ -210,12 +210,16 @@ namespace DouQuqu
             string title;
             string desc;
             string subtitle;
+            string[] stats = null;
+            bool[] strongStats = null;
             if (piece.level >= 4 && piece.isDrawResult)
             {
                 rank = DouQuquCricketCatalog.QualityName(piece.drawA);
                 title = DouQuquCricketCatalog.CricketName(piece.drawA, piece.drawB);
                 subtitle = DouQuquCricketCatalog.TemperamentName(piece.drawB);
                 desc = DouQuquCricketCatalog.Blurb(piece.drawB);
+                stats = DouQuquCricketCatalog.PanelStatDisplays(piece.drawA, piece.drawB);
+                strongStats = DouQuquCricketCatalog.PanelStatStrongFlags(piece.drawB);
             }
             else
             {
@@ -226,7 +230,7 @@ namespace DouQuqu
             }
             Sprite sprite = piece.level >= 4 ? SpriteForQuality(piece.drawA, piece.drawB) : SpriteForLevel(piece.level);
             if (sprite == null) sprite = SpriteForLevel(piece.level);
-            detailView.Show(rank, title, desc, sprite, subtitle);
+            detailView.Show(rank, title, desc, sprite, subtitle, stats, strongStats);
         }
 
         private bool EnsureDetailView()
