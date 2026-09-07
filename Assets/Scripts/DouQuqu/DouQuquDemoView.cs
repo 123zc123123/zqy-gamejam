@@ -227,6 +227,9 @@ namespace DouQuqu
                 if (cricket != null)
                 {
                     cricket.ApplyTeam(bug.id == 0, bug.charging);
+                    DouQuquCricketAnim anim = view.GetComponent<DouQuquCricketAnim>();
+                    if (anim == null) anim = view.GetComponentInChildren<DouQuquCricketAnim>(true);
+                    if (anim != null) anim.Apply(bug);
                 }
                 else if (tintPlayers)
                 {
