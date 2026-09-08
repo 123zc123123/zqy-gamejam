@@ -21,8 +21,10 @@ public static class FigmaEventPrefabImporter
     static readonly Rect IconSlotBounds = new Rect(11291f, 622f, 100f, 100f);
     static readonly Rect ClaimBounds = new Rect(11656f, 640f, 131f, 70f);
     static readonly Rect RewardTierBounds = new Rect(10965f, 548f, 853f, 216f);
-    static readonly Rect MatchCtaBounds = new Rect(2729f, 1380f, 340f, 273f);
-    static readonly Rect TeamCtaBounds = new Rect(2200f, 1380f, 340f, 273f);
+    static readonly Rect ActionsBounds = new Rect(2121f, 1380f, 976f, 273f);
+    static readonly Rect MatchCtaBounds = new Rect(2678f, 1380f, 188f, 273f);
+    static readonly Rect TrainingCampBounds = new Rect(2909f, 1380f, 188f, 273f);
+    static readonly Rect TeamCtaBounds = new Rect(2121f, 1380f, 511f, 273f);
     static readonly Rect SideButtonBounds = new Rect(2937f, 1175f, 204f, 204f);
 
     static readonly Rect[] PlayerCardSlots =
@@ -218,7 +220,7 @@ public static class FigmaEventPrefabImporter
         background.color = MatchFill;
         background.raycastTarget = true;
         AddOutline(root, Gold, 3f);
-        CreateText("随机匹配", root.transform, MatchCtaBounds, new Rect(2768f, 1480f, 262f, 73f), "随机匹配", 48f, TitleColor, TextAlignmentOptions.Center, "10:654");
+        CreateText("随机匹配", root.transform, MatchCtaBounds, new Rect(2724f, 1444f, 96f, 146f), "随机\n匹配", 48f, TitleColor, TextAlignmentOptions.Center, "10:654");
         return root;
     }
 
@@ -230,12 +232,12 @@ public static class FigmaEventPrefabImporter
         background.color = MenuFill;
         background.raycastTarget = true;
         AddOutline(root, Gold, 3f);
-        CreateText("好友组队", root.transform, TeamCtaBounds, new Rect(2274f, 1427f, 192f, 73f), "好友组队", 48f, TitleColor, TextAlignmentOptions.Center, "238:722");
-        GameObject room = CreateColorImage("Rectangle 8", root.transform, TeamCtaBounds, new Rect(2234f, 1500f, 163f, 104f), TitleColor, "238:724", "RECTANGLE");
-        CreateText("房间号：", room.transform, new Rect(2234f, 1500f, 163f, 104f), new Rect(2238f, 1517f, 154f, 73f), "房间号：", 36f, MenuFill, TextAlignmentOptions.Center, "238:725");
-        GameObject confirm = CreateBoundObject("确认", root.transform, TeamCtaBounds, new Rect(2410f, 1508f, 110f, 88f), "238:727", "FRAME");
-        CreateColorImage("确认底", confirm.transform, new Rect(2410f, 1508f, 110f, 88f), new Rect(2410f, 1508f, 110f, 88f), MatchFill, "238:728", "RECTANGLE");
-        CreateText("确认", confirm.transform, new Rect(2410f, 1508f, 110f, 88f), new Rect(2422f, 1528f, 86f, 48f), "确认", 36f, TitleColor, TextAlignmentOptions.Center, "238:729");
+        CreateText("好友组队", root.transform, TeamCtaBounds, new Rect(2281f, 1427f, 192f, 73f), "好友组队", 48f, TitleColor, TextAlignmentOptions.Center, "238:722");
+        GameObject room = CreateColorImage("Rectangle 8", root.transform, TeamCtaBounds, new Rect(2155f, 1500f, 273f, 104f), TitleColor, "238:724", "RECTANGLE");
+        CreateText("房间号：", room.transform, new Rect(2155f, 1500f, 273f, 104f), new Rect(2195f, 1517f, 192f, 73f), "房间号：", 36f, MenuFill, TextAlignmentOptions.Center, "238:725");
+        GameObject confirm = CreateBoundObject("确认", root.transform, TeamCtaBounds, new Rect(2445f, 1500f, 171f, 104f), "247:2750", "FRAME");
+        CreateColorImage("确认底", confirm.transform, new Rect(2445f, 1500f, 171f, 104f), new Rect(2445f, 1500f, 171f, 104f), MatchFill, "247:2751", "RECTANGLE");
+        CreateText("确认", confirm.transform, new Rect(2445f, 1500f, 171f, 104f), new Rect(2460f, 1531f, 96f, 43f), "确认", 36f, TitleColor, TextAlignmentOptions.Center, "247:2753");
         EnableRaycast(confirm);
         return root;
     }
@@ -354,9 +356,13 @@ public static class FigmaEventPrefabImporter
         CreateText("离开房间", leave.transform, new Rect(2918f, 14f, 183f, 81f), new Rect(2946f, 34f, 139f, 29f), "离开房间", 32f, Color.black, TextAlignmentOptions.Center, "238:655");
         EnableRaycast(leave);
 
-        GameObject actions = CreateBoundObject("Group 5", root.transform, EventBounds, new Rect(2200f, 1380f, 869f, 273f), "238:739", "GROUP");
-        InstantiatePrefab(teamCtaPrefab, actions.transform, new Rect(2200f, 1380f, 869f, 273f), TeamCtaBounds, "好友组队", "238:734", "INSTANCE");
-        InstantiatePrefab(matchCtaPrefab, actions.transform, new Rect(2200f, 1380f, 869f, 273f), MatchCtaBounds, "StartMatchButton", "238:686", "INSTANCE");
+        GameObject actions = CreateBoundObject("Group 5", root.transform, EventBounds, ActionsBounds, "238:739", "GROUP");
+        InstantiatePrefab(teamCtaPrefab, actions.transform, ActionsBounds, TeamCtaBounds, "好友组队", "238:734", "INSTANCE");
+        InstantiatePrefab(matchCtaPrefab, actions.transform, ActionsBounds, MatchCtaBounds, "StartMatchButton", "248:2759", "INSTANCE");
+        GameObject training = InstantiatePrefab(matchCtaPrefab, actions.transform, ActionsBounds, TrainingCampBounds, "训练营", "238:686", "INSTANCE");
+        SetChildText(training, "随机匹配", "训练营");
+        SetChildText(training, "开始匹配", "训练营");
+        EnableRaycast(training);
 
         GameObject ready = InstantiatePrefab(matchCtaPrefab, root.transform, EventBounds, new Rect(2429f, 1380f, 340f, 273f), "准备", "ready", "INSTANCE");
         SetChildText(ready, "随机匹配", "准备");
@@ -477,7 +483,7 @@ public static class FigmaEventPrefabImporter
         text.fontSize = fontSize;
         text.color = color;
         text.alignment = alignment;
-        text.enableWordWrapping = false;
+        text.enableWordWrapping = characters != null && characters.IndexOf('\n') >= 0;
         text.overflowMode = TextOverflowModes.Overflow;
         text.raycastTarget = false;
         text.richText = false;
@@ -493,6 +499,7 @@ public static class FigmaEventPrefabImporter
             : instance.GetComponentInChildren<TextMeshProUGUI>(true);
         if (text == null) return;
         text.text = value;
+        text.enableWordWrapping = value != null && value.IndexOf('\n') >= 0;
         PrefabUtility.RecordPrefabInstancePropertyModifications(text);
     }
 

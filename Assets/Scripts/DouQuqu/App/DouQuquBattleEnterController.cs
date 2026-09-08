@@ -115,6 +115,14 @@ namespace DouQuqu
             GameObject rules = FindGo(root, "SideButton_活动介绍");
             if (rules == null) rules = FindGo(root, "玩法规则");
             if (rules != null) BindButton(rules, DouQuquActivityPopup.ShowRules);
+
+            GameObject training = FindGo(root, "训练营");
+            if (training != null) BindButton(training, OpenTrainingCamp);
+        }
+
+        private static void OpenTrainingCamp()
+        {
+            DouQuquBottomNavBar.NotifyComingSoon("训练营");
         }
 
         private void RelabelMatchButton()
@@ -126,8 +134,15 @@ namespace DouQuqu
             TMP_Text[] labels = match.GetComponentsInChildren<TMP_Text>(true);
             for (int i = 0; i < labels.Length; i++)
             {
-                if (labels[i].text == "开始匹配" || labels[i].name == "开始匹配")
-                    labels[i].text = "随机匹配";
+                if (labels[i].text == "开始匹配"
+                    || labels[i].name == "开始匹配"
+                    || labels[i].text == "随机匹配"
+                    || labels[i].name == "随机匹配")
+                {
+                    labels[i].text = "随机\n匹配";
+                    labels[i].enableWordWrapping = true;
+                    labels[i].alignment = TextAlignmentOptions.Center;
+                }
             }
         }
 

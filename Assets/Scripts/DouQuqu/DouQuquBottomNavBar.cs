@@ -213,6 +213,18 @@ namespace DouQuqu
             return button;
         }
 
+        public static void NotifyComingSoon(string title)
+        {
+            DouQuquBottomNavBar bar = FindObjectOfType<DouQuquBottomNavBar>(true);
+            if (bar == null)
+            {
+                Debug.Log("[DouQuqu] " + title + "即将开放");
+                return;
+            }
+
+            bar.ShowComingSoon(title);
+        }
+
         private void ShowComingSoon(string title)
         {
             EnsureComingSoon();
