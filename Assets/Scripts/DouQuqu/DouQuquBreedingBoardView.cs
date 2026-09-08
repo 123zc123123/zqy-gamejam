@@ -255,7 +255,7 @@ namespace DouQuqu
             bool[] strongStats = null;
             if (piece.level >= 4 && piece.isDrawResult)
             {
-                rank = DouQuquCricketCatalog.QualityName(piece.drawA);
+                rank = DouQuquCricketCatalog.RankLabel(piece.drawA, piece.drawB);
                 title = DouQuquCricketCatalog.CricketName(piece.drawA, piece.drawB);
                 subtitle = DouQuquCricketCatalog.TemperamentName(piece.drawB);
                 desc = DouQuquCricketCatalog.Blurb(piece.drawB);

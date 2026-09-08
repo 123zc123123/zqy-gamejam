@@ -72,6 +72,13 @@ namespace DouQuqu
             return QualityNames[quality];
         }
 
+        /// <summary>详情第三行：凡/灵/仙只写品质；极品写 极品·成语。</summary>
+        public static string RankLabel(int quality, int temperament)
+        {
+            if (quality >= 4) return QualityName(quality) + "·" + Idiom(temperament);
+            return QualityName(quality);
+        }
+
         public static string TemperamentName(int temperament)
         {
             temperament = Mathf.Clamp(temperament, 1, 4);
