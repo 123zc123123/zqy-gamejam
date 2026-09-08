@@ -11,7 +11,6 @@ namespace DouQuqu
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (eventData.dragging) return;
             if (View != null) View.OnCellClicked(Index);
         }
 

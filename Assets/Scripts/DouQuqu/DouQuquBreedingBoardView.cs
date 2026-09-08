@@ -32,6 +32,9 @@ namespace DouQuqu
         private QuquXiangqingView detailView;
         private int draggingPieceId = -1;
         private int sourceCell = -1;
+        private Vector2 dragStartPosition;
+        private bool dragMoved;
+        private int lastDetailFrame = -1;
 
         private static readonly Color[] LevelColors =
         {
@@ -84,12 +87,23 @@ namespace DouQuqu
             if (piece == null) return;
             draggingPieceId = piece.id;
             sourceCell = cellIndex;
-            if (pieceImages[cellIndex] != null) pieceImages[cellIndex].enabled = false;
-            ShowGhost(piece, eventData.position);
+            dragStartPosition = eventData.position;
+            dragMoved = false;
         }
 
         public void Drag(PointerEventData eventData)
         {
+            if (draggingPieceId < 0) return;
+            if (!dragMoved)
+            {
+                if (Vector2.Distance(eventData.position, dragStartPosition) < ClickSlop()) return;
+                dragMoved = true;
+                MergePiece piece = FindPieceAt(sourceCell);
+                if (piece == null) piece = FindPieceById(draggingPieceId);
+                if (sourceCell >= 0 && sourceCell < CellCount && pieceImages[sourceCell] != null)
+                    pieceImages[sourceCell].enabled = false;
+                if (piece != null) ShowGhost(piece, eventData.position);
+            }
             if (dragGhost == null) return;
             dragGhost.rectTransform.position = eventData.position;
         }
@@ -101,16 +115,20 @@ namespace DouQuqu
                 HideGhost();
                 return;
             }
-            int target = HitCell(eventData.position);
-            bool sameCell = target == sourceCell;
-            if (target >= 0 && board != null && !sameCell)
-                board.TryMove(draggingPieceId, target);
+            int source = sourceCell;
+            bool tap = !dragMoved || Vector2.Distance(eventData.position, dragStartPosition) < ClickSlop();
+            if (!tap)
+            {
+                int target = HitCell(eventData.position);
+                if (target >= 0 && board != null && target != source)
+                    board.TryMove(draggingPieceId, target);
+            }
             HideGhost();
-            int clicked = sameCell ? sourceCell : -1;
             draggingPieceId = -1;
             sourceCell = -1;
+            dragMoved = false;
             RefreshBoard();
-            if (clicked >= 0) OnCellClicked(clicked);
+            if (tap && source >= 0) OnCellClicked(source);
         }
 
         public void OnCellClicked(int cellIndex)
@@ -123,7 +141,6 @@ namespace DouQuqu
         private void SpawnCanvas()
         {
             if (canvasInstance != null) return;
-            if (DouQuquLobby.Instance != null) return;
             GameObject placed = GameObject.Find("BreedingBoard");
             if (placed == null) placed = GameObject.Find("BreedingBoardCanvas");
             if (placed != null)
@@ -171,6 +188,13 @@ namespace DouQuqu
                 if (hook == null) hook = found.gameObject.AddComponent<DouQuquBreedingCell>();
                 hook.Index = i;
                 hook.View = this;
+                Button button = found.GetComponent<Button>();
+                if (button != null)
+                {
+                    int captured = i;
+                    button.onClick.RemoveAllListeners();
+                    button.onClick.AddListener(() => OnCellClicked(captured));
+                }
                 pieceImages[i] = EnsureChildImage(rect, "PieceIcon");
                 pieceLabels[i] = EnsureChildText(rect, "PieceLabel");
             }
@@ -220,6 +244,8 @@ namespace DouQuqu
 
         private void OpenDetail(MergePiece piece)
         {
+            if (lastDetailFrame == Time.frameCount) return;
+            lastDetailFrame = Time.frameCount;
             if (!EnsureDetailView()) return;
             string rank;
             string title;
@@ -398,6 +424,22 @@ namespace DouQuqu
             }
         }
 
+        private static float ClickSlop()
+        {
+            EventSystem system = EventSystem.current;
+            float threshold = system != null ? system.pixelDragThreshold : 10f;
+            return Mathf.Max(48f, threshold * 3f);
+        }
+
+        private MergePiece FindPieceById(int pieceId)
+        {
+            if (board == null || board.Pieces == null) return null;
+            IReadOnlyList<MergePiece> pieces = board.Pieces;
+            for (int i = 0; i < pieces.Count; i++)
+                if (pieces[i] != null && pieces[i].id == pieceId) return pieces[i];
+            return null;
+        }
+
         private MergePiece FindPieceAt(int cell)
         {
             if (board == null || board.Pieces == null) return null;
@@ -412,7 +454,11 @@ namespace DouQuqu
             for (int i = 0; i < CellCount; i++)
             {
                 if (cells[i] == null) continue;
-                if (RectTransformUtility.RectangleContainsScreenPoint(cells[i], screenPosition, null))
+                Canvas canvas = cells[i].GetComponentInParent<Canvas>();
+                Camera camera = null;
+                if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+                    camera = canvas.worldCamera;
+                if (RectTransformUtility.RectangleContainsScreenPoint(cells[i], screenPosition, camera))
                     return i;
             }
             return -1;
