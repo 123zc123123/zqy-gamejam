@@ -567,8 +567,9 @@ namespace DouQuqu
         }
 
         /// <summary>
-        /// 顶视朝向。精品立绘的图片上部是头：Sprite 本地 +Y 对准蓄力/飞行方向，
-        /// 贴图正面朝上对着顶视相机。不用 Euler(90, yaw, 0)，避免 X=90 万向节锁把偏航吃掉。
+        /// 顶视朝向。贴图正面朝上对着顶视相机。不用 Euler(90, yaw, 0)，避免 X=90 万向节锁把偏航吃掉。
+        /// 精品立绘头在图上部：本地 +Y 对准蓄力/飞行方向。
+        /// Cricket.prefab 的 Rig/零件已绕 Z 转 180（对齐旧 FaceXz +180），头在图下部，所以反向。
         /// </summary>
         private static void FaceXz(GameObject view, Vector3 velocity, Vector2 chargeDirection)
         {
@@ -576,6 +577,7 @@ namespace DouQuqu
             if (face.sqrMagnitude < 0.04f) face = chargeDirection;
             if (face.sqrMagnitude < 0.0001f) face = Vector2.up;
             Vector3 head = new Vector3(face.x, 0f, face.y);
+            if (view.GetComponent<DouQuquCricketVisual>() != null) head = -head;
             view.transform.rotation = Quaternion.LookRotation(Vector3.up, head);
         }
 
