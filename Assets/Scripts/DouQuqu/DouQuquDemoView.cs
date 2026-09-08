@@ -114,6 +114,8 @@ namespace DouQuqu
             if (autoStart && !match.IsStarted)
             {
                 match.Configure(MatchRunMode.Offline, Mathf.Clamp(playerCount, 1, DouQuquMatchController.MaxPlayers));
+                CricketPick[] localPicks = DouQuquAppServices.TakePendingLocalPicks();
+                if (localPicks != null) match.SetRoster(0, localPicks);
                 match.ResetMatch(playerCount, randomSeed);
                 match.StartMatch();
             }

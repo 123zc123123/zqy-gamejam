@@ -330,6 +330,29 @@ namespace DouQuqu
             ready = true;
             if (expanded) ApplyCollapsed();
             RefreshAll();
+            DouQuquAppServices.PendingLocalPicks = CopyPicks();
+            DouQuquSceneNames.Load(DouQuquSceneNames.Battle);
+        }
+
+        private CricketPick[] CopyPicks()
+        {
+            CricketPick[] picks = new CricketPick[SlotCount];
+            for (int i = 0; i < SlotCount; i++)
+            {
+                CricketBackpackEntry entry = slotEntries[i];
+                if (entry == null)
+                {
+                    picks[i] = new CricketPick { catalogId = 0, quality = 1, temperament = 1 };
+                    continue;
+                }
+                picks[i] = new CricketPick
+                {
+                    catalogId = (entry.quality - 1) * 4 + entry.temperament,
+                    quality = entry.quality,
+                    temperament = entry.temperament
+                };
+            }
+            return picks;
         }
 
         private void OnCardClicked(string instanceId)

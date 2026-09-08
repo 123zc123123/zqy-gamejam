@@ -211,13 +211,15 @@ namespace DouQuqu
             return 1f + bug.grow * Mathf.Max(0f, knobs.growPer);
         }
 
-        /// <summary>按成长和临时增大效果刷新蟋蟀碰撞半径与质量。</summary>
+        /// <summary>按开局体型、成长和临时增大刷新碰撞半径与质量。</summary>
         public static void RefreshBody(MatchKnobs knobs, BugState bug)
         {
             float g = GrowRate(knobs, bug);
             float size = SizeActive(bug) ? knobs.sizeScale : 1f;
-            bug.radius = knobs.bugR * g * size;
-            bug.mass = Mathf.Max(0.08f, knobs.mass) * g * size;
+            float massMul = Mathf.Max(0.01f, bug.massMul);
+            float sizeMul = Mathf.Sqrt(massMul);
+            bug.radius = knobs.bugR * sizeMul * g * size;
+            bug.mass = Mathf.Max(0.08f, knobs.mass) * massMul * g * size;
         }
 
         /// <summary>按成长和临时增大效果刷新幼虫碰撞半径与质量。</summary>
@@ -815,6 +817,7 @@ namespace DouQuqu
         public Vector2 chargeDirection = Vector2.up;
         public float radius;
         public float mass;
+        public float massMul = 1f;
         public int grow;
         public int lastHitId = -1;
         public HitTier hitTier = HitTier.None;

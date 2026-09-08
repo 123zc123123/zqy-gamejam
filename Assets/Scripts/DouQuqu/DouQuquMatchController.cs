@@ -661,6 +661,10 @@ namespace DouQuqu
             if (bug == null) return;
             CricketPick pick = GetPick(playerId, slot);
             bug.catalogId = pick == null ? 0 : pick.catalogId;
+            int quality = pick == null ? 1 : pick.quality;
+            int temperament = pick == null ? 1 : pick.temperament;
+            bug.massMul = DouQuquCricketCatalog.StatFactor(quality, temperament, DouQuquCricketCatalog.PanelStat.Mass);
+            DouQuquRules.RefreshBody(knobs, bug);
         }
 
         private CricketPick GetPick(int playerId, int slot)

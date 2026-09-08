@@ -30,6 +30,10 @@ namespace DouQuqu
         public string playerId;
         public string playerName;
         public long updatedAtUtcTicks;
+        public int score;
+        public int gold;
+        public int eggs;
+        public bool economyReady;
         public List<CricketCollectionEntry> crickets = new List<CricketCollectionEntry>();
         public List<CricketBackpackEntry> backpack = new List<CricketBackpackEntry>();
     }
@@ -48,6 +52,14 @@ namespace DouQuqu
     public static class DouQuquPlayerDataService
     {
         private const int MaxNameLength = 20;
+        public const int StartScore = 0;
+        public const int StartGold = 100;
+        public const int StartEggs = 16;
+        public const int ScoreCap = 999999;
+        public const int GoldCap = 999999;
+        public const int EggCap = 99;
+        public const int EggShopPrice = 10;
+        public const int EggShopCount = 1;
         private const string DatabaseFileName = "douququ-player-database.json";
 
         private static DouQuquPlayerDatabase database;
@@ -55,6 +67,9 @@ namespace DouQuqu
         public static DouQuquPlayerProfile CurrentPlayer { get; private set; }
         public static bool IsLoggedIn => CurrentPlayer != null;
         public static string CurrentPlayerName => CurrentPlayer == null ? string.Empty : CurrentPlayer.playerName;
+        public static int Score => CurrentPlayer == null ? 0 : CurrentPlayer.score;
+        public static int Gold => CurrentPlayer == null ? 0 : CurrentPlayer.gold;
+        public static int Eggs => CurrentPlayer == null ? 0 : CurrentPlayer.eggs;
         public static event Action PlayerDataChanged;
 
         /// <summary>按玩家名登录；同名玩家会加载旧资料，新名字会创建新资料。</summary>
@@ -77,6 +92,10 @@ namespace DouQuqu
                     playerId = Guid.NewGuid().ToString("N"),
                     playerName = playerName,
                     updatedAtUtcTicks = DateTime.UtcNow.Ticks,
+                    score = StartScore,
+                    gold = StartGold,
+                    eggs = StartEggs,
+                    economyReady = true,
                     crickets = new List<CricketCollectionEntry>(),
                     backpack = new List<CricketBackpackEntry>()
                 };
@@ -87,12 +106,107 @@ namespace DouQuqu
                 CurrentPlayer.playerName = playerName;
                 if (CurrentPlayer.crickets == null) CurrentPlayer.crickets = new List<CricketCollectionEntry>();
                 if (CurrentPlayer.backpack == null) CurrentPlayer.backpack = new List<CricketBackpackEntry>();
+                EnsureEconomy(CurrentPlayer);
                 CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
             }
 
             error = SaveDatabase() ? string.Empty : "玩家数据保存失败，请检查设备存储权限";
             PlayerDataChanged?.Invoke();
             return string.IsNullOrEmpty(error);
+        }
+
+        public static string FormatGold(int amount)
+        {
+            return amount.ToString("N0");
+        }
+
+        public static bool TrySpendEggs(int amount)
+        {
+            if (CurrentPlayer == null || amount <= 0) return false;
+            if (CurrentPlayer.eggs < amount) return false;
+            CurrentPlayer.eggs -= amount;
+            return CommitEconomy();
+        }
+
+        public static bool TrySpendGold(int amount)
+        {
+            if (CurrentPlayer == null || amount <= 0) return false;
+            if (CurrentPlayer.gold < amount) return false;
+            CurrentPlayer.gold -= amount;
+            return CommitEconomy();
+        }
+
+        public static bool AddEggs(int amount)
+        {
+            if (CurrentPlayer == null || amount == 0) return false;
+            CurrentPlayer.eggs = Mathf.Clamp(CurrentPlayer.eggs + amount, 0, EggCap);
+            return CommitEconomy();
+        }
+
+        public static bool AddGold(int amount)
+        {
+            if (CurrentPlayer == null || amount == 0) return false;
+            CurrentPlayer.gold = Mathf.Clamp(CurrentPlayer.gold + amount, 0, GoldCap);
+            return CommitEconomy();
+        }
+
+        public static bool AddScore(int amount)
+        {
+            if (CurrentPlayer == null || amount == 0) return false;
+            CurrentPlayer.score = Mathf.Clamp(CurrentPlayer.score + amount, 0, ScoreCap);
+            return CommitEconomy();
+        }
+
+        public static int SellPrice(int quality)
+        {
+            quality = Mathf.Clamp(quality, 1, 4);
+            if (quality >= 4) return 160;
+            if (quality == 3) return 80;
+            if (quality == 2) return 40;
+            return 20;
+        }
+
+        public static bool RemoveFromBackpack(string instanceId)
+        {
+            if (CurrentPlayer == null || CurrentPlayer.backpack == null || string.IsNullOrEmpty(instanceId))
+                return false;
+            for (int i = 0; i < CurrentPlayer.backpack.Count; i++)
+            {
+                CricketBackpackEntry entry = CurrentPlayer.backpack[i];
+                if (entry == null || entry.instanceId != instanceId) continue;
+                CurrentPlayer.backpack.RemoveAt(i);
+                return CommitEconomy();
+            }
+            return false;
+        }
+
+        public static bool TryBuyEggs()
+        {
+            if (CurrentPlayer == null) return false;
+            if (CurrentPlayer.gold < EggShopPrice) return false;
+            if (CurrentPlayer.eggs >= EggCap) return false;
+            int room = EggCap - CurrentPlayer.eggs;
+            int add = Mathf.Min(EggShopCount, room);
+            CurrentPlayer.gold -= EggShopPrice;
+            CurrentPlayer.eggs += add;
+            return CommitEconomy();
+        }
+
+        private static bool CommitEconomy()
+        {
+            CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
+            bool saved = SaveDatabase();
+            PlayerDataChanged?.Invoke();
+            return saved;
+        }
+
+        private static void EnsureEconomy(DouQuquPlayerProfile player)
+        {
+            if (player == null || player.economyReady) return;
+            player.score = StartScore;
+            player.gold = StartGold;
+            player.eggs = StartEggs;
+            player.economyReady = true;
         }
 
         /// <summary>把一次三级合成产生的蟋蟀写入当前玩家图鉴。</summary>
@@ -110,6 +224,23 @@ namespace DouQuqu
                 CurrentPlayer.crickets.Add(entry);
             }
             entry.count++;
+            CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
+            bool saved = SaveDatabase();
+            PlayerDataChanged?.Invoke();
+            return saved;
+        }
+
+        /// <summary>把一只精品虫收进当前登录名的背包。</summary>
+        public static bool AddFinestToBackpack(int quality, int temperament)
+        {
+            if (CurrentPlayer == null) return false;
+            if (CurrentPlayer.backpack == null) CurrentPlayer.backpack = new List<CricketBackpackEntry>();
+            CurrentPlayer.backpack.Add(new CricketBackpackEntry
+            {
+                instanceId = Guid.NewGuid().ToString("N"),
+                quality = Mathf.Clamp(quality, 1, 4),
+                temperament = Mathf.Clamp(temperament, 1, 4)
+            });
             CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
             bool saved = SaveDatabase();
             PlayerDataChanged?.Invoke();

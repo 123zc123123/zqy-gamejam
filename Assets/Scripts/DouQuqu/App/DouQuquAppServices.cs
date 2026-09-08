@@ -22,6 +22,16 @@ namespace DouQuqu
 
         public DouQuquLanSession Network { get; private set; }
 
+        /// <summary>选虫页锁定后带到战斗场景的己方三槽。战斗开局读走即清空。</summary>
+        public static CricketPick[] PendingLocalPicks { get; set; }
+
+        public static CricketPick[] TakePendingLocalPicks()
+        {
+            CricketPick[] picks = PendingLocalPicks;
+            PendingLocalPicks = null;
+            return picks;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void CreateBeforeFirstScene()
         {

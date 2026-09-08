@@ -1,15 +1,17 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>百戏市集：绑 Shop Prefab。兑换经济未接，按钮提示即将开放。</summary>
+    /// <summary>百戏市集：金币买虫卵；其余价签仍提示即将开放。</summary>
     public sealed class DouQuquShopController : MonoBehaviour
     {
         private Transform pageRoot;
         private GameObject toastRoot;
         private Text toastLabel;
         private float toastUntil;
+        private TMP_Text goldLabel;
 
         public void BindPage(GameObject root)
         {
@@ -18,6 +20,19 @@ namespace DouQuqu
             DouQuquBottomNavBar.SuppressEmbedded(pageRoot);
             WireHelp(pageRoot);
             WirePriceButtons(pageRoot);
+            CacheGoldLabel(pageRoot);
+            RefreshGold();
+        }
+
+        private void OnEnable()
+        {
+            DouQuquPlayerDataService.PlayerDataChanged += RefreshGold;
+            RefreshGold();
+        }
+
+        private void OnDisable()
+        {
+            DouQuquPlayerDataService.PlayerDataChanged -= RefreshGold;
         }
 
         private void Update()
@@ -32,7 +47,7 @@ namespace DouQuqu
             if (help == null) return;
             Button button = EnsureButton(help.gameObject);
             button.onClick.RemoveAllListeners();
-            button.onClick.AddListener(() => ShowToast("脸谱币可在活动中获得"));
+            button.onClick.AddListener(() => ShowToast("金币可在对局结算获得"));
         }
 
         private void WirePriceButtons(Transform root)
@@ -41,13 +56,97 @@ namespace DouQuqu
             for (int i = 0; i < buttons.Length; i++)
             {
                 Button button = buttons[i];
-                if (button == null) continue;
-                if (button.gameObject.name.IndexOf("price-button", System.StringComparison.OrdinalIgnoreCase) < 0 &&
-                    button.transform.parent != null &&
-                    button.transform.parent.name.IndexOf("price-button", System.StringComparison.OrdinalIgnoreCase) < 0)
-                    continue;
+                if (button == null || !IsPriceButton(button)) continue;
                 button.onClick.RemoveAllListeners();
-                button.onClick.AddListener(() => ShowToast("兑换即将开放"));
+                if (IsEggOffer(button.transform))
+                {
+                    SetPriceText(button.transform, DouQuquPlayerDataService.EggShopPrice.ToString());
+                    button.onClick.AddListener(BuyEggs);
+                }
+                else
+                {
+                    button.onClick.AddListener(() => ShowToast("兑换即将开放"));
+                }
+            }
+        }
+
+        private void BuyEggs()
+        {
+            if (DouQuquPlayerDataService.Eggs >= DouQuquPlayerDataService.EggCap)
+            {
+                ShowToast("虫卵已满");
+                return;
+            }
+            if (!DouQuquPlayerDataService.TryBuyEggs())
+            {
+                ShowToast("金币不足");
+                return;
+            }
+            ShowToast("买到虫卵 +" + DouQuquPlayerDataService.EggShopCount);
+        }
+
+        private void CacheGoldLabel(Transform root)
+        {
+            Transform gold = FindNamed(root, "GoldDisplay");
+            if (gold != null) goldLabel = gold.GetComponentInChildren<TMP_Text>(true);
+            if (goldLabel != null) return;
+            TMP_Text[] labels = root.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                if (labels[i] != null && labels[i].text.IndexOf(',') >= 0)
+                {
+                    goldLabel = labels[i];
+                    return;
+                }
+            }
+        }
+
+        private void RefreshGold()
+        {
+            if (goldLabel == null && pageRoot != null) CacheGoldLabel(pageRoot);
+            if (goldLabel != null)
+                goldLabel.text = DouQuquPlayerDataService.FormatGold(DouQuquPlayerDataService.Gold);
+        }
+
+        private static bool IsPriceButton(Button button)
+        {
+            if (button.gameObject.name.IndexOf("price-button", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            return button.transform.parent != null &&
+                button.transform.parent.name.IndexOf("price-button", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsEggOffer(Transform from)
+        {
+            Transform walk = from;
+            int guard = 0;
+            while (walk != null && guard++ < 8)
+            {
+                TMP_Text[] labels = walk.GetComponentsInChildren<TMP_Text>(true);
+                for (int i = 0; i < labels.Length; i++)
+                {
+                    string text = labels[i] != null ? labels[i].text : "";
+                    if (text.IndexOf("幼虫", System.StringComparison.Ordinal) >= 0 ||
+                        text.IndexOf("虫卵", System.StringComparison.Ordinal) >= 0)
+                        return true;
+                }
+                if (walk.name.IndexOf("Parchment", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    break;
+                walk = walk.parent;
+            }
+            return false;
+        }
+
+        private static void SetPriceText(Transform from, string price)
+        {
+            TMP_Text[] labels = from.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                if (labels[i] == null) continue;
+                string text = labels[i].text ?? "";
+                int n;
+                if (int.TryParse(text.Replace(",", ""), out n) || labels[i].name.IndexOf("38888", System.StringComparison.Ordinal) >= 0)
+                    labels[i].text = price;
             }
         }
 

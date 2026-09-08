@@ -19,8 +19,14 @@ namespace ZqyGameJam.UI.QuquXiangqing
 
         public event System.Action Closed;
         public event System.Action Confirmed;
+        public event System.Action Sold;
 
-        public const int OverlaySortingOrder = 250;
+        private Vector2 sellHome;
+        private Vector2 storeHome;
+        private Vector2 closeHome;
+        private bool actionHomesCaptured;
+
+        public const int OverlaySortingOrder = 400;
         public const string PrefabResourcePath = "Collection/Prefabs/CricketDetail";
 
         /// <summary>实例化详情覆盖层，盖在大厅底栏之上。</summary>
@@ -73,7 +79,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
             if (sellButton != null)
             {
                 sellButton.onClick.RemoveAllListeners();
-                sellButton.onClick.AddListener(() => Debug.Log("蛐蛐详情：出售暂未接入"));
+                sellButton.onClick.AddListener(OnSellClicked);
             }
             if (storeButton != null)
             {
@@ -91,6 +97,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
             if (storeButton != null) storeButton.gameObject.SetActive(true);
             TMP_Text storeLabel = storeButton != null ? storeButton.GetComponentInChildren<TMP_Text>(true) : null;
             if (storeLabel != null) storeLabel.text = matchPick ? "确定" : "收入背包";
+            RelayoutActions();
         }
 
         /// <summary>图鉴只看不操作：隐藏出售和收入背包。</summary>
@@ -99,12 +106,36 @@ namespace ZqyGameJam.UI.QuquXiangqing
             CacheButtons();
             if (sellButton != null) sellButton.gameObject.SetActive(false);
             if (storeButton != null) storeButton.gameObject.SetActive(false);
+            RelayoutActions();
+        }
+
+        /// <summary>合成盘背包里点开：保留出售，不显示收入背包。</summary>
+        public void SetBackpackMode()
+        {
+            CacheButtons();
+            if (sellButton != null) sellButton.gameObject.SetActive(true);
+            if (storeButton != null) storeButton.gameObject.SetActive(false);
+            RelayoutActions();
+        }
+
+        public void SetSellPrice(int gold)
+        {
+            CacheButtons();
+            if (sellButton == null) return;
+            TMP_Text label = sellButton.GetComponentInChildren<TMP_Text>(true);
+            if (label != null) label.text = "售卖 " + gold;
         }
 
         private void OnStoreClicked()
         {
             if (Confirmed != null) Confirmed.Invoke();
             else Debug.Log("蛐蛐详情：收入背包暂未接入");
+        }
+
+        private void OnSellClicked()
+        {
+            if (Sold != null) Sold.Invoke();
+            else Debug.Log("蛐蛐详情：出售暂未接入");
         }
 
         static readonly Color StatNormal = new Color(0.176471f, 0.352941f, 0.152941f, 1f);
@@ -114,6 +145,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
         {
             CacheButtons();
             CacheLabels();
+            BringToFront();
             gameObject.SetActive(true);
             Write(titleText, "◇ " + (string.IsNullOrEmpty(displayName) ? "促织" : displayName) + " ◇");
             Write(nameText, string.IsNullOrEmpty(subtitle) ? (displayName ?? "") : subtitle);
@@ -126,12 +158,59 @@ namespace ZqyGameJam.UI.QuquXiangqing
                 portrait.preserveAspect = true;
             }
             WriteStats(stats, strongStats);
+            RelayoutActions();
+        }
+
+        private void RelayoutActions()
+        {
+            CaptureActionHomes();
+            SetAnchored(sellButton, sellHome);
+            SetAnchored(storeButton, storeHome);
+            SetAnchored(closeButton, closeHome);
+            bool sellOn = sellButton != null && sellButton.gameObject.activeSelf;
+            bool storeOn = storeButton != null && storeButton.gameObject.activeSelf;
+            bool closeOn = closeButton != null && closeButton.gameObject.activeSelf;
+            if (sellOn && !storeOn && closeOn)
+                SetAnchored(closeButton, storeHome);
+        }
+
+        private void CaptureActionHomes()
+        {
+            if (actionHomesCaptured) return;
+            sellHome = ReadAnchored(sellButton);
+            storeHome = ReadAnchored(storeButton);
+            closeHome = ReadAnchored(closeButton);
+            actionHomesCaptured = sellButton != null || storeButton != null || closeButton != null;
+        }
+
+        private static Vector2 ReadAnchored(Button button)
+        {
+            if (button == null) return Vector2.zero;
+            RectTransform rect = button.transform as RectTransform;
+            return rect != null ? rect.anchoredPosition : Vector2.zero;
+        }
+
+        private static void SetAnchored(Button button, Vector2 position)
+        {
+            if (button == null) return;
+            RectTransform rect = button.transform as RectTransform;
+            if (rect != null) rect.anchoredPosition = position;
         }
 
         public void Hide()
         {
             gameObject.SetActive(false);
             Closed?.Invoke();
+        }
+
+        public void BringToFront()
+        {
+            Canvas[] canvases = GetComponentsInChildren<Canvas>(true);
+            for (int i = 0; i < canvases.Length; i++)
+            {
+                canvases[i].overrideSorting = true;
+                canvases[i].sortingOrder = OverlaySortingOrder + i;
+            }
         }
 
         private static void Write(TMP_Text label, string value)

@@ -169,6 +169,12 @@ namespace DouQuqu
             return QualityFactor(quality) * TemperFactor(temperament, stat);
         }
 
+        /// <summary>开局半径倍数 = √重量详情值。</summary>
+        public static float SizeFactor(int quality, int temperament)
+        {
+            return Mathf.Sqrt(StatFactor(quality, temperament, PanelStat.Mass));
+        }
+
         public static string StatDisplay(int quality, int temperament, PanelStat stat)
         {
             return StatFactor(quality, temperament, stat).ToString("0.00");

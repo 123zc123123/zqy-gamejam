@@ -200,6 +200,17 @@ namespace DouQuqu
             return true;
         }
 
+        /// <summary>收走指定精品虫并空出格子。不是精品则无效。</summary>
+        public bool TryTakeFinest(int pieceId)
+        {
+            MergePiece piece = FindById(pieceId);
+            if (piece == null || piece.level < HighestMergeLevel) return false;
+            pieces.Remove(piece);
+            PieceRemoved?.Invoke(piece);
+            BoardChanged?.Invoke();
+            return true;
+        }
+
         /// <summary>收走盘上所有精品虫并空出格子。幼虫、中虫、成虫留下。</summary>
         public List<MergePiece> TakeFinestPieces()
         {

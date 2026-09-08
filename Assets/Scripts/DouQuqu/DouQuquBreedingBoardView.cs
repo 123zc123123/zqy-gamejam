@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -27,9 +28,13 @@ namespace DouQuqu
         private GameObject canvasInstance;
         private Image dragGhost;
         private Text goldText;
+        private Text eggText;
         private Sprite[] phaseSprites;
         private Sprite[] qualitySprites;
         private QuquXiangqingView detailView;
+        private DouQuquMergeBackpackPanel backpackPanel;
+        private int detailPieceId = -1;
+        private string detailBackpackId;
         private int draggingPieceId = -1;
         private int sourceCell = -1;
         private Vector2 dragStartPosition;
@@ -59,6 +64,7 @@ namespace DouQuqu
         private void OnEnable()
         {
             if (board != null) board.BoardChanged += RefreshBoard;
+            DouQuquPlayerDataService.PlayerDataChanged += RefreshEconomyHud;
         }
 
         private void Start()
@@ -77,6 +83,7 @@ namespace DouQuqu
         private void OnDisable()
         {
             if (board != null) board.BoardChanged -= RefreshBoard;
+            DouQuquPlayerDataService.PlayerDataChanged -= RefreshEconomyHud;
         }
 
         /// <summary>棋盘模型按美术 4×5 对齐。</summary>
@@ -240,6 +247,9 @@ namespace DouQuqu
                 for (int i = 0; i < texts.Length; i++)
                     if (texts[i] != null && texts[i].text.IndexOf(',') >= 0) { goldText = texts[i]; break; }
             }
+
+            BindBackpackButton();
+            RefreshEconomyHud();
         }
 
         private void OpenDetail(MergePiece piece)
@@ -247,6 +257,8 @@ namespace DouQuqu
             if (lastDetailFrame == Time.frameCount) return;
             lastDetailFrame = Time.frameCount;
             if (!EnsureDetailView()) return;
+            detailPieceId = piece.id;
+            detailBackpackId = null;
             string rank;
             string title;
             string desc;
@@ -271,7 +283,11 @@ namespace DouQuqu
             }
             Sprite sprite = piece.level >= 4 ? SpriteForQuality(piece.drawA, piece.drawB) : SpriteForLevel(piece.level);
             if (sprite == null) sprite = SpriteForLevel(piece.level);
+            bool finest = piece.level >= 4 && piece.isDrawResult;
             detailView.SetPickMode(false);
+            if (detailView.storeButton != null) detailView.storeButton.gameObject.SetActive(finest);
+            if (detailView.sellButton != null) detailView.sellButton.gameObject.SetActive(finest);
+            if (finest) detailView.SetSellPrice(DouQuquPlayerDataService.SellPrice(piece.drawA));
             detailView.Show(rank, title, desc, sprite, subtitle, stats, strongStats);
         }
 
@@ -281,7 +297,104 @@ namespace DouQuqu
             if (xiangqingPrefab == null)
                 xiangqingPrefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
             detailView = QuquXiangqingView.InstantiateOverlay(xiangqingPrefab);
-            return detailView != null;
+            if (detailView == null) return false;
+            detailView.Confirmed -= StoreDetailPiece;
+            detailView.Confirmed += StoreDetailPiece;
+            detailView.Sold -= SellDetailPiece;
+            detailView.Sold += SellDetailPiece;
+            return true;
+        }
+
+        private void StoreDetailPiece()
+        {
+            MergePiece piece = FindPieceById(detailPieceId);
+            if (piece == null || piece.level < 4 || !piece.isDrawResult) return;
+            int quality = piece.drawA;
+            int temperament = piece.drawB;
+            if (board == null || !board.TryTakeFinest(piece.id)) return;
+            DouQuquPlayerDataService.AddFinestToBackpack(quality, temperament);
+            if (detailView != null) detailView.Hide();
+            RefreshBoard();
+        }
+
+        private void SellDetailPiece()
+        {
+            if (!string.IsNullOrEmpty(detailBackpackId))
+            {
+                CricketBackpackEntry entry = DouQuquPlayerDataService.FindBackpack(detailBackpackId);
+                if (entry == null) return;
+                int price = DouQuquPlayerDataService.SellPrice(entry.quality);
+                if (!DouQuquPlayerDataService.RemoveFromBackpack(detailBackpackId)) return;
+                DouQuquPlayerDataService.AddGold(price);
+                detailBackpackId = null;
+                if (detailView != null) detailView.Hide();
+                if (backpackPanel != null) backpackPanel.Refresh();
+                return;
+            }
+
+            MergePiece piece = FindPieceById(detailPieceId);
+            if (piece == null || piece.level < 4 || !piece.isDrawResult) return;
+            int gold = DouQuquPlayerDataService.SellPrice(piece.drawA);
+            if (board == null || !board.TryTakeFinest(piece.id)) return;
+            DouQuquPlayerDataService.AddGold(gold);
+            if (detailView != null) detailView.Hide();
+            RefreshBoard();
+        }
+
+        private void BindBackpackButton()
+        {
+            if (canvasInstance == null) return;
+            Transform named = FindNamed(canvasInstance.transform, "BackpackButton");
+            if (named == null) named = FindNamed(canvasInstance.transform, "背包");
+            if (named == null) return;
+            HookBackpackClick(named.gameObject);
+            if (named.parent != null && named.parent.name.IndexOf("btn-left", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                HookBackpackClick(named.parent.gameObject);
+        }
+
+        private void HookBackpackClick(GameObject go)
+        {
+            if (go == null) return;
+            Image image = go.GetComponent<Image>();
+            if (image == null) image = go.GetComponentInChildren<Image>(true);
+            if (image != null)
+            {
+                image.raycastTarget = true;
+                if (image.color.a < 0.02f) image.color = new Color(image.color.r, image.color.g, image.color.b, 0.02f);
+            }
+            Graphic[] graphics = go.GetComponentsInChildren<Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+                if (graphics[i] != null) graphics[i].raycastTarget = true;
+            Button bag = go.GetComponent<Button>();
+            if (bag == null) bag = go.AddComponent<Button>();
+            bag.transition = Selectable.Transition.None;
+            bag.interactable = true;
+            if (image != null) bag.targetGraphic = image;
+            bag.onClick.RemoveAllListeners();
+            bag.onClick.AddListener(OpenMergeBackpack);
+        }
+
+        private void OpenMergeBackpack()
+        {
+            if (backpackPanel == null) backpackPanel = gameObject.AddComponent<DouQuquMergeBackpackPanel>();
+            backpackPanel.Show(OpenBackpackCard);
+        }
+
+        private void OpenBackpackCard(CricketBackpackEntry entry)
+        {
+            if (entry == null || !EnsureDetailView()) return;
+            detailPieceId = -1;
+            detailBackpackId = entry.instanceId;
+            detailView.SetBackpackMode();
+            detailView.SetSellPrice(DouQuquPlayerDataService.SellPrice(entry.quality));
+            detailView.Show(
+                DouQuquCricketCatalog.RankLabel(entry.quality, entry.temperament),
+                DouQuquCricketCatalog.CricketName(entry.quality, entry.temperament),
+                DouQuquCricketCatalog.Blurb(entry.temperament),
+                SpriteForQuality(entry.quality, entry.temperament),
+                DouQuquCricketCatalog.TemperamentName(entry.temperament),
+                DouQuquCricketCatalog.PanelStatDisplays(entry.quality, entry.temperament),
+                DouQuquCricketCatalog.PanelStatStrongFlags(entry.temperament));
         }
 
         private int lastSpawnFrame = -1;
@@ -290,11 +403,45 @@ namespace DouQuqu
         {
             if (board == null || lastSpawnFrame == Time.frameCount) return;
             lastSpawnFrame = Time.frameCount;
+            int empty = -1;
             for (int i = 0; i < board.Width * board.Height; i++)
             {
                 if (FindPieceAt(i) != null) continue;
-                board.TrySpawn(i, 1);
-                return;
+                empty = i;
+                break;
+            }
+            if (empty < 0) return;
+            if (!DouQuquPlayerDataService.TrySpendEggs(1)) return;
+            if (!board.TrySpawn(empty, 1))
+                DouQuquPlayerDataService.AddEggs(1);
+        }
+
+        private void RefreshEconomyHud()
+        {
+            if (canvasInstance == null) return;
+            if (goldText == null)
+            {
+                goldText = FindTextByName(canvasInstance.transform, "18,450");
+                if (goldText == null)
+                {
+                    Text[] texts = canvasInstance.GetComponentsInChildren<Text>(true);
+                    for (int i = 0; i < texts.Length; i++)
+                        if (texts[i] != null && texts[i].text.IndexOf(',') >= 0) { goldText = texts[i]; break; }
+                }
+            }
+            if (eggText == null)
+            {
+                Transform eggNode = FindNamed(canvasInstance.transform, "99");
+                if (eggNode != null) eggText = eggNode.GetComponent<Text>();
+            }
+            if (goldText != null) goldText.text = DouQuquPlayerDataService.FormatGold(DouQuquPlayerDataService.Gold);
+            if (eggText != null) eggText.text = DouQuquPlayerDataService.Eggs.ToString();
+            TMP_Text[] tmps = canvasInstance.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < tmps.Length; i++)
+            {
+                if (tmps[i] == null) continue;
+                if (tmps[i].text == "18,450" || (goldText == null && tmps[i].name.IndexOf("Gold", System.StringComparison.OrdinalIgnoreCase) >= 0))
+                    tmps[i].text = DouQuquPlayerDataService.FormatGold(DouQuquPlayerDataService.Gold);
             }
         }
 
@@ -572,6 +719,13 @@ namespace DouQuqu
             {
                 if (texts[i] == null || texts[i].text != label) continue;
                 Button button = texts[i].GetComponentInParent<Button>();
+                if (button != null) return button;
+            }
+            TMP_Text[] tmps = FindObjectsOfType<TMP_Text>();
+            for (int i = 0; i < tmps.Length; i++)
+            {
+                if (tmps[i] == null || tmps[i].text != label) continue;
+                Button button = tmps[i].GetComponentInParent<Button>();
                 if (button != null) return button;
             }
             return null;
