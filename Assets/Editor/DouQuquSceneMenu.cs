@@ -9,6 +9,7 @@ namespace DouQuqu.Editor
     {
         public const string BattlePath = "Assets/Scenes/Demo.unity";
         public const string LobbyPath = "Assets/Scenes/MainMenu.unity";
+        private const string MainMenuPrefabPath = "Assets/Resources/MainMenu/Prefabs/DouQuquMainMenu.prefab";
         private const string MergePrefabPath = "Assets/Resources/Merge/Prefabs/Canvas.prefab";
         private const string BattleEntrancePrefabPath = "Assets/Resources/BattleEntrance/Prefabs/BattleEntrance.prefab";
         private const string HeroSelectionPrefabPath = "Assets/Resources/HeroSelection/Prefabs/FigmaImport_cricket-battle-royale_55_4.prefab";
@@ -23,6 +24,12 @@ namespace DouQuqu.Editor
         public static void OpenLobbyScene()
         {
             OpenScene(LobbyPath);
+        }
+
+        [MenuItem("DouQuqu/Ping MainMenu Prefab")]
+        public static void PingMainMenuPrefab()
+        {
+            PingPrefab(MainMenuPrefabPath, "村子主页");
         }
 
         [MenuItem("DouQuqu/Ping Merge Prefab")]

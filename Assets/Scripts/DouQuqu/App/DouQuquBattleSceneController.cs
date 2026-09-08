@@ -93,7 +93,7 @@ namespace DouQuqu
             resultPanel = panel.gameObject;
             resultText = DouQuquUiFactory.CreateText(panel, "ResultTMP", "对局结束", 52f,
                 new Vector2(0.08f, 0.48f), new Vector2(0.92f, 0.84f), Vector2.zero, Vector2.zero);
-            DouQuquUiFactory.CreateButton(panel, "ReturnButton", "返回选虫", ReturnToHeroSelection,
+            DouQuquUiFactory.CreateButton(panel, "ReturnButton", "返回", ReturnToBattleEntrance,
                 new Vector2(0.20f, 0.16f), new Vector2(0.80f, 0.36f), Vector2.zero, Vector2.zero);
             resultPanel.SetActive(false);
         }
@@ -125,8 +125,7 @@ namespace DouQuqu
                     new Vector2(0.10f, 0.78f), new Vector2(0.90f, 0.90f), Vector2.zero, Vector2.zero);
             }
 
-            DouQuquUiFactory.CreateButton(overlay, "ReturnButton", "返回选虫", ReturnToHeroSelection,
-                new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
+            BindOrCreateReturnButton(overlay);
             resultPanel.SetActive(false);
             return true;
         }
@@ -145,10 +144,38 @@ namespace DouQuqu
             resultPanel.SetActive(true);
         }
 
-        private void ReturnToHeroSelection()
+        private void BindOrCreateReturnButton(RectTransform overlay)
+        {
+            UnityEngine.UI.Button existing = FindReturnButton(overlay);
+            if (existing != null)
+            {
+                existing.onClick.RemoveAllListeners();
+                existing.onClick.AddListener(ReturnToBattleEntrance);
+                return;
+            }
+
+            DouQuquUiFactory.CreateButton(overlay, "ReturnButton", "返回", ReturnToBattleEntrance,
+                new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
+        }
+
+        private static UnityEngine.UI.Button FindReturnButton(Transform root)
+        {
+            if (root == null) return null;
+            Transform[] transforms = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < transforms.Length; i++)
+            {
+                Transform t = transforms[i];
+                if (t.name != "ReturnButton" && t.name != "返回" && t.name != "返回按钮") continue;
+                UnityEngine.UI.Button button = t.GetComponent<UnityEngine.UI.Button>();
+                if (button != null) return button;
+            }
+            return null;
+        }
+
+        private void ReturnToBattleEntrance()
         {
             if (network != null) network.Stop();
-            DouQuquSceneNames.Load(DouQuquSceneNames.HeroSelection);
+            DouQuquSceneNames.Load(DouQuquSceneNames.BattleEntrance);
         }
     }
 }

@@ -32,6 +32,7 @@ namespace DouQuqu
             Bind(menu, "MenuButtonBreeding", DouQuquSceneNames.Merge);
             Bind(menu, "MenuButtonCatalogue", DouQuquSceneNames.Collection);
             Bind(menu, "MenuButtonShop", DouQuquSceneNames.Shop);
+            Bind(menu, "MenuButtonRanking", DouQuquSceneNames.Ranking);
             BindClick(menu, "SideButtonActivity", () => DouQuquLobby.Show(DouQuquLobby.Page.BattleEnter));
 
             Text profileName = FindLabel(menu.transform, "ProfileName");

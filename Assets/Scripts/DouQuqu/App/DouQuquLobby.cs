@@ -17,7 +17,8 @@ namespace DouQuqu
             Collection = 2,
             BattleEnter = 3,
             HeroSelection = 4,
-            Shop = 5
+            Shop = 5,
+            Ranking = 6
         }
 
         public const string MergePrefab = "Merge/Prefabs/Canvas";
@@ -25,6 +26,7 @@ namespace DouQuqu
         public const string BattleEnterPrefab = "BattleEntrance/Prefabs/BattleEntrance";
         public const string HeroSelectionPrefab = "HeroSelection/Prefabs/FigmaImport_cricket-battle-royale_55_4";
         public const string ShopPrefab = "Shop/Prefabs/Shop";
+        public const string RankingPrefab = "Ranking/Prefabs/Ranking";
 
         public static DouQuquLobby Instance { get; private set; }
         public static Page PendingPage { get; private set; }
@@ -32,12 +34,13 @@ namespace DouQuqu
 
         public Page CurrentPage { get; private set; }
 
-        private readonly GameObject[] pages = new GameObject[6];
+        private readonly GameObject[] pages = new GameObject[7];
         private DouQuquBreedingBoardView breedingView;
         private DouQuquCollectionController collection;
         private DouQuquBattleEnterController battleEnter;
         private DouQuquHeroSelectionController heroSelection;
         private DouQuquShopController shop;
+        private DouQuquRankingController ranking;
         private DouQuquBottomNavBar nav;
 
         public static void SetPending(Page page)
@@ -89,6 +92,7 @@ namespace DouQuqu
             if (sceneName == DouQuquSceneNames.BattleEnter) { page = Page.BattleEnter; return true; }
             if (sceneName == DouQuquSceneNames.HeroSelection) { page = Page.HeroSelection; return true; }
             if (sceneName == DouQuquSceneNames.Shop) { page = Page.Shop; return true; }
+            if (sceneName == DouQuquSceneNames.Ranking) { page = Page.Ranking; return true; }
             return false;
         }
 
@@ -108,6 +112,7 @@ namespace DouQuqu
             pages[(int)Page.BattleEnter] = Mount(BattleEnterPrefab, "LobbyPage_BattleEnter");
             pages[(int)Page.HeroSelection] = Mount(HeroSelectionPrefab, "LobbyPage_HeroSelection");
             pages[(int)Page.Shop] = Mount(ShopPrefab, "LobbyPage_Shop");
+            pages[(int)Page.Ranking] = Mount(RankingPrefab, "LobbyPage_Ranking");
             EnsureRuntime();
             EnsureNav();
             Page start = HasPendingPage ? PendingPage : Page.Home;
@@ -192,6 +197,9 @@ namespace DouQuqu
                 case Page.Shop:
                     module = DouQuquBottomNavTab.NavModule.Shop;
                     return true;
+                case Page.Ranking:
+                    module = DouQuquBottomNavTab.NavModule.Ranking;
+                    return true;
                 default:
                     module = DouQuquBottomNavTab.NavModule.Battle;
                     return false;
@@ -252,6 +260,11 @@ namespace DouQuqu
             if (shop == null) shop = gameObject.AddComponent<DouQuquShopController>();
             if (pages[(int)Page.Shop] != null)
                 TryBind("商店", () => shop.BindPage(pages[(int)Page.Shop]));
+
+            ranking = GetComponent<DouQuquRankingController>();
+            if (ranking == null) ranking = gameObject.AddComponent<DouQuquRankingController>();
+            if (pages[(int)Page.Ranking] != null)
+                TryBind("排行榜", () => ranking.BindPage(pages[(int)Page.Ranking]));
         }
 
         private static void TryBind(string pageName, System.Action bind)

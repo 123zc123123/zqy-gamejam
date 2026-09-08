@@ -422,7 +422,7 @@ namespace DouQuqu
                     float cap = DouQuquRules.EffectiveChargeTime(knobs, bug);
                     float speed = DouQuquRules.JumpDeltaV(knobs, bug);
                     float fill = cap > 0.0001f ? Mathf.Clamp01(bug.chargeTime / cap) : 0f;
-                    PlaceChargeArrow(bug.id, bug.charging, speed, fill, knobs, bug.chargeDirection, bug.position, bug.radius, bug.id == 0);
+                    PlaceChargeArrow(bug.id, bug.charging, speed, fill, knobs, bug.chargeDirection, bug.position, bug.radius, DouQuquGroundMarker.ColorForPlayer(bug.id));
                     if (bug.charging) seenIds.Add(bug.id);
                 }
             }
@@ -433,14 +433,14 @@ namespace DouQuqu
                 float cap = DouQuquRules.BabyChargeTime(knobs);
                 float speed = DouQuquRules.BabyChargeSpeed(knobs, baby);
                 float fill = cap > 0.0001f ? Mathf.Clamp01(baby.chargeTime / cap) : 0f;
-                PlaceChargeArrow(baby.id, baby.charging, speed, fill, knobs, baby.chargeDirection, baby.position, baby.radius, baby.ownerId == 0);
+                PlaceChargeArrow(baby.id, baby.charging, speed, fill, knobs, baby.chargeDirection, baby.position, baby.radius, DouQuquGroundMarker.ColorForPlayer(baby.ownerId));
                 if (baby.charging) seenIds.Add(baby.id);
             }
             foreach (KeyValuePair<int, DouQuquChargeArrow> pair in chargeArrows)
                 if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
         }
 
-        private void PlaceChargeArrow(int id, bool charging, float speed, float fill, MatchKnobs knobs, Vector2 direction, Vector3 position, float radius, bool ally)
+        private void PlaceChargeArrow(int id, bool charging, float speed, float fill, MatchKnobs knobs, Vector2 direction, Vector3 position, float radius, Color playerColor)
         {
             if (!charging)
             {
@@ -451,7 +451,7 @@ namespace DouQuqu
             DouQuquChargeArrow arrow = GetChargeArrow(id);
             if (arrow == null) return;
             float dist = DouQuquRules.JumpRange(knobs, speed);
-            arrow.Apply(true, dist, fill, direction, position + Vector3.up * 0.08f, radius, ally);
+            arrow.Apply(true, dist, fill, direction, position + Vector3.up * 0.08f, radius, playerColor);
         }
 
         private void RefreshGroundMarkers(MatchState state)

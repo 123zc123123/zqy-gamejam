@@ -14,19 +14,13 @@ namespace DouQuqu
         [SerializeField] private Sprite chevronSprite;
         [SerializeField] private SpriteRenderer fill;
         [SerializeField] private SpriteRenderer[] chevrons = new SpriteRenderer[MaxChevrons];
-        [SerializeField] private Color allyFill = new Color(0.141f, 0.667f, 0.580f, 1f);
-        [SerializeField] private Color allyFillFull = new Color(0.251f, 0.878f, 0.769f, 1f);
-        [SerializeField] private Color allyArrow = new Color(0.659f, 1f, 0.894f, 1f);
-        [SerializeField] private Color enemyFill = new Color(0.800f, 0.180f, 0.478f, 1f);
-        [SerializeField] private Color enemyFillFull = new Color(0.957f, 0.345f, 0.643f, 1f);
-        [SerializeField] private Color enemyArrow = new Color(1f, 0.690f, 0.839f, 1f);
         [SerializeField] private float minDistance = 0.05f;
 
         private Sprite fallbackFill;
         private Sprite fallbackChevron;
         private Material spriteMaterial;
 
-        public void Apply(bool charging, float distance, float fillAmount, Vector2 direction, Vector3 origin, float radius, bool ally = true)
+        public void Apply(bool charging, float distance, float fillAmount, Vector2 direction, Vector3 origin, float radius, Color playerColor)
         {
             EnsureReady();
             Sprite bandSprite = UsableSprite(fillSprite, true);
@@ -44,8 +38,8 @@ namespace DouQuqu
             bool full = fillAmount >= 0.98f;
             float halfW = Mathf.Max(0.35f, radius);
             float peak = full ? 0.78f : 0.42f + fillAmount * 0.32f;
-            Color band = full ? (ally ? allyFillFull : enemyFillFull) : (ally ? allyFill : enemyFill);
-            Color arrow = ally ? allyArrow : enemyArrow;
+            Color band = ChargeBand(playerColor, full);
+            Color arrow = ChargeMark(playerColor);
             LayoutGroundSprite(fill, bandSprite, new Vector3(0f, 0.04f, 0f), new Vector2(halfW * 2f, distance), new Color(band.r, band.g, band.b, peak), 24);
 
             Sprite mark = UsableSprite(chevronSprite, false);
@@ -201,6 +195,28 @@ namespace DouQuqu
             if (t < 0.16f) return t / 0.16f;
             if (t > 0.84f) return (1f - t) / 0.16f;
             return 1f;
+        }
+
+        /// <summary>色带跟玩家色同色相；满蓄再提亮一档，暗槽位抬到能看清。</summary>
+        private static Color ChargeBand(Color player, bool full)
+        {
+            float h, s, v;
+            Color.RGBToHSV(player, out h, out s, out v);
+            v = Mathf.Clamp(Mathf.Max(v, 0.52f) + (full ? 0.18f : 0f), 0f, 1f);
+            s = Mathf.Clamp(s, 0.4f, 0.95f);
+            Color color = Color.HSVToRGB(h, s, v);
+            color.a = 1f;
+            return color;
+        }
+
+        /// <summary>箭头比色带更浅，仍保持该玩家的色相。</summary>
+        private static Color ChargeMark(Color player)
+        {
+            float h, s, v;
+            Color.RGBToHSV(player, out h, out s, out v);
+            Color color = Color.HSVToRGB(h, Mathf.Clamp(s * 0.45f, 0.15f, 0.7f), 1f);
+            color.a = 1f;
+            return color;
         }
     }
 }

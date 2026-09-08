@@ -189,6 +189,9 @@ namespace DouQuqu
                 case DouQuquBottomNavTab.NavModule.Shop:
                     Go(DouQuquSceneNames.Shop);
                     return;
+                case DouQuquBottomNavTab.NavModule.Ranking:
+                    Go(DouQuquSceneNames.Ranking);
+                    return;
                 default:
                     ShowComingSoon(title);
                     return;

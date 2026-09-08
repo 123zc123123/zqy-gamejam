@@ -15,6 +15,7 @@ namespace DouQuqu
         public const string BattleEntrance = "Battle_Enter";
         public const string BattleEnter = BattleEntrance;
         public const string Shop = "Shop";
+        public const string Ranking = "Ranking";
 
         /// <summary>大厅页切换 Prefab；登录 / 对局仍 LoadScene(Single)。</summary>
         public static void Load(string sceneName)

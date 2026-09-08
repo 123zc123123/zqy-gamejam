@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 119c1bd3601648f28a252a6030e067b6, type: 3}
   m_Name: UnityFigmaBridgeSettings
   m_EditorClassIdentifier: 
-  DocumentUrl: https://www.figma.com/design/5jALrfLrmLV0NIOxaQURCu/dou-ququ?node-id=10-6
+  DocumentUrl: https://www.figma.com/design/5jALrfLrmLV0NIOxaQURCu/dou-ququ?node-id=220-994
   BuildPrototypeFlow: 0
   RunTimeAssetsScenePath: 
   EnableAutoLayout: 0
@@ -391,12 +391,24 @@ MonoBehaviour:
     PageId: 0:1
     NodeType: COMPONENT
     Selected: 0
+  - Name: avatar
+    NodeId: 165:3
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
+    Selected: 0
+  - Name: rank-badge
+    NodeId: 165:87
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT_SET
+    Selected: 0
   - Name: cricket-battle-royale
     NodeId: 55:4
     PageName: Page 2
     PageId: 241:2682
     NodeType: FRAME
-    Selected: 1
+    Selected: 0
   - Name: cricket-collection
     NodeId: 10:6
     PageName: Page 2
@@ -420,6 +432,12 @@ MonoBehaviour:
     PageName: Page 2
     PageId: 241:2682
     NodeType: FRAME
+    Selected: 1
+  - Name: player-row
+    NodeId: 261:1381
+    PageName: Page 2
+    PageId: 241:2682
+    NodeType: COMPONENT
     Selected: 0
   - Name: renwu
     NodeId: 217:333
