@@ -334,6 +334,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   padding: 1.6
   lockPortrait: 1
+  fillView: 0
 --- !u!1 &586543595
 GameObject:
   m_ObjectHideFlags: 0

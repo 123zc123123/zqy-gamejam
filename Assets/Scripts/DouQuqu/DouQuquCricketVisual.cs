@@ -5,7 +5,7 @@ namespace DouQuqu
     /// <summary>
     /// 局内蛐蛐表现：根节点只负责朝向和缩放。
     /// 主体（头 / 胸腹 / 腿）共用描边 shader，stencil 合成一圈外轮廓。
-    /// 触角不描边。尾刺目前画在 chest&body 上，先跟身体一起描。
+    /// 触角、尾刺不描边。
     /// </summary>
     public sealed class DouQuquCricketVisual : MonoBehaviour
     {
@@ -146,7 +146,7 @@ namespace DouQuqu
 
         public static bool WritesOutline(string partName)
         {
-            return !IsAntenna(partName);
+            return !IsAntenna(partName) && !IsTail(partName);
         }
 
         public static bool IsBody(string partName)
@@ -160,6 +160,14 @@ namespace DouQuqu
                 || partName == "chujiao-l"
                 || partName == "chujiao-r"
                 || partName.StartsWith("chujiao");
+        }
+
+        public static bool IsTail(string partName)
+        {
+            return partName == "weiba"
+                || partName == "weiba-l"
+                || partName == "weiba-r"
+                || partName.StartsWith("weiba");
         }
     }
 }

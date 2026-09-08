@@ -1,25 +1,28 @@
-Photoshop / PSB layer names must match Default exactly (case, punctuation, count).
+Photoshop / PSB layer names must match 1-1.psb exactly (case, punctuation, count).
 New skins change pixels only. Do not rename, merge, flatten, or add/remove layers.
+Id is <quality>-<personality>, e.g. 1-1, 1-2.
 
 chest&body
-head
-chujiao-l
 chujiao-r
-legs-1-1
-legs-1-2
-legs-1-3
-legs-2-1
-legs-2-2
-legs-2-3
+chujiao-l
+head
+legs-3-3
 legs-3-1
 legs-3-2
-legs-3-3
-legs-4-1
-legs-4-2
-legs-4-3
-legs-5-1
-legs-5-2
-legs-5-3
+legs-2-3
+legs-2-2
+legs-2-1
+legs-1-3
+legs-1-2
+legs-1-1
+legs-6-3
 legs-6-1
 legs-6-2
-legs-6-3
+legs-5-3
+legs-5-2
+legs-5-1
+legs-4-3
+legs-4-2
+legs-4-1
+weiba-r
+weiba-l

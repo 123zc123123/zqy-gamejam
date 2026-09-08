@@ -15,7 +15,7 @@ namespace DouQuqu.Editor
     /// </summary>
     public static class DouQuquCricketSkeletalBuilder
     {
-        public const string PsbPath = "Assets/Art/Characters/Skins/defaultCrickets.psb";
+        public const string PsbPath = "Assets/Art/Characters/Skins/1-1.psb";
         public const string LayerNamesPath = "Assets/Art/Characters/Skins/LAYER_NAMES.txt";
         public const string RigFolder = "Assets/Art/Characters/Rig";
         public const string SkeletonPath = "Assets/Art/Characters/Rig/CricketSkeleton.asset";
@@ -46,7 +46,7 @@ namespace DouQuqu.Editor
             EnsureFolders();
             if (!ExtractSharedSkeleton())
             {
-                Debug.LogError("[DouQuqu] 无法从 defaultCrickets.psb 抽出 Skeleton Asset。");
+                Debug.LogError("[DouQuqu] 无法从 1-1.psb 抽出 Skeleton Asset。");
                 return;
             }
 
@@ -160,7 +160,7 @@ namespace DouQuqu.Editor
             for (int i = 0; i < lines.Length; i++)
             {
                 string line = lines[i].Trim();
-                if (line.Length == 0 || line.StartsWith("#") || line.StartsWith("Photoshop") || line.StartsWith("New skins"))
+                if (line.Length == 0 || line.StartsWith("#") || line.StartsWith("Photoshop") || line.StartsWith("New skins") || line.StartsWith("Id is"))
                     continue;
                 names.Add(line);
             }
