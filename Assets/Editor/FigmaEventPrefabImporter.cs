@@ -9,12 +9,10 @@ using UnityEngine.UI;
 
 public static class FigmaEventPrefabImporter
 {
-    const string PrefabFolder = "Assets/FigmaImports/Prefabs";
+    const string PrefabFolder = "Assets/Resources/BattleEntrance/Prefabs/Parts";
     const string ResourcesPrefabFolder = "Assets/Resources/BattleEntrance/Prefabs";
-    const string DerivedFolder = "Assets/FigmaImports/5jALrfLrmLV0NIOxaQURCu/derived";
-    const string EventSliceFolder = "Assets/FigmaImports/5jALrfLrmLV0NIOxaQURCu/10_593/layers";
-    const string MenuPrefabPath = PrefabFolder + "/FigmaImport_下方菜单_205_775.prefab";
-
+    const string DerivedFolder = "Assets/Resources/BattleEntrance/Textures";
+    const string EventSliceFolder = "Assets/Resources/BattleEntrance/Textures";
     static readonly Rect EventBounds = new Rect(2059f, 0f, 1080f, 1920f);
     static readonly Rect RenwuBounds = new Rect(10875f, 36f, 1080f, 1920f);
     static readonly Rect ProgressBounds = new Rect(2273f, 366f, 651f, 110f);
@@ -26,7 +24,6 @@ public static class FigmaEventPrefabImporter
     static readonly Rect MatchCtaBounds = new Rect(2729f, 1380f, 340f, 273f);
     static readonly Rect TeamCtaBounds = new Rect(2200f, 1380f, 340f, 273f);
     static readonly Rect SideButtonBounds = new Rect(2937f, 1175f, 204f, 204f);
-    static readonly Rect MenuBounds = new Rect(2059f, 1720f, 1080f, 200f);
 
     static readonly Rect[] PlayerCardSlots =
     {
@@ -137,10 +134,10 @@ public static class FigmaEventPrefabImporter
                 AssetDatabase.LoadAssetAtPath<GameObject>(matchCtaPath),
                 AssetDatabase.LoadAssetAtPath<GameObject>(teamCtaPath),
                 AssetDatabase.LoadAssetAtPath<GameObject>(sideButtonPath),
-                AssetDatabase.LoadAssetAtPath<GameObject>(MenuPrefabPath),
                 AssetDatabase.LoadAssetAtPath<GameObject>(renwuPath));
-            string pagePath = SavePrefab(page, "FigmaImport_event-face-painting_10_593.prefab");
-            PrefabUtility.SaveAsPrefabAsset(page, ResourcesPrefabFolder + "/BattleEntrance.prefab");
+            page.name = "BattleEntrance";
+            string pagePath = ResourcesPrefabFolder + "/BattleEntrance.prefab";
+            PrefabUtility.SaveAsPrefabAsset(page, pagePath);
 
             Selection.activeGameObject = page;
             EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<GameObject>(pagePath));
@@ -328,7 +325,6 @@ public static class FigmaEventPrefabImporter
         GameObject matchCtaPrefab,
         GameObject teamCtaPrefab,
         GameObject sideButtonPrefab,
-        GameObject menuPrefab,
         GameObject renwuPrefab)
     {
         Transform existing = canvas.Find("FigmaImport_event-face-painting_10_593");
@@ -367,11 +363,6 @@ public static class FigmaEventPrefabImporter
         SetChildText(ready, "开始匹配", "准备");
         EnableRaycast(ready);
         ready.SetActive(false);
-
-        if (menuPrefab != null)
-        {
-            InstantiatePrefab(menuPrefab, root.transform, EventBounds, MenuBounds, "下方菜单", "205:775", "COMPONENT");
-        }
 
         GameObject popup = CreateBoundObject("Popup_renwu", root.transform, EventBounds, EventBounds, "217:333", "FRAME");
         popup.SetActive(false);
@@ -480,7 +471,7 @@ public static class FigmaEventPrefabImporter
     {
         GameObject go = CreateBoundObject(name, parent, parentBounds, nodeBounds, nodeId, "TEXT");
         TextMeshProUGUI text = go.AddComponent<TextMeshProUGUI>();
-        FigmaFontMappingAsset mapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>("Assets/FigmaImports/FigmaFontMapping.asset");
+        FigmaFontMappingAsset mapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>("Assets/Editor/FigmaFontMapping.asset");
         if (mapping != null && mapping.DefaultFont != null) text.font = mapping.DefaultFont;
         text.text = characters;
         text.fontSize = fontSize;

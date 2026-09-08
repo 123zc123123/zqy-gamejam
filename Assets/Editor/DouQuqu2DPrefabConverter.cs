@@ -28,7 +28,6 @@ namespace DouQuqu.Editor
 
         private static readonly PrefabEntry[] Entries =
         {
-            new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Cricket.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Cricket.svg", true, 20),
             new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Baby.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Baby.svg", true, 18),
             new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Egg.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Egg.svg", true, 10),
             new PrefabEntry("Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Nest.prefab", "Assets/Resources/Battle/Entities/Textures/DouQuqu_Nest.svg", false, 5),

@@ -31,12 +31,12 @@ BreedingBoard                  页面壳 1080×1920
     ├── 棋盘 Board             4×5 共 20 格
     │   ├── 棋盘底 BoardBase
     │   └── Cell 1 … Cell 20   同一份格子预制体的 20 个实例，左上到右下，行优先
-    └── BottomEventCarousel    底栏（返回 + 可横滑的六个功能入口）
+    └── BottomEventCarousel    底栏（返回 + 可横滑的功能入口）
         ├── BackIcon           返回主界面
         └── TabViewport        RectMask2D 蒙版，宽度 = 原先三个页签总宽 780
             └── TabContent     横滑内容
                 ├── BattleTab / BreedingTab / RegistryTab
-                └── RankingTab / ShopTab / AcademyTab
+                └── RankingTab / ShopTab
 ```
 
 格子编号：`Cell 1` 左上，`Cell 4` 右上，`Cell 17` 左下，`Cell 20` 右下。程序按这个编号对 `DouQuquMergeBoard` 的 0–19。场景对象名带空格，共用 `Prefabs/Parts/Cell.prefab`。

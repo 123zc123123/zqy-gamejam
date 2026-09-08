@@ -4,7 +4,7 @@ using UnityEngine.UI;
 namespace DouQuqu
 {
     /// <summary>
-    /// 底栏六个功能入口共用一份预制体。实例只改模块、显示名和 icon 路径。
+    /// 底栏功能入口共用一份预制体。实例只改模块、显示名和 icon 路径。
     /// </summary>
     [ExecuteAlways]
     public sealed class DouQuquBottomNavTab : MonoBehaviour
@@ -19,25 +19,39 @@ namespace DouQuqu
             Academy = 5
         }
 
+        private static readonly Color IdleBg = new Color(0.384f, 0.380f, 0.20f, 1f);
+        private static readonly Color IdleText = new Color(0.898f, 0.768f, 0.561f, 1f);
+        private static readonly Color IdleOutline = new Color(0.341f, 0.36f, 0.09f, 1f);
+        private static readonly Color SelectedBg = new Color(0.80f, 0.62f, 0.28f, 1f);
+        private static readonly Color SelectedText = new Color(0.22f, 0.13f, 0.07f, 1f);
+        private static readonly Color SelectedOutline = new Color(0.62f, 0.45f, 0.16f, 1f);
+
         [SerializeField] private NavModule module;
         [SerializeField] private string displayName;
         [SerializeField] private string iconPath;
         [SerializeField] private Image icon;
         [SerializeField] private Text label;
 
+        private Image background;
+        private Outline outline;
+        private bool selected;
+
         public NavModule ModuleId => module;
         public string DisplayName => displayName;
         public string IconPath => iconPath;
         public Button Button => GetComponent<Button>();
+        public bool IsSelected => selected;
 
         private void Awake()
         {
             ApplyVisuals();
+            ApplySelectedColors();
         }
 
         private void OnValidate()
         {
             ApplyVisuals();
+            ApplySelectedColors();
         }
 
         public void Configure(NavModule moduleId, string name, string path)
@@ -46,9 +60,27 @@ namespace DouQuqu
             displayName = name;
             iconPath = path ?? "";
             ApplyVisuals();
+            ApplySelectedColors();
+        }
+
+        public void SetSelected(bool on)
+        {
+            selected = on;
+            CacheParts();
+            ApplySelectedColors();
         }
 
         public void ApplyVisuals()
+        {
+            CacheParts();
+
+            if (label != null && !string.IsNullOrEmpty(displayName))
+                label.text = displayName;
+
+            ApplyIcon();
+        }
+
+        private void CacheParts()
         {
             if (label == null)
             {
@@ -64,10 +96,19 @@ namespace DouQuqu
                 if (found != null) icon = found.GetComponent<Image>();
             }
 
-            if (label != null && !string.IsNullOrEmpty(displayName))
-                label.text = displayName;
+            if (background == null) background = GetComponent<Image>();
+            if (outline == null) outline = GetComponent<Outline>();
+        }
 
-            ApplyIcon();
+        private void ApplySelectedColors()
+        {
+            CacheParts();
+            if (background != null)
+                background.color = selected ? SelectedBg : IdleBg;
+            if (label != null)
+                label.color = selected ? SelectedText : IdleText;
+            if (outline != null)
+                outline.effectColor = selected ? SelectedOutline : IdleOutline;
         }
 
         private void ApplyIcon()

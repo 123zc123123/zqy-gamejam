@@ -17,7 +17,7 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
         private const string Parts = Prefabs + "/Parts";
         private const string Textures = Root + "/Textures/Figma";
         private const string Scripts = "Assets/Game/UI/QuquXiangqing/Scripts";
-        private const string PagePath = Prefabs + "/详情页.prefab";
+        private const string PagePath = Prefabs + "/CricketDetail.prefab";
         private const string CanvasPath = Prefabs + "/Canvas.prefab";
         private const string ScenePath = "Assets/Scenes/Preview/ququxiangqing.unity";
         private const string ExportPath = Textures + "/QuquXiangqing_10_527.png";
@@ -52,8 +52,7 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
             GameObject actions = SaveActionButtons();
             GameObject overlay = SaveInteractionOverlay();
 
-            GameObject canvas = BuildCanvas(background, header, portrait, nameTag, stats, actions, overlay);
-            GameObject root = BuildPage(canvas);
+            GameObject root = BuildCanvas(background, header, portrait, nameTag, stats, actions, overlay);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -74,7 +73,7 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
 
         private static GameObject BuildCanvas(GameObject background, GameObject header, GameObject portrait, GameObject nameTag, GameObject stats, GameObject actions, GameObject overlay)
         {
-            GameObject canvasObject = new GameObject("Canvas");
+            GameObject canvasObject = new GameObject("CricketDetail");
             Canvas canvas = canvasObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
@@ -91,18 +90,11 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
             // Portrait/name/stats are retained as reusable prefabs; the exported page already contains them.
             AddNested(canvasObject.transform, actions, Vector2.zero);
             AddNested(canvasObject.transform, overlay, Vector2.zero);
-            return SavePrefab(canvasObject, CanvasPath);
-        }
-
-        private static GameObject BuildPage(GameObject canvas)
-        {
-            GameObject page = BuildEmpty("详情页", new Vector2(972, 1336), Vector2.zero);
-            QuquXiangqingView view = page.AddComponent<QuquXiangqingView>();
-            GameObject canvasInstance = AddNested(page.transform, canvas, Vector2.zero);
-            view.sellButton = FindButton(canvasInstance.transform, "btn-售卖");
-            view.storeButton = FindButton(canvasInstance.transform, "btn-收入背包");
-            view.closeButton = FindButton(canvasInstance.transform, "btn-关闭");
-            return SavePrefab(page, PagePath);
+            QuquXiangqingView view = canvasObject.AddComponent<QuquXiangqingView>();
+            view.sellButton = FindButton(canvasObject.transform, "btn-售卖");
+            view.storeButton = FindButton(canvasObject.transform, "btn-收入背包");
+            view.closeButton = FindButton(canvasObject.transform, "btn-关闭");
+            return SavePrefab(canvasObject, PagePath);
         }
 
         private static GameObject SaveActionButtons()

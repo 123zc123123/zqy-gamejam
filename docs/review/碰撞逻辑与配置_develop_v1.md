@@ -663,4 +663,4 @@ v1 的 `jumpT` / `hitT` 在此版不存在。当前面板若还留着这两颗�
 - 本篇可调配置 + [prototype-v5/defaults.js](../斗蛐蛐原型/prototype-v5/defaults.js)
 - 上一版对照：[develop_v0.2](碰撞逻辑与配置_develop_v0.2.md)
 - 行为参考：[prototype-v5](../斗蛐蛐原型/prototype-v5/)
-- 不是本系统：[交互逻辑](交互逻辑_develop_v0.md)、[道具系统](道具系统_develop_v0.md)、[对局模式](对局模式_develop_v0.md)
+- 不是本系统：[交互逻辑](交互逻辑_develop_v0.md)、[道具系统](道具系统_develop_v0.md)、[对局匹配交互逻辑](对局匹配交互逻辑_develop_v0.md)

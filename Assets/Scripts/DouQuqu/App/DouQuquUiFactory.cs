@@ -159,8 +159,6 @@ namespace DouQuqu
             // TMP 默认 LiberationSans 不含中文，先取它会把中文变成方框。
             runtimeFontAsset = Resources.Load<TMP_FontAsset>("Fonts/DouQuquChinese SDF");
             if (runtimeFontAsset == null)
-                runtimeFontAsset = Resources.Load<TMP_FontAsset>("Fonts/NotoSansSC-VF SDF");
-            if (runtimeFontAsset == null)
                 runtimeFontAsset = TMP_Settings.defaultFontAsset;
 
             if (runtimeFontAsset == null)

@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>各功能页共用底栏：返回 + 可横滑的六个功能入口。未实装的模块弹出即将开放。</summary>
+    /// <summary>功能页共用底栏：返回 + 可横滑入口。村子主页不挂这份栏。未实装的模块弹出即将开放。</summary>
     public sealed class DouQuquBottomNavBar : MonoBehaviour
     {
         private const string CommonPrefabPath = "Common/Prefabs/BottomEventCarousel";
@@ -70,6 +70,14 @@ namespace DouQuqu
 
         private void Start()
         {
+            DouQuquBottomNavTab[] tabs = GetComponentsInChildren<DouQuquBottomNavTab>(true);
+            for (int i = 0; i < tabs.Length; i++)
+            {
+                if (!tabs[i].IsSelected) continue;
+                EnsureTabVisible(tabs[i].GetComponent<RectTransform>());
+                return;
+            }
+
             ResetScroll();
         }
 
@@ -105,6 +113,64 @@ namespace DouQuqu
                 string title = string.IsNullOrEmpty(tab.DisplayName) ? tab.gameObject.name : tab.DisplayName;
                 button.onClick.AddListener(() => OnTabClicked(module, title));
             }
+        }
+
+        public void Highlight(DouQuquBottomNavTab.NavModule current, bool hasCurrent)
+        {
+            DouQuquBottomNavTab[] tabs = GetComponentsInChildren<DouQuquBottomNavTab>(true);
+            DouQuquBottomNavTab selected = null;
+            for (int i = 0; i < tabs.Length; i++)
+            {
+                DouQuquBottomNavTab tab = tabs[i];
+                bool on = hasCurrent && tab.ModuleId == current;
+                tab.SetSelected(on);
+                if (on) selected = tab;
+            }
+
+            if (selected != null)
+                EnsureTabVisible(selected.GetComponent<RectTransform>());
+        }
+
+        public void HighlightNone()
+        {
+            Highlight(DouQuquBottomNavTab.NavModule.Battle, false);
+        }
+
+        private void EnsureTabVisible(RectTransform tab)
+        {
+            if (tab == null) return;
+            ScrollRect scroll = GetComponentInChildren<ScrollRect>(true);
+            if (scroll == null || scroll.content == null) return;
+
+            Canvas.ForceUpdateCanvases();
+            RectTransform viewport = scroll.viewport != null ? scroll.viewport : scroll.transform as RectTransform;
+            if (viewport == null) return;
+
+            float viewW = viewport.rect.width;
+            float contentW = scroll.content.rect.width;
+            if (contentW <= viewW + 1f)
+            {
+                scroll.horizontalNormalizedPosition = 0f;
+                return;
+            }
+
+            Vector3[] tabCorners = new Vector3[4];
+            Vector3[] viewCorners = new Vector3[4];
+            tab.GetWorldCorners(tabCorners);
+            viewport.GetWorldCorners(viewCorners);
+            float tabLeft = scroll.content.InverseTransformPoint(tabCorners[0]).x;
+            float tabRight = scroll.content.InverseTransformPoint(tabCorners[2]).x;
+            float viewLeft = scroll.content.InverseTransformPoint(viewCorners[0]).x;
+            float viewRight = scroll.content.InverseTransformPoint(viewCorners[2]).x;
+
+            float shift = 0f;
+            if (tabLeft < viewLeft) shift = tabLeft - viewLeft;
+            else if (tabRight > viewRight) shift = tabRight - viewRight;
+            if (Mathf.Abs(shift) < 1f) return;
+
+            float maxScroll = contentW - viewW;
+            float next = Mathf.Clamp(scroll.horizontalNormalizedPosition * maxScroll + shift, 0f, maxScroll);
+            scroll.horizontalNormalizedPosition = next / maxScroll;
         }
 
         private void OnTabClicked(DouQuquBottomNavTab.NavModule module, string title)

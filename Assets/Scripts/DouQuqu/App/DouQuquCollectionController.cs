@@ -1,18 +1,30 @@
 using System.Collections.Generic;
-using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
+using ZqyGameJam.UI.QuquXiangqing;
 
 namespace DouQuqu
 {
-    /// <summary>图鉴页：绑 cricket-collection Prefab，把收集数写到「收集总数」。</summary>
+    /// <summary>图鉴页：绑 collection Prefab，点卡片弹出详情。</summary>
     public sealed class DouQuquCollectionController : MonoBehaviour
     {
         private const int CatalogSize = 16;
 
-        private TMP_Text collectionText;
         private TMP_Text countText;
         private bool bound;
+        private readonly CardSlot[] cards = new CardSlot[CatalogSize];
+        private Sprite[] qualitySprites;
+        private GameObject xiangqingPrefab;
+        private QuquXiangqingView detailView;
+
+        private sealed class CardSlot
+        {
+            public int quality;
+            public int temperament;
+            public CanvasGroup group;
+            public Button button;
+        }
 
         public void BindPage(GameObject pageRoot)
         {
@@ -20,7 +32,10 @@ namespace DouQuqu
             bound = true;
             DouQuquBottomNavBar.SuppressEmbedded(pageRoot.transform);
             countText = FindCountLabel(pageRoot.transform);
-            collectionText = FindListLabel(pageRoot.transform);
+            BindCards(pageRoot.transform);
+            LoadQualitySprites();
+            if (xiangqingPrefab == null)
+                xiangqingPrefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
             RefreshCollection();
         }
 
@@ -48,18 +63,112 @@ namespace DouQuqu
                 new Vector2(0.16f, 0.18f), new Vector2(0.84f, 0.92f), Vector2.zero, Vector2.zero);
             DouQuquUiFactory.CreateText(panel, "Title", "蟋蟀图鉴", 58f,
                 new Vector2(0.08f, 0.84f), new Vector2(0.92f, 0.96f), Vector2.zero, Vector2.zero);
-            collectionText = DouQuquUiFactory.CreateText(panel, "CollectionList", string.Empty, 32f,
-                new Vector2(0.10f, 0.08f), new Vector2(0.90f, 0.82f), Vector2.zero, Vector2.zero,
-                TextAlignmentOptions.TopLeft);
             DouQuquBottomNavBar.EnsureOn(root);
         }
 
-        private static TMP_Text FindListLabel(Transform root)
+        private void BindCards(Transform root)
         {
-            Transform found = FindNamed(root, "CollectionList");
-            if (found == null) found = FindNamed(root, "CatalogList");
-            if (found == null) return null;
-            return found.GetComponent<TMP_Text>();
+            List<Transform> found = new List<Transform>();
+            CollectNamed(root, "CricketCard", found);
+            int count = Mathf.Min(CatalogSize, found.Count);
+            for (int i = 0; i < count; i++)
+            {
+                int quality = i / 4 + 1;
+                int temperament = i % 4 + 1;
+                cards[i] = MakeSlot(found[i].gameObject, quality, temperament);
+            }
+        }
+
+        private CardSlot MakeSlot(GameObject root, int quality, int temperament)
+        {
+            CanvasGroup group = root.GetComponent<CanvasGroup>();
+            if (group == null) group = root.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = true;
+            group.interactable = true;
+
+            Image hit = root.GetComponent<Image>();
+            if (hit == null) hit = root.AddComponent<Image>();
+            hit.color = new Color(1f, 1f, 1f, 0.01f);
+            hit.raycastTarget = true;
+
+            Button button = root.GetComponent<Button>();
+            if (button == null) button = root.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = hit;
+            button.onClick.RemoveAllListeners();
+            int capturedQuality = quality;
+            int capturedTemperament = temperament;
+            button.onClick.AddListener(() => OpenDetail(capturedQuality, capturedTemperament));
+
+            return new CardSlot
+            {
+                quality = quality,
+                temperament = temperament,
+                group = group,
+                button = button
+            };
+        }
+
+        private void OpenDetail(int quality, int temperament)
+        {
+            if (!EnsureDetailView()) return;
+            detailView.SetCatalogMode();
+            detailView.Show(
+                DouQuquCricketCatalog.QualityName(quality),
+                DouQuquCricketCatalog.CricketName(quality, temperament),
+                DouQuquCricketCatalog.Blurb(temperament),
+                SpriteFor(quality, temperament),
+                DouQuquCricketCatalog.TemperamentName(temperament),
+                DouQuquCricketCatalog.PanelStatDisplays(quality, temperament),
+                DouQuquCricketCatalog.PanelStatStrongFlags(temperament));
+        }
+
+        private bool EnsureDetailView()
+        {
+            if (detailView != null) return true;
+            if (xiangqingPrefab == null)
+                xiangqingPrefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
+            detailView = QuquXiangqingView.InstantiateOverlay(xiangqingPrefab);
+            return detailView != null;
+        }
+
+        private void LoadQualitySprites()
+        {
+            if (qualitySprites != null) return;
+            qualitySprites = new Sprite[CatalogSize];
+            for (int quality = 1; quality <= 4; quality++)
+            {
+                for (int temperament = 1; temperament <= 4; temperament++)
+                {
+                    qualitySprites[(quality - 1) * 4 + (temperament - 1)] = LoadSprite(
+                        "Merge/MergeQualities/quality-" + quality + "-" + temperament);
+                }
+            }
+        }
+
+        private Sprite SpriteFor(int quality, int temperament)
+        {
+            int index = (Mathf.Clamp(quality, 1, 4) - 1) * 4 + (Mathf.Clamp(temperament, 1, 4) - 1);
+            if (qualitySprites != null && index >= 0 && index < qualitySprites.Length)
+                return qualitySprites[index];
+            return null;
+        }
+
+        private static Sprite LoadSprite(string path)
+        {
+            Sprite sprite = Resources.Load<Sprite>(path);
+            if (sprite != null) return sprite;
+            Texture2D texture = Resources.Load<Texture2D>(path);
+            if (texture == null) return null;
+            return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        private static void CollectNamed(Transform root, string objectName, List<Transform> into)
+        {
+            if (root == null) return;
+            if (root.name == objectName) into.Add(root);
+            for (int i = 0; i < root.childCount; i++)
+                CollectNamed(root.GetChild(i), objectName, into);
         }
 
         private static TMP_Text FindCountLabel(Transform root)
@@ -99,21 +208,25 @@ namespace DouQuqu
             List<CricketCollectionEntry> entries = DouQuquPlayerDataService.GetCollectionSnapshot();
             if (countText != null)
                 countText.text = "收集总数: " + entries.Count + " / " + CatalogSize;
-            if (collectionText == null) return;
-            if (entries.Count == 0)
+            for (int i = 0; i < cards.Length; i++)
             {
-                collectionText.text = "还没有蟋蟀。\n把两只成虫合成精品虫即可收入图鉴。";
-                return;
+                CardSlot slot = cards[i];
+                if (slot == null || slot.group == null) continue;
+                bool owned = HasEntry(entries, slot.quality, slot.temperament);
+                slot.group.alpha = owned ? 1f : 0.42f;
             }
-            StringBuilder builder = new StringBuilder();
+        }
+
+        private static bool HasEntry(List<CricketCollectionEntry> entries, int quality, int temperament)
+        {
+            if (entries == null) return false;
             for (int i = 0; i < entries.Count; i++)
             {
                 CricketCollectionEntry entry = entries[i];
-                builder.Append(DouQuquCricketCatalog.FullName(entry.drawA, entry.drawB))
-                    .Append("　× ").Append(entry.count);
-                if (i < entries.Count - 1) builder.AppendLine();
+                if (entry != null && entry.drawA == quality && entry.drawB == temperament)
+                    return true;
             }
-            collectionText.text = builder.ToString();
+            return false;
         }
     }
 }

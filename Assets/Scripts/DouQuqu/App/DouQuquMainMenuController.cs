@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-using ZqyGameJam.UI.Home;
 
 namespace DouQuqu
 {
@@ -18,46 +17,9 @@ namespace DouQuqu
         private void Start()
         {
             if (!DouQuquPlayerDataService.RequireLogin()) return;
-            BindHomepageView();
             if (TryBindArtMenu()) return;
             if (DouQuquLobby.Instance != null) return;
             BuildLegacyUi();
-        }
-
-        private void BindHomepageView()
-        {
-            CricketHomepageView view = FindObjectOfType<CricketHomepageView>(true);
-            if (view == null) return;
-            view.NavigationRequested -= OnHomepageNav;
-            view.NavigationRequested += OnHomepageNav;
-            view.SetPlayer(DouQuquPlayerDataService.CurrentPlayerName, 0);
-        }
-
-        private static void OnHomepageNav(CricketHomepageView.Destination destination)
-        {
-            switch (destination)
-            {
-                case CricketHomepageView.Destination.Battle:
-                case CricketHomepageView.Destination.Enter:
-                case CricketHomepageView.Destination.Arena:
-                    DouQuquLobby.Show(DouQuquLobby.Page.BattleEnter);
-                    return;
-                case CricketHomepageView.Destination.Collection:
-                    DouQuquLobby.Show(DouQuquLobby.Page.Collection);
-                    return;
-                case CricketHomepageView.Destination.Cage:
-                case CricketHomepageView.Destination.Training:
-                    DouQuquLobby.Show(DouQuquLobby.Page.Merge);
-                    return;
-                case CricketHomepageView.Destination.Festival:
-                    DouQuquLobby.Show(DouQuquLobby.Page.BattleEnter);
-                    return;
-                case CricketHomepageView.Destination.Shop:
-                    DouQuquLobby.Show(DouQuquLobby.Page.Shop);
-                    return;
-                default:
-                    return;
-            }
         }
 
         private bool TryBindArtMenu()
@@ -128,7 +90,7 @@ namespace DouQuqu
                 () => DouQuquSceneNames.Load(DouQuquSceneNames.Merge),
                 new Vector2(0.16f, 0.55f), new Vector2(0.84f, 0.67f), Vector2.zero, Vector2.zero);
             DouQuquUiFactory.CreateButton(panel, "MatchButton", "按钮 2 · 匹配",
-                () => DouQuquSceneNames.Load(DouQuquSceneNames.Matchmaking),
+                () => DouQuquSceneNames.Load(DouQuquSceneNames.BattleEnter),
                 new Vector2(0.16f, 0.38f), new Vector2(0.84f, 0.50f), Vector2.zero, Vector2.zero);
             DouQuquUiFactory.CreateButton(panel, "CollectionButton", "按钮 3 · 图鉴",
                 () => DouQuquSceneNames.Load(DouQuquSceneNames.Collection),

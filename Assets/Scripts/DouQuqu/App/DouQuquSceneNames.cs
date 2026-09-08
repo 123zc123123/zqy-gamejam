@@ -8,7 +8,7 @@ namespace DouQuqu
         public const string Login = "Login";
         public const string MainMenu = "MainMenu";
         public const string Merge = "Merge";
-        public const string Matchmaking = "Battle_Matchmaking";
+        public const string HeroSelection = "HeroSelection";
         public const string Collection = "Collection";
         public const string Battle = "Battle_Main";
         public const string BattleDemo = "Demo";

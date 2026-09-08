@@ -28,7 +28,6 @@ namespace DouQuqu.Editor
         {
             new BodyEntry("Assets/Resources/Battle/Entities/Textures/DouQuqu_QingTou.svg", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_QingTou.prefab", 20),
             new BodyEntry("Assets/Resources/Battle/Entities/Textures/DouQuqu_YouHulu.svg", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_YouHulu.prefab", 20),
-            new BodyEntry("Assets/Resources/Battle/Entities/Textures/DouQuqu_Cricket.svg", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Cricket.prefab", 20),
             new BodyEntry("Assets/Resources/Battle/Entities/Textures/DouQuqu_Baby.svg", "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_Baby.prefab", 18)
         };
 

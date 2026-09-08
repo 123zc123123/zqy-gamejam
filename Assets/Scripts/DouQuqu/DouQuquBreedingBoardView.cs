@@ -49,7 +49,7 @@ namespace DouQuqu
         {
             if (board == null) board = GetComponent<DouQuquMergeBoard>();
             if (canvasPrefab == null) canvasPrefab = Resources.Load<GameObject>("Merge/Prefabs/Canvas");
-            if (xiangqingPrefab == null) xiangqingPrefab = Resources.Load<GameObject>("Collection/Prefabs/详情页");
+            if (xiangqingPrefab == null) xiangqingPrefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
             EnsureEventSystem();
         }
 
@@ -245,43 +245,17 @@ namespace DouQuqu
             }
             Sprite sprite = piece.level >= 4 ? SpriteForQuality(piece.drawA, piece.drawB) : SpriteForLevel(piece.level);
             if (sprite == null) sprite = SpriteForLevel(piece.level);
+            detailView.SetPickMode(false);
             detailView.Show(rank, title, desc, sprite, subtitle, stats, strongStats);
         }
 
         private bool EnsureDetailView()
         {
             if (detailView != null) return true;
-            if (xiangqingPrefab == null) return false;
-            GameObject instance = Instantiate(xiangqingPrefab);
-            instance.name = "蛐蛐详情";
-            instance.transform.localScale = Vector3.one;
-            Canvas[] canvases = instance.GetComponentsInChildren<Canvas>(true);
-            for (int i = 0; i < canvases.Length; i++)
-            {
-                Canvas canvas = canvases[i];
-                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvas.sortingOrder = 80 + i;
-                canvas.enabled = true;
-                RectTransform rect = canvas.GetComponent<RectTransform>();
-                if (rect == null) continue;
-                rect.localScale = Vector3.one;
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = Vector2.zero;
-                rect.offsetMax = Vector2.zero;
-                CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
-                if (scaler == null) scaler = canvas.gameObject.AddComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1080f, 1920f);
-                scaler.matchWidthOrHeight = 1f;
-                if (canvas.GetComponent<GraphicRaycaster>() == null)
-                    canvas.gameObject.AddComponent<GraphicRaycaster>();
-            }
-            detailView = instance.GetComponent<QuquXiangqingView>();
-            if (detailView == null) detailView = instance.GetComponentInChildren<QuquXiangqingView>(true);
-            if (detailView == null) detailView = instance.AddComponent<QuquXiangqingView>();
-            detailView.Closed += () => instance.SetActive(false);
-            return true;
+            if (xiangqingPrefab == null)
+                xiangqingPrefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
+            detailView = QuquXiangqingView.InstantiateOverlay(xiangqingPrefab);
+            return detailView != null;
         }
 
         private int lastSpawnFrame = -1;

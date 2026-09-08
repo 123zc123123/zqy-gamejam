@@ -1,12 +1,11 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using ZqyGameJam.UI.Home;
 
 namespace DouQuqu
 {
     /// <summary>
-    /// 大厅壳：主页 / 育虫 / 图鉴 / 入口 / 匹配 / 商店都是 Prefab 页，只在进出对局时切 Scene。
+    /// 大厅壳：主页 / 育虫 / 图鉴 / 进战 / 选虫 / 商店都是 Prefab 页，只在进出对局时切 Scene。
     /// </summary>
     [DefaultExecutionOrder(-200)]
     public sealed class DouQuquLobby : MonoBehaviour
@@ -17,15 +16,14 @@ namespace DouQuqu
             Merge = 1,
             Collection = 2,
             BattleEnter = 3,
-            Matchmaking = 4,
+            HeroSelection = 4,
             Shop = 5
         }
 
-        public const string HomePrefab = "MainMenu/Home/Prefabs/CricketHomepage";
         public const string MergePrefab = "Merge/Prefabs/Canvas";
-        public const string CollectionPrefab = "Collection/Prefabs/FigmaImport_cricket-collection_10_6";
+        public const string CollectionPrefab = "Collection/Prefabs/collection";
         public const string BattleEnterPrefab = "BattleEntrance/Prefabs/BattleEntrance";
-        public const string MatchmakingPrefab = "Matchmaking/Prefabs/FigmaImport_cricket-battle-royale_55_4";
+        public const string HeroSelectionPrefab = "HeroSelection/Prefabs/FigmaImport_cricket-battle-royale_55_4";
         public const string ShopPrefab = "Shop/Prefabs/Shop";
 
         public static DouQuquLobby Instance { get; private set; }
@@ -38,7 +36,7 @@ namespace DouQuqu
         private DouQuquBreedingBoardView breedingView;
         private DouQuquCollectionController collection;
         private DouQuquBattleEnterController battleEnter;
-        private DouQuquMatchmakingController matchmaking;
+        private DouQuquHeroSelectionController heroSelection;
         private DouQuquShopController shop;
         private DouQuquBottomNavBar nav;
 
@@ -89,7 +87,7 @@ namespace DouQuqu
             if (sceneName == DouQuquSceneNames.Merge) { page = Page.Merge; return true; }
             if (sceneName == DouQuquSceneNames.Collection) { page = Page.Collection; return true; }
             if (sceneName == DouQuquSceneNames.BattleEnter) { page = Page.BattleEnter; return true; }
-            if (sceneName == DouQuquSceneNames.Matchmaking) { page = Page.Matchmaking; return true; }
+            if (sceneName == DouQuquSceneNames.HeroSelection) { page = Page.HeroSelection; return true; }
             if (sceneName == DouQuquSceneNames.Shop) { page = Page.Shop; return true; }
             return false;
         }
@@ -108,7 +106,7 @@ namespace DouQuqu
             pages[(int)Page.Merge] = Mount(MergePrefab, "LobbyPage_Merge");
             pages[(int)Page.Collection] = Mount(CollectionPrefab, "LobbyPage_Collection");
             pages[(int)Page.BattleEnter] = Mount(BattleEnterPrefab, "LobbyPage_BattleEnter");
-            pages[(int)Page.Matchmaking] = Mount(MatchmakingPrefab, "LobbyPage_Matchmaking");
+            pages[(int)Page.HeroSelection] = Mount(HeroSelectionPrefab, "LobbyPage_HeroSelection");
             pages[(int)Page.Shop] = Mount(ShopPrefab, "LobbyPage_Shop");
             EnsureRuntime();
             EnsureNav();
@@ -135,10 +133,13 @@ namespace DouQuqu
                 page = Page.Home;
             }
 
-            if (CurrentPage == Page.Matchmaking && page != Page.Matchmaking && matchmaking != null)
-                matchmaking.CancelMatchmaking();
+            if (CurrentPage == Page.Merge && page != Page.Merge)
+                DouQuquPlayerDataService.CollectFinestFromBoard(GetComponent<DouQuquMergeBoard>());
 
-            if (page != Page.BattleEnter && page != Page.Matchmaking && battleEnter != null && battleEnter.InRoom)
+            if (CurrentPage == Page.HeroSelection && page != Page.HeroSelection && heroSelection != null)
+                heroSelection.CancelSelection();
+
+            if (page != Page.BattleEnter && page != Page.HeroSelection && battleEnter != null && battleEnter.InRoom)
                 battleEnter.LeaveRoomSilent();
 
             CurrentPage = page;
@@ -149,7 +150,9 @@ namespace DouQuqu
 
             if (page == Page.BattleEnter && battleEnter != null)
                 battleEnter.RefreshVisual();
-            SetNavVisible(ShouldShowNav(page));
+            if (page == Page.HeroSelection && heroSelection != null)
+                heroSelection.BeginSession();
+            RefreshNavVisibility();
         }
 
         public void SetNavVisible(bool visible)
@@ -157,9 +160,49 @@ namespace DouQuqu
             if (nav != null) nav.transform.root.gameObject.SetActive(visible);
         }
 
+        public void RefreshNavVisibility()
+        {
+            SetNavVisible(ShouldShowNav(CurrentPage));
+            HighlightNav();
+        }
+
+        private void HighlightNav()
+        {
+            if (nav == null) return;
+            DouQuquBottomNavTab.NavModule module;
+            if (TryMapNav(CurrentPage, out module))
+                nav.Highlight(module, true);
+            else
+                nav.HighlightNone();
+        }
+
+        private static bool TryMapNav(Page page, out DouQuquBottomNavTab.NavModule module)
+        {
+            switch (page)
+            {
+                case Page.BattleEnter:
+                    module = DouQuquBottomNavTab.NavModule.Battle;
+                    return true;
+                case Page.Merge:
+                    module = DouQuquBottomNavTab.NavModule.Breeding;
+                    return true;
+                case Page.Collection:
+                    module = DouQuquBottomNavTab.NavModule.Registry;
+                    return true;
+                case Page.Shop:
+                    module = DouQuquBottomNavTab.NavModule.Shop;
+                    return true;
+                default:
+                    module = DouQuquBottomNavTab.NavModule.Battle;
+                    return false;
+            }
+        }
+
         private bool ShouldShowNav(Page page)
         {
-            if (page == Page.Matchmaking) return false;
+            // 村子主页自己有入口，不挂横滑底栏；其余功能页才显示。
+            if (page == Page.Home) return false;
+            if (page == Page.HeroSelection) return false;
             if (page == Page.BattleEnter && battleEnter != null && battleEnter.InRoom) return false;
             return true;
         }
@@ -167,28 +210,15 @@ namespace DouQuqu
         private void CaptureOrSpawnHome()
         {
             GameObject home = FindNamed("DouQuquMainMenu");
-            if (home != null)
+            if (home == null)
             {
-                Canvas canvas = home.GetComponentInParent<Canvas>();
-                pages[(int)Page.Home] = canvas != null ? canvas.gameObject : home;
+                Debug.LogWarning("[DouQuqu] 大厅缺少村子主页 DouQuquMainMenu");
                 return;
             }
 
-            CricketHomepageView view = FindObjectOfType<CricketHomepageView>(true);
-            if (view != null)
-            {
-                pages[(int)Page.Home] = view.gameObject;
-                return;
-            }
-
-            GameObject existingCanvas = GameObject.Find("Canvas");
-            if (existingCanvas != null)
-            {
-                pages[(int)Page.Home] = existingCanvas;
-                return;
-            }
-
-            pages[(int)Page.Home] = Mount(HomePrefab, "LobbyPage_Home");
+            Canvas canvas = home.GetComponentInParent<Canvas>();
+            pages[(int)Page.Home] = canvas != null ? canvas.gameObject : home;
+            DouQuquBottomNavBar.SuppressEmbedded(pages[(int)Page.Home].transform);
         }
 
         private void EnsureRuntime()
@@ -213,10 +243,10 @@ namespace DouQuqu
             if (pages[(int)Page.BattleEnter] != null)
                 TryBind("进战", () => battleEnter.BindPage(pages[(int)Page.BattleEnter]));
 
-            matchmaking = GetComponent<DouQuquMatchmakingController>();
-            if (matchmaking == null) matchmaking = gameObject.AddComponent<DouQuquMatchmakingController>();
-            if (pages[(int)Page.Matchmaking] != null)
-                TryBind("匹配", () => matchmaking.BindPage(pages[(int)Page.Matchmaking]));
+            heroSelection = GetComponent<DouQuquHeroSelectionController>();
+            if (heroSelection == null) heroSelection = gameObject.AddComponent<DouQuquHeroSelectionController>();
+            if (pages[(int)Page.HeroSelection] != null)
+                TryBind("选虫", () => heroSelection.BindPage(pages[(int)Page.HeroSelection]));
 
             shop = GetComponent<DouQuquShopController>();
             if (shop == null) shop = gameObject.AddComponent<DouQuquShopController>();
@@ -246,6 +276,7 @@ namespace DouQuqu
             }
 
             nav = DouQuquBottomNavBar.EnsureOn(navCanvas.transform);
+            navCanvas.SetActive(false);
         }
 
         private static GameObject Mount(string resourcesPath, string objectName)

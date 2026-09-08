@@ -16,8 +16,8 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
     public static class QuquXiangqingModularFigmaBuilder
     {
         const string Root="Assets/Resources/Collection", Prefabs=Root+"/Prefabs", Parts=Prefabs+"/Parts";
-        const string Textures=Root+"/Textures/Figma", PagePath=Prefabs+"/详情页.prefab";
-        const string CanvasPath=Prefabs+"/Canvas.prefab", ScenePath="Assets/Scenes/Preview/ququxiangqing.unity";
+        const string Textures=Root+"/Textures/Figma", PagePath=Prefabs+"/CricketDetail.prefab";
+        const string ScenePath="Assets/Scenes/Preview/ququxiangqing.unity";
         const string ReferenceExport=Textures+"/QuquXiangqing_10_527.png";
         const string CricketPath=Textures+"/VioletCricketIllustration.png", LinePath=Textures+"/DecorativeLine.svg";
         const string FontPath="Assets/Resources/Fonts/DouQuquChinese SDF.asset";
@@ -38,19 +38,21 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
 
         sealed class Stat
         {
-            public readonly string label,value; public readonly float valueX,valueWidth;
-            public Stat(string l,string v,float x,float w){label=l;value=v;valueX=x;valueWidth=w;}
+            public readonly string label,value;
+            public Stat(string l,string v){label=l;value=v;}
         }
         static readonly Stat[,] Stats={
-            {new Stat("重量","—",384,48),new Stat("抓地力","—",384,48)},
-            {new Stat("蓄力速度","—",360,72),new Stat("蓄力时间上限","—",330,96)},
-            {new Stat("耐力恢复速度","—",330,96),new Stat("耐力上限","—",360,72)}
+            {new Stat("重量","—"),new Stat("抓地力","—")},
+            {new Stat("蓄力速度","—"),new Stat("蓄力时间上限","—")},
+            {new Stat("耐力恢复速度","—"),new Stat("耐力上限","—")}
         };
+        static GameObject statCardPrefab;
 
         [MenuItem("Tools/Cricket UI/Rebuild Ququ Detail (Figma 10:527, Modular)")]
         public static void Build()
         {
             EnsureFolders(); DeleteLegacy(); AssetDatabase.Refresh();
+            statCardPrefab=null;
             font=AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
             rounded=AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
             Sprite cricket=PrepareSprite(CricketPath);
@@ -60,25 +62,35 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
             if(line==null)throw new FileNotFoundException("Missing Figma line SVG",LinePath);
 
             GameObject[] regions={BuildSurface(),BuildOrnateBorder(),BuildHeader(line),BuildPortraitArea(cricket),BuildDescription(),BuildStatsTable(),BuildActions()};
-            GameObject canvas=BuildCanvas(regions);
-            BuildPage(canvas);
+            BuildPage(regions);
             AssetDatabase.SaveAssets(); AssetDatabase.Refresh(); Validate();
             Selection.activeObject=AssetDatabase.LoadAssetAtPath<GameObject>(PagePath);
-            Debug.Log("Rebuilt Figma 10:527: full Canvas is composed from editable nested component prefabs.");
+            Debug.Log("Rebuilt Figma 10:527: CricketDetail is composed from editable nested component prefabs.");
         }
 
         [MenuItem("Tools/Cricket UI/Validate Ququ Detail Prefabs")]
         public static void Validate()
         {
-            GameObject canvas=AssetDatabase.LoadAssetAtPath<GameObject>(CanvasPath);
-            if(canvas==null)throw new InvalidOperationException("Missing Canvas prefab.");
-            if(canvas.transform.childCount!=7)throw new InvalidOperationException("Canvas must have seven top-level Figma region prefabs.");
-            foreach(string dependency in AssetDatabase.GetDependencies(CanvasPath,true))
+            GameObject page=AssetDatabase.LoadAssetAtPath<GameObject>(PagePath);
+            if(page==null)throw new InvalidOperationException("Missing CricketDetail prefab.");
+            if(page.GetComponent<Canvas>()==null)throw new InvalidOperationException("CricketDetail root must have a Canvas.");
+            if(page.GetComponent<QuquXiangqingView>()==null)throw new InvalidOperationException("CricketDetail root must have QuquXiangqingView.");
+            if(page.transform.childCount!=7)throw new InvalidOperationException("CricketDetail must have seven top-level regions.");
+            foreach(string dependency in AssetDatabase.GetDependencies(PagePath,true))
                 if(string.Equals(dependency,ReferenceExport,StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("Canvas must not depend on the full-page PNG.");
-            int count=AssetDatabase.FindAssets("t:Prefab",new[]{Parts}).Length;
-            if(count<50)throw new InvalidOperationException("Expected at least 50 component prefabs; found "+count);
-            Debug.Log("Ququ detail validation passed: "+count+" editable component prefabs, no full-page PNG dependency.");
+                    throw new InvalidOperationException("CricketDetail must not depend on the full-page PNG.");
+            string[] buttons={Parts+"/btn-售卖.prefab",Parts+"/btn-收入背包.prefab",Parts+"/btn-关闭.prefab"};
+            foreach(string button in buttons)
+                if(AssetDatabase.LoadAssetAtPath<GameObject>(button)==null)
+                    throw new InvalidOperationException("Missing action button prefab: "+button);
+            GameObject statCard=AssetDatabase.LoadAssetAtPath<GameObject>(Parts+"/StatCard.prefab");
+            if(statCard==null)throw new InvalidOperationException("Missing generic StatCard prefab.");
+            if(statCard.transform.Find("Label")==null||statCard.transform.Find("Value")==null)
+                throw new InvalidOperationException("StatCard must contain plain Label and Value children.");
+            foreach(Transform child in statCard.transform)
+                if(PrefabUtility.IsAnyPrefabInstanceRoot(child.gameObject))
+                    throw new InvalidOperationException("StatCard children must be plain objects, not nested prefabs: "+child.name);
+            Debug.Log("Ququ detail validation passed: generic StatCard plus action button prefabs.");
         }
 
         static GameObject BuildSurface()
@@ -145,6 +157,7 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
 
         static GameObject BuildStatsTable()
         {
+            GameObject template=EnsureStatCardPrefab();
             GameObject table=Rect("stats-table",new Vector2(876,279),At(56,715,876,279));
             float[] tops={12,67,122,177,232};
             int rowCount=Stats.GetLength(0);
@@ -153,8 +166,8 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
                 GameObject rowObject=Rect("Frame-Row"+(row+1),new Vector2(876,47),Vector2.zero);
                 for(int col=0;col<2;col++)
                 {
-                    GameObject card=BuildStatCard(row*2+col+1,Stats[row,col]);
-                    Nest(rowObject,card,Inside(col==0?0:446,0,430,47,876,47));
+                    GameObject card=Nest(rowObject,template,Inside(col==0?0:446,0,430,47,876,47));
+                    ApplyStatCard(card,Stats[row,col]);
                 }
                 GameObject rowPrefab=SavePart(rowObject,"StatsRow"+(row+1).ToString("00")+".prefab");
                 Nest(table,rowPrefab,Inside(0,tops[row],876,47,876,279));
@@ -162,15 +175,31 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
             return SavePart(table,"StatsTable.prefab");
         }
 
-        static GameObject BuildStatCard(int cardNumber,Stat stat)
+        static GameObject EnsureStatCardPrefab()
         {
-            string n=cardNumber.ToString("00");
-            GameObject label=SavePart(TextNode(stat.label,stat.label,new Vector2(36,27),18,Muted,true),"Stat"+n+"_"+stat.label+"_Label.prefab");
-            GameObject value=SavePart(TextNode(stat.value,stat.value,new Vector2(stat.valueWidth,22),18,Green,true),"Stat"+n+"_"+stat.label+"_Value.prefab");
-            GameObject card=Rect("Frame-"+stat.label,new Vector2(430,47),Vector2.zero);
-            BorderedPanel(card,CardWhite,PaperBorder,1,true).raycastTarget=true;
-            Nest(card,label,Inside(16,10,130,27,430,47)); Nest(card,value,Inside(stat.valueX,12.5f,stat.valueWidth,22,430,47));
-            return SavePart(card,"StatCard"+n+"_"+stat.label+".prefab");
+            if(statCardPrefab!=null)return statCardPrefab;
+            GameObject card=Rect("StatCard",new Vector2(430,47),Vector2.zero);
+            RoundedImage(card,CardWhite,true).raycastTarget=true;
+            GameObject label=TextNode("Label","属性",new Vector2(200,27),18,Muted,true);
+            label.GetComponent<TextMeshProUGUI>().alignment=TextAlignmentOptions.MidlineLeft;
+            label.transform.SetParent(card.transform,false);
+            label.GetComponent<RectTransform>().anchoredPosition=Inside(16,10,200,27,430,47);
+            GameObject value=TextNode("Value","—",new Vector2(96,22),18,Green,true);
+            value.GetComponent<TextMeshProUGUI>().alignment=TextAlignmentOptions.MidlineRight;
+            value.transform.SetParent(card.transform,false);
+            value.GetComponent<RectTransform>().anchoredPosition=Inside(318,12.5f,96,22,430,47);
+            statCardPrefab=SavePart(card,"StatCard.prefab");
+            return statCardPrefab;
+        }
+
+        static void ApplyStatCard(GameObject card,Stat stat)
+        {
+            card.name="Frame-"+stat.label;
+            Transform label=card.transform.Find("Label");
+            Transform value=card.transform.Find("Value");
+            if(label==null||value==null)throw new InvalidOperationException("StatCard missing Label/Value children.");
+            label.GetComponent<TextMeshProUGUI>().text=stat.label;
+            value.GetComponent<TextMeshProUGUI>().text=stat.value;
         }
 
         static GameObject BuildActions()
@@ -196,9 +225,9 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
             return SavePart(go,buttonFile);
         }
 
-        static GameObject BuildCanvas(GameObject[] regions)
+        static void BuildPage(GameObject[] regions)
         {
-            GameObject go=Rect("Canvas",Design,Vector2.zero);
+            GameObject go=Rect("CricketDetail",Design,Vector2.zero);
             Canvas canvas=go.AddComponent<Canvas>(); canvas.renderMode=RenderMode.ScreenSpaceOverlay;
             CanvasScaler scaler=go.AddComponent<CanvasScaler>(); scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution=Design; scaler.screenMatchMode=CanvasScaler.ScreenMatchMode.MatchWidthOrHeight; scaler.matchWidthOrHeight=0;
@@ -206,18 +235,11 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
             RectTransform rect=go.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one;
             rect.offsetMin=Vector2.zero; rect.offsetMax=Vector2.zero;
             foreach(GameObject region in regions)Nest(go,region,region.GetComponent<RectTransform>().anchoredPosition);
-            return Save(go,CanvasPath);
-        }
-
-        static void BuildPage(GameObject canvas)
-        {
-            GameObject page=Rect("详情页",Design,Vector2.zero);
-            GameObject canvasInstance=Nest(page,canvas,Vector2.zero);
-            QuquXiangqingView view=page.AddComponent<QuquXiangqingView>();
-            view.sellButton=FindButton(canvasInstance,"btn-售卖");
-            view.storeButton=FindButton(canvasInstance,"btn-收入背包");
-            view.closeButton=FindButton(canvasInstance,"btn-关闭");
-            Save(page,PagePath);
+            QuquXiangqingView view=go.AddComponent<QuquXiangqingView>();
+            view.sellButton=FindButton(go,"btn-售卖");
+            view.storeButton=FindButton(go,"btn-收入背包");
+            view.closeButton=FindButton(go,"btn-关闭");
+            Save(go,PagePath);
         }
 
         static void BuildScene()
@@ -325,10 +347,20 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
         static void DeleteLegacy()
         {
             AssetDatabase.DeleteAsset(PagePath);
-            AssetDatabase.DeleteAsset(CanvasPath);
+            AssetDatabase.DeleteAsset(Prefabs+"/详情页.prefab");
+            AssetDatabase.DeleteAsset(Prefabs+"/Canvas.prefab");
             string[] obsolete={Parts+"/蛐蛐详情页_Background.prefab",Parts+"/蛐蛐详情页_Header.prefab",
                 Parts+"/蛐蛐详情页_InteractionOverlay.prefab",Parts+"/蛐蛐详情页_portrait-hit.prefab",Parts+"/蛐蛐详情页_stats-hit.prefab"};
             foreach(string path in obsolete)AssetDatabase.DeleteAsset(path);
+            foreach(string guid in AssetDatabase.FindAssets("t:Prefab",new[]{Parts}))
+            {
+                string path=AssetDatabase.GUIDToAssetPath(guid);
+                string file=Path.GetFileName(path);
+                if(file.StartsWith("StatsRow",StringComparison.Ordinal)
+                    ||(file.StartsWith("StatCard",StringComparison.Ordinal)&&file!="StatCard.prefab")
+                    ||(file.StartsWith("Stat",StringComparison.Ordinal)&&(file.Contains("_Label")||file.Contains("_Value"))))
+                    AssetDatabase.DeleteAsset(path);
+            }
         }
 
         static void EnsureFolders()

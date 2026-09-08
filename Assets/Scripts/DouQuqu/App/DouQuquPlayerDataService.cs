@@ -15,6 +15,15 @@ namespace DouQuqu
     }
 
     [Serializable]
+    /// <summary>背包里的一只精品虫。图鉴只记种类次数，背包记每一只。</summary>
+    public sealed class CricketBackpackEntry
+    {
+        public string instanceId;
+        public int quality;
+        public int temperament;
+    }
+
+    [Serializable]
     /// <summary>Demo 服务器保存的玩家资料。</summary>
     public sealed class DouQuquPlayerProfile
     {
@@ -22,6 +31,7 @@ namespace DouQuqu
         public string playerName;
         public long updatedAtUtcTicks;
         public List<CricketCollectionEntry> crickets = new List<CricketCollectionEntry>();
+        public List<CricketBackpackEntry> backpack = new List<CricketBackpackEntry>();
     }
 
     [Serializable]
@@ -67,7 +77,8 @@ namespace DouQuqu
                     playerId = Guid.NewGuid().ToString("N"),
                     playerName = playerName,
                     updatedAtUtcTicks = DateTime.UtcNow.Ticks,
-                    crickets = new List<CricketCollectionEntry>()
+                    crickets = new List<CricketCollectionEntry>(),
+                    backpack = new List<CricketBackpackEntry>()
                 };
                 database.players.Add(CurrentPlayer);
             }
@@ -75,6 +86,7 @@ namespace DouQuqu
             {
                 CurrentPlayer.playerName = playerName;
                 if (CurrentPlayer.crickets == null) CurrentPlayer.crickets = new List<CricketCollectionEntry>();
+                if (CurrentPlayer.backpack == null) CurrentPlayer.backpack = new List<CricketBackpackEntry>();
                 CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
             }
 
@@ -102,6 +114,72 @@ namespace DouQuqu
             bool saved = SaveDatabase();
             PlayerDataChanged?.Invoke();
             return saved;
+        }
+
+        /// <summary>退出合成盘时，把盘上所有精品虫收进背包并空出该格。</summary>
+        public static bool CollectFinestFromBoard(DouQuquMergeBoard board)
+        {
+            if (CurrentPlayer == null || board == null) return false;
+            List<MergePiece> taken = board.TakeFinestPieces();
+            if (taken == null || taken.Count == 0) return true;
+            if (CurrentPlayer.backpack == null) CurrentPlayer.backpack = new List<CricketBackpackEntry>();
+            for (int i = 0; i < taken.Count; i++)
+            {
+                MergePiece piece = taken[i];
+                if (piece == null) continue;
+                CurrentPlayer.backpack.Add(new CricketBackpackEntry
+                {
+                    instanceId = Guid.NewGuid().ToString("N"),
+                    quality = Mathf.Clamp(piece.drawA, 1, 4),
+                    temperament = Mathf.Clamp(piece.drawB, 1, 4)
+                });
+            }
+            CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
+            bool saved = SaveDatabase();
+            PlayerDataChanged?.Invoke();
+            return saved;
+        }
+
+        /// <summary>返回背包快照，调用者不能直接修改数据库中的原始对象。</summary>
+        public static List<CricketBackpackEntry> GetBackpackSnapshot()
+        {
+            List<CricketBackpackEntry> result = new List<CricketBackpackEntry>();
+            if (CurrentPlayer == null || CurrentPlayer.backpack == null) return result;
+            for (int i = 0; i < CurrentPlayer.backpack.Count; i++)
+            {
+                CricketBackpackEntry source = CurrentPlayer.backpack[i];
+                if (source == null || string.IsNullOrEmpty(source.instanceId)) continue;
+                result.Add(new CricketBackpackEntry
+                {
+                    instanceId = source.instanceId,
+                    quality = Mathf.Clamp(source.quality, 1, 4),
+                    temperament = Mathf.Clamp(source.temperament, 1, 4)
+                });
+            }
+            return result;
+        }
+
+        public static CricketBackpackEntry FindBackpack(string instanceId)
+        {
+            if (CurrentPlayer == null || CurrentPlayer.backpack == null || string.IsNullOrEmpty(instanceId))
+                return null;
+            for (int i = 0; i < CurrentPlayer.backpack.Count; i++)
+            {
+                CricketBackpackEntry entry = CurrentPlayer.backpack[i];
+                if (entry != null && entry.instanceId == instanceId) return CloneBackpack(entry);
+            }
+            return null;
+        }
+
+        private static CricketBackpackEntry CloneBackpack(CricketBackpackEntry source)
+        {
+            if (source == null) return null;
+            return new CricketBackpackEntry
+            {
+                instanceId = source.instanceId,
+                quality = source.quality,
+                temperament = source.temperament
+            };
         }
 
         /// <summary>返回图鉴快照，调用者不能直接修改数据库中的原始对象。</summary>

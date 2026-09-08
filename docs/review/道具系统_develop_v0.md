@@ -535,5 +535,5 @@ $$
 
 - 本篇可调配置 + [prototype-v5/defaults.js](../斗蛐蛐原型/prototype-v5/defaults.js)
 - 行为参考：[prototype-v5](../斗蛐蛐原型/prototype-v5/)
-- 不是本系统：[交互逻辑](交互逻辑_develop_v0.md)、[碰撞逻辑与配置](碰撞逻辑与配置_develop_v1.md)、[对局模式](对局模式_develop_v0.md)
+- 不是本系统：[交互逻辑](交互逻辑_develop_v0.md)、[碰撞逻辑与配置](碰撞逻辑与配置_develop_v1.md)、[对局匹配交互逻辑](对局匹配交互逻辑_develop_v0.md)
 - 另开美术交接：饲料球 / 三限时道具外形、房子四档破损、卵与饲料球区分、小蟋蟀体型。不写入本文。

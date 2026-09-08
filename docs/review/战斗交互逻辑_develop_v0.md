@@ -68,4 +68,4 @@
 ## 附：文件索引
 
 - 行为参考：[prototype-v5](../斗蛐蛐原型/prototype-v5/)
-- 不是本系统：[碰撞逻辑与配置](碰撞逻辑与配置_develop_v1.md)、[对局模式](对局模式_develop_v0.md)、[道具系统](道具系统_develop_v0.md)
+- 不是本系统：[碰撞逻辑与配置](碰撞逻辑与配置_develop_v1.md)、[对局匹配交互逻辑](对局匹配交互逻辑_develop_v0.md)、[道具系统](道具系统_develop_v0.md)

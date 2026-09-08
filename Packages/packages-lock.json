@@ -18,14 +18,13 @@
       "hash": "30d22075093d1d35dfb0091c1c7550e9ad948577"
     },
     "com.frz.figma2unity": {
-      "version": "https://github.com/FRZ5201314/Figma2Unity.git#v0.7.13",
+      "version": "file:com.frz.figma2unity",
       "depth": 0,
-      "source": "git",
+      "source": "embedded",
       "dependencies": {
         "com.unity.ugui": "1.0.0",
         "com.unity.textmeshpro": "2.1.0"
-      },
-      "hash": "f1cfd4f26af2724d41408e6e8c4d655ca49b646a"
+      }
     },
     "com.simonoliver.unityfigma": {
       "version": "file:com.simonoliver.unityfigma",

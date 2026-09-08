@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>进战页 BattleEntrance：随机匹配进匹配页；好友组队先等「准备」。</summary>
+    /// <summary>进战页 BattleEntrance：随机匹配进选虫页；好友组队先等「准备」。</summary>
     public sealed class DouQuquBattleEnterController : MonoBehaviour
     {
         private static readonly Color ConfirmFill = new Color(0.5192f, 0.0899f, 0.0936f, 1f);
@@ -45,7 +45,7 @@ namespace DouQuqu
             InRoom = true;
             friendRoom = false;
             ApplyVisual();
-            DouQuquLobby.Show(DouQuquLobby.Page.Matchmaking);
+            DouQuquLobby.Show(DouQuquLobby.Page.HeroSelection);
         }
 
         public void EnterFriendRoom()
@@ -55,10 +55,10 @@ namespace DouQuqu
             ApplyVisual();
         }
 
-        public void GoMatchmaking()
+        public void GoHeroSelection()
         {
             if (!InRoom) return;
-            DouQuquLobby.Show(DouQuquLobby.Page.Matchmaking);
+            DouQuquLobby.Show(DouQuquLobby.Page.HeroSelection);
         }
 
         public void LeaveRoom()
@@ -109,7 +109,7 @@ namespace DouQuqu
                 if (confirm != null) BindButton(confirm.gameObject, EnterFriendRoom);
             }
 
-            if (readyRoot != null) BindButton(readyRoot, GoMatchmaking);
+            if (readyRoot != null) BindButton(readyRoot, GoHeroSelection);
             if (leaveRoot != null) BindButton(leaveRoot, LeaveRoom);
 
             GameObject rules = FindGo(root, "SideButton_活动介绍");
@@ -306,10 +306,7 @@ namespace DouQuqu
             if (leaveRoot != null) leaveRoot.SetActive(InRoom);
             if (readyRoot != null) readyRoot.SetActive(InRoom && friendRoom);
             if (DouQuquLobby.Instance == null) return;
-            DouQuquLobby.Page page = DouQuquLobby.Instance.CurrentPage;
-            bool hideNav = page == DouQuquLobby.Page.Matchmaking
-                || (page == DouQuquLobby.Page.BattleEnter && InRoom);
-            DouQuquLobby.Instance.SetNavVisible(!hideNav);
+            DouQuquLobby.Instance.RefreshNavVisibility();
         }
 
         private static void BindButton(GameObject go, UnityEngine.Events.UnityAction clicked)

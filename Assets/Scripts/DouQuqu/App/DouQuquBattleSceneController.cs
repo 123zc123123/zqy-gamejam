@@ -93,7 +93,7 @@ namespace DouQuqu
             resultPanel = panel.gameObject;
             resultText = DouQuquUiFactory.CreateText(panel, "ResultTMP", "对局结束", 52f,
                 new Vector2(0.08f, 0.48f), new Vector2(0.92f, 0.84f), Vector2.zero, Vector2.zero);
-            DouQuquUiFactory.CreateButton(panel, "ReturnButton", "返回匹配界面", ReturnToMatchmaking,
+            DouQuquUiFactory.CreateButton(panel, "ReturnButton", "返回选虫", ReturnToHeroSelection,
                 new Vector2(0.20f, 0.16f), new Vector2(0.80f, 0.36f), Vector2.zero, Vector2.zero);
             resultPanel.SetActive(false);
         }
@@ -125,7 +125,7 @@ namespace DouQuqu
                     new Vector2(0.10f, 0.78f), new Vector2(0.90f, 0.90f), Vector2.zero, Vector2.zero);
             }
 
-            DouQuquUiFactory.CreateButton(overlay, "ReturnButton", "返回匹配界面", ReturnToMatchmaking,
+            DouQuquUiFactory.CreateButton(overlay, "ReturnButton", "返回选虫", ReturnToHeroSelection,
                 new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
             resultPanel.SetActive(false);
             return true;
@@ -145,10 +145,10 @@ namespace DouQuqu
             resultPanel.SetActive(true);
         }
 
-        private void ReturnToMatchmaking()
+        private void ReturnToHeroSelection()
         {
             if (network != null) network.Stop();
-            DouQuquSceneNames.Load(DouQuquSceneNames.Matchmaking);
+            DouQuquSceneNames.Load(DouQuquSceneNames.HeroSelection);
         }
     }
 }

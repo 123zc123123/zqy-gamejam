@@ -200,6 +200,22 @@ namespace DouQuqu
             return true;
         }
 
+        /// <summary>收走盘上所有精品虫并空出格子。幼虫、中虫、成虫留下。</summary>
+        public List<MergePiece> TakeFinestPieces()
+        {
+            List<MergePiece> taken = new List<MergePiece>();
+            for (int i = pieces.Count - 1; i >= 0; i--)
+            {
+                MergePiece piece = pieces[i];
+                if (piece == null || piece.level < HighestMergeLevel) continue;
+                pieces.RemoveAt(i);
+                taken.Add(piece);
+                PieceRemoved?.Invoke(piece);
+            }
+            if (taken.Count > 0) BoardChanged?.Invoke();
+            return taken;
+        }
+
         /// <summary>复制当前棋盘，供存档或局域网同步使用。</summary>
         public MergeBoardSnapshot CaptureSnapshot()
         {

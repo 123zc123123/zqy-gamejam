@@ -11,6 +11,7 @@ namespace DouQuqu.Editor
         public const string LobbyPath = "Assets/Scenes/MainMenu.unity";
         private const string MergePrefabPath = "Assets/Resources/Merge/Prefabs/Canvas.prefab";
         private const string BattleEntrancePrefabPath = "Assets/Resources/BattleEntrance/Prefabs/BattleEntrance.prefab";
+        private const string HeroSelectionPrefabPath = "Assets/Resources/HeroSelection/Prefabs/FigmaImport_cricket-battle-royale_55_4.prefab";
 
         [MenuItem("DouQuqu/Open Battle Scene")]
         public static void OpenBattleScene()
@@ -34,6 +35,12 @@ namespace DouQuqu.Editor
         public static void PingBattleEntrancePrefab()
         {
             PingPrefab(BattleEntrancePrefabPath, "进战页");
+        }
+
+        [MenuItem("DouQuqu/Ping HeroSelection Prefab")]
+        public static void PingHeroSelectionPrefab()
+        {
+            PingPrefab(HeroSelectionPrefabPath, "选虫页");
         }
 
         private static void PingPrefab(string path, string label)

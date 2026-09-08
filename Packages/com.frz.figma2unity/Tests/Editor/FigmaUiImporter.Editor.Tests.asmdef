@@ -1,0 +1,24 @@
+{
+  "name": "FigmaUiImporter.Editor.Tests",
+  "rootNamespace": "FigmaUiImporter.Editor.Tests",
+  "references": [
+    "FigmaUiImporter.Editor",
+    "FigmaUiImporter.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "FIGMA2UNITY_PACKAGE_TESTS"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

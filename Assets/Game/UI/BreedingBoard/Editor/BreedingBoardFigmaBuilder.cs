@@ -213,8 +213,7 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
                 new { name = "BreedingTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Breeding, label = "育虫盘" },
                 new { name = "RegistryTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Registry, label = "蛐蛐谱" },
                 new { name = "RankingTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Ranking, label = "排行榜" },
-                new { name = "ShopTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Shop, label = "小铺" },
-                new { name = "AcademyTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Academy, label = "日勤学" }
+                new { name = "ShopTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Shop, label = "小铺" }
             };
             for (int i = 0; i < tabs.Length; i++)
             {
