@@ -236,6 +236,120 @@ namespace DouQuqu.Editor
             Debug.Log("[DouQuqu] 皮肤 Library 已刷新：" + SpriteLibraryPath);
         }
 
+        [MenuItem("DouQuqu/Export Skin Portraits From PSB")]
+        public static void ExportSkinPortraits()
+        {
+            string outDir = "Assets/Resources/Merge/MergeQualities";
+            if (!AssetDatabase.IsValidFolder(outDir))
+                AssetDatabase.CreateFolder("Assets/Resources/Merge", "MergeQualities");
+            int exported = 0;
+            for (int quality = 1; quality <= 4; quality++)
+            {
+                for (int temperament = 1; temperament <= 4; temperament++)
+                {
+                    string id = quality + "-" + temperament;
+                    string psb = "Assets/Art/Characters/Skins/" + id + ".psb";
+                    string png = outDir + "/quality-" + id + ".png";
+                    if (!File.Exists(psb))
+                    {
+                        Debug.LogWarning("[DouQuqu] 缺少皮肤 " + psb);
+                        continue;
+                    }
+                    if (CapturePsbPortrait(psb, png))
+                        exported++;
+                }
+            }
+            AssetDatabase.Refresh();
+            Debug.Log("[DouQuqu] 已从 PSB 导出立绘 " + exported + " 张。");
+        }
+
+        static bool CapturePsbPortrait(string psbPath, string pngPath)
+        {
+            GameObject source = AssetDatabase.LoadMainAssetAtPath(psbPath) as GameObject;
+            if (source == null) return false;
+            GameObject instance = Object.Instantiate(source);
+            instance.name = "_PortraitCapture";
+            instance.transform.position = Vector3.zero;
+            instance.transform.rotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+            int layer = 31;
+            SetLayer(instance, layer);
+
+            Bounds bounds = default(Bounds);
+            bool has = false;
+            SpriteRenderer[] renderers = instance.GetComponentsInChildren<SpriteRenderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] == null || !renderers[i].enabled) continue;
+                if (!has)
+                {
+                    bounds = renderers[i].bounds;
+                    has = true;
+                }
+                else bounds.Encapsulate(renderers[i].bounds);
+            }
+            if (!has)
+            {
+                Object.DestroyImmediate(instance);
+                return false;
+            }
+
+            int texSize = 1024;
+            RenderTexture rt = new RenderTexture(texSize, texSize, 24, RenderTextureFormat.ARGB32);
+            rt.antiAliasing = 4;
+            GameObject camGo = new GameObject("_PortraitCam");
+            Camera cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            cam.cullingMask = 1 << layer;
+            cam.allowHDR = false;
+            cam.allowMSAA = true;
+            cam.nearClipPlane = 0.01f;
+            cam.farClipPlane = 80f;
+            float half = Mathf.Max(bounds.extents.x, bounds.extents.y, 0.1f) * 1.12f;
+            cam.orthographicSize = half;
+            cam.transform.position = new Vector3(bounds.center.x, bounds.center.y, bounds.center.z - 20f);
+            cam.transform.rotation = Quaternion.identity;
+            cam.targetTexture = rt;
+            cam.Render();
+
+            RenderTexture prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            Texture2D tex = new Texture2D(texSize, texSize, TextureFormat.RGBA32, false);
+            tex.ReadPixels(new Rect(0, 0, texSize, texSize), 0, 0);
+            tex.Apply();
+            RenderTexture.active = prev;
+            File.WriteAllBytes(pngPath, tex.EncodeToPNG());
+
+            cam.targetTexture = null;
+            Object.DestroyImmediate(tex);
+            Object.DestroyImmediate(rt);
+            Object.DestroyImmediate(camGo);
+            Object.DestroyImmediate(instance);
+
+            AssetDatabase.ImportAsset(pngPath, ImportAssetOptions.ForceSynchronousImport);
+            TextureImporter importer = AssetImporter.GetAtPath(pngPath) as TextureImporter;
+            if (importer != null)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.spritePixelsPerUnit = 100;
+                importer.SaveAndReimport();
+            }
+            return true;
+        }
+
+        static void SetLayer(GameObject go, int layer)
+        {
+            go.layer = layer;
+            Transform[] transforms = go.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < transforms.Length; i++)
+                transforms[i].gameObject.layer = layer;
+        }
+
         private static HashSet<string> ReadLayerNames()
         {
             var names = new HashSet<string>();

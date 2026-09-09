@@ -210,7 +210,7 @@ namespace DouQuqu
             };
             state.bugs = new BugState[configuredPlayers];
             state.humanPlayers = new bool[configuredPlayers];
-            CricketPick[] localPicks = DouQuquAppServices.TakePendingLocalPicks();
+            CricketPick[] localPicks = DouQuquAppServices.PendingLocalPicks;
             if (localPicks != null) StoreRoster(ref pendingRoster, configuredPlayers, 0, localPicks);
             EnsureRoster(configuredPlayers);
             for (int i = 0; i < state.bugs.Length; i++)

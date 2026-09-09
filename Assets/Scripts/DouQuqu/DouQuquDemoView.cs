@@ -369,7 +369,7 @@ namespace DouQuqu
                 view.SetActive(pickup.alive);
                 if (!pickup.alive) continue;
                 view.transform.position = pickup.position + Vector3.up * groundOffset;
-                view.transform.localScale = Vector3.one;
+                view.transform.localScale = Vector3.one * 2f;
             }
             HideUnseen(pickupViews, seenIds);
         }
@@ -385,7 +385,7 @@ namespace DouQuqu
             if (nestView == null) return;
             nestView.SetActive(true);
             nestView.transform.position = state.nest.position + Vector3.up * 0.15f;
-            nestView.transform.localScale = Vector3.one;
+            nestView.transform.localScale = Vector3.one * 2f;
             Tint(nestView, Color.white);
             RefreshNestHits(nestView, Mathf.Max(0, Mathf.CeilToInt(state.nest.hp)));
         }

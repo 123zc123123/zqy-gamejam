@@ -14,7 +14,7 @@ namespace DouQuqu
         private static readonly Color GreenLine = new Color(0.22f, 0.86f, 0.30f, 1f);
         private static readonly Color TabOn = new Color(0.96f, 0.90f, 0.62f, 1f);
         private static readonly Color TabOff = new Color(0.78f, 0.74f, 0.62f, 0.72f);
-        private static readonly string[] FilterLabels = { "全部", "强攻", "灵巧", "智谋", "沉稳" };
+        private static readonly string[] FilterLabels = { "全部", "沉稳", "强攻", "灵巧", "智谋" };
 
         private GameObject pageRoot;
         private TMP_Text timerText;

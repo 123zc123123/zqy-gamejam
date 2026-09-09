@@ -11,7 +11,7 @@ namespace DouQuqu
         public int id;
         public int cell;
         public int level;
-        // 精品虫：drawA = 品质 1凡 2灵 3仙 4极，drawB = 性格 1强攻 2灵巧 3智谋 4沉稳。
+        // 精品虫：drawA = 品质 1凡 2灵 3仙 4极，drawB = 性格 1沉稳 2强攻 3灵巧 4智谋（与 1-1.psb 文件名一致）。
         public bool isDrawResult;
         public int drawA;
         public int drawB;
@@ -84,7 +84,7 @@ namespace DouQuqu
         [SerializeField] private int drawPityLimit = 10;
         // 品质：凡品 50%，灵品 28%，仙品 17%，极品 5%。连续未出极品会保底。
         [SerializeField] private float[] weightedDrawWeights = { 50f, 28f, 17f, 5f };
-        // 性格：强攻、灵巧、智谋、沉稳各 25%。
+        // 性格：沉稳、强攻、灵巧、智谋各 25%。
         [SerializeField] private float[] uniformDrawWeights = { 25f, 25f, 25f, 25f };
 
         private readonly List<MergePiece> pieces = new List<MergePiece>();

@@ -14,10 +14,10 @@ namespace DouQuqu
     /// <summary>性格。每个品质都会随机带一种；极品仍用三国名做短名。</summary>
     public enum CricketTemperament
     {
-        MengGong = 1,
-        LingQiao = 2,
-        ZhiMou = 3,
-        ChenWen = 4
+        ChenWen = 1,
+        MengGong = 2,
+        LingQiao = 3,
+        ZhiMou = 4
     }
 
     /// <summary>
@@ -27,25 +27,25 @@ namespace DouQuqu
     public static class DouQuquCricketCatalog
     {
         public static readonly string[] QualityNames = { "", "凡品", "灵品", "仙品", "极品" };
-        public static readonly string[] TemperamentNames = { "", "强攻", "灵巧", "智谋", "沉稳" };
-        public static readonly string[] UltimateNames = { "", "吕布", "貂蝉", "诸葛亮", "关羽" };
-        public static readonly string[] Idioms = { "", "天下无双", "闭月羞花", "神机妙算", "义薄云天" };
-        /// <summary>16 只精品虫的名字：行=品质，列=性格。极品沿用三国名。</summary>
+        public static readonly string[] TemperamentNames = { "", "沉稳", "强攻", "灵巧", "智谋" };
+        public static readonly string[] UltimateNames = { "", "关羽", "吕布", "貂蝉", "诸葛亮" };
+        public static readonly string[] Idioms = { "", "义薄云天", "天下无双", "闭月羞花", "神机妙算" };
+        /// <summary>16 只精品虫的名字：行=品质，列=性格（1沉稳 2强攻 3灵巧 4智谋，与 1-1.psb 文件名一致）。</summary>
         public static readonly string[][] CricketNames =
         {
             null,
-            new[] { "", "草莽", "蹦蹦", "细须", "土狗" },
-            new[] { "", "青项", "麻翅", "黄头", "铜头" },
-            new[] { "", "紫牙青", "金翅", "白牙青", "墨牙" },
-            new[] { "", "吕布", "貂蝉", "诸葛亮", "关羽" }
+            new[] { "", "土狗", "草莽", "蹦蹦", "细须" },
+            new[] { "", "铜头", "青项", "麻翅", "黄头" },
+            new[] { "", "墨牙", "紫牙青", "金翅", "白牙青" },
+            new[] { "", "关羽", "吕布", "貂蝉", "诸葛亮" }
         };
         public static readonly string[] TemperamentBlurbs =
         {
             "",
+            "回气快，适合连续出手。",
             "体沉、气长，适合硬碰硬。",
             "蓄得快、抓地稳，适合走位抢先。",
-            "蓄得久，适合算准时机。",
-            "回气快，适合连续出手。"
+            "蓄得久，适合算准时机。"
         };
 
         public static readonly Color[] QualityColors =
@@ -138,17 +138,17 @@ namespace DouQuqu
         /// <summary>品质常数：凡/灵/仙/极各一个，六个维度共用。局内 knobs × 品质 × 性格。</summary>
         static readonly float[] QualityMul = { 0f, 1.04f, 1.16f, 1.28f, 1.40f };
 
-        /// <summary>双维强势 1.24，单维强势 1.44。非强势维为 1。列=强攻/灵巧/智谋/沉稳。</summary>
+        /// <summary>双维强势 1.24，单维强势 1.44。非强势维为 1。列=沉稳/强攻/灵巧/智谋。</summary>
         const float TemperBoostDual = 1.24f;
         const float TemperBoostSingle = 1.44f;
         static readonly float[][] TemperMul =
         {
-            new[] { 0f, TemperBoostDual, 1f, 1f, 1f },
             new[] { 0f, 1f, TemperBoostDual, 1f, 1f },
-            new[] { 0f, 1f, TemperBoostDual, 1f, 1f },
-            new[] { 0f, 1f, 1f, TemperBoostSingle, 1f },
+            new[] { 0f, 1f, 1f, TemperBoostDual, 1f },
+            new[] { 0f, 1f, 1f, TemperBoostDual, 1f },
             new[] { 0f, 1f, 1f, 1f, TemperBoostSingle },
-            new[] { 0f, TemperBoostDual, 1f, 1f, 1f }
+            new[] { 0f, TemperBoostSingle, 1f, 1f, 1f },
+            new[] { 0f, 1f, TemperBoostDual, 1f, 1f }
         };
 
         public static float QualityFactor(int quality)

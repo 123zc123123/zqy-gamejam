@@ -27,9 +27,7 @@ namespace DouQuqu
 
         public static CricketPick[] TakePendingLocalPicks()
         {
-            CricketPick[] picks = PendingLocalPicks;
-            PendingLocalPicks = null;
-            return picks;
+            return PendingLocalPicks;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]

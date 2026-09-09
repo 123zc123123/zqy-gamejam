@@ -36,8 +36,9 @@ namespace DouQuqu
             }
             else if (match != null)
             {
-                // 直接从编辑器运行战斗场景时保留单机四人 AI 测试能力。
                 match.Configure(MatchRunMode.Offline, DouQuquMatchController.MaxPlayers);
+                if (DouQuquAppServices.PendingLocalPicks != null)
+                    match.SetRoster(0, DouQuquAppServices.PendingLocalPicks);
                 match.ResetMatch(DouQuquMatchController.MaxPlayers, System.Environment.TickCount);
             }
 
