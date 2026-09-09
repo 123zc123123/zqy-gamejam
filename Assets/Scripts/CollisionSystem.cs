@@ -91,7 +91,7 @@ namespace DouQuqu
             for (int i = 0; i < state.bugs.Length; i++)
             {
                 BugState bug = state.bugs[i];
-                if (!bug.alive || bug.height > 0.4f) continue;
+                if (!bug.alive) continue;
                 Vector3 normal;
                 Vector3 bugPosition;
                 if (!MoveToContact(bug.position, bug.previousPosition, nest.position, nest.position, bug.radius + state.knobs.nestR, out normal, out bugPosition, out _)) continue;
@@ -131,7 +131,7 @@ namespace DouQuqu
                 for (int j = 0; j < state.bugs.Length; j++)
                 {
                     BugState bug = state.bugs[j];
-                    if (!bug.alive || bug.height > 0.4f) continue;
+                    if (!bug.alive) continue;
                     Vector3 normal;
                     Vector3 bugPosition;
                     Vector3 eggPosition;

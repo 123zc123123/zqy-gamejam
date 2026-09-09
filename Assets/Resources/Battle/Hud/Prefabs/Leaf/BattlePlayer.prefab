@@ -694,7 +694,7 @@ GameObject:
   - component: {fileID: 8985197707450610090}
   - component: {fileID: 6803801563771541535}
   m_Layer: 0
-  m_Name: FigmaPlayerLeft
+  m_Name: BattlePlayer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

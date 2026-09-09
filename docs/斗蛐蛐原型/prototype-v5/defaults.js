@@ -39,7 +39,7 @@ window.DOU_QUQU_SHIPPED = {
     "heartGap": 7,
     "heartGapOt": 5,
     "nestHP": 4,
-    "nestMass": 3,
+    "nestMass": 6,
     "nestR": 2.4,
     "nestEggN": 5,
     "eggHatchT": 5,

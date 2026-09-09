@@ -493,6 +493,7 @@ MonoBehaviour:
   staminaBarPrefab: {fileID: 1323498867900985776, guid: 09b86ac5b1eaea74b8911014dce0a4fe, type: 3}
   chargeArrowPrefab: {fileID: 6102849583720495820, guid: 6b8d2f04e3c9507b0f1d5e9c2a4b7831, type: 3}
   groundMarkerPrefab: {fileID: 5234999028449959958, guid: 1b180ef6f8a131048847ec47d4bb4df8, type: 3}
+  cricketUnitPrefab: {fileID: 6416045470394115824, guid: ea93665fa0ee25e43a9d88ba64cf3a08, type: 3}
   groundOffset: 0.35
   tintPlayers: 0
   fitVisualToCollision: 1
@@ -570,7 +571,7 @@ MonoBehaviour:
     heartMinBug: 1.3
     heartMinHeart: 1.25
     nestHP: 4
-    nestMass: 3
+    nestMass: 6
     nestR: 2.4
     nestEggN: 5
     eggHatchT: 5

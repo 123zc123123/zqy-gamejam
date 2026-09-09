@@ -80,7 +80,7 @@
     heartGap: 7,
     heartGapOt: 5,
     nestHP: 4,
-    nestMass: 3.0,
+    nestMass: 6,
     nestR: 2.4,
     nestEggN: 5,
     eggHatchT: 3,
@@ -140,7 +140,7 @@
     heartGap: 7,
     heartGapOt: 5,
     nestHP: 4,
-    nestMass: 3.0,
+    nestMass: 6,
     nestR: 2.4,
     nestEggN: 5,
     eggHatchT: 3,
@@ -1969,9 +1969,16 @@
         if (!overlapped) continue;
         nowTouch[b.id] = true;
         const sep = separateFromStatic(b, nest.x, nest.z, nest.r);
-        if (!sep) continue;
-        nx = sep.nx;
-        nz = sep.nz;
+        if (sep) {
+          nx = sep.nx;
+          nz = sep.nz;
+        } else {
+          dx = nest.x - b.x;
+          dz = nest.z - b.z;
+          dist = hypot(dx, dz) || 1;
+          nx = dx / dist;
+          nz = dz / dist;
+        }
         const vn = (0 - b.vx) * nx + (0 - b.vz) * nz;
         bounceStatic(b, nest, nx, nz);
         nest.x = nest.x;

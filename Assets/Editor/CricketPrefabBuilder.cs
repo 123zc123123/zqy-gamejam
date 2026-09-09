@@ -118,14 +118,8 @@ namespace DouQuqu.Editor
 
             Vector3 savedAntennaPos = new Vector3(0f, 0f, -0.02f);
             Transform existingAntenna = root.transform.Find("Antenna");
-            bool flipLegacyAntennaOffset = false;
             if (existingAntenna != null)
-            {
                 savedAntennaPos = existingAntenna.localPosition;
-                // 旧预制体零件旋转是 identity、XY 按头朝上贴图调过；转 180 后 XY 要一起反。
-                if (Quaternion.Angle(existingAntenna.localRotation, Quaternion.identity) < 1f)
-                    flipLegacyAntennaOffset = true;
-            }
 
             try
             {
@@ -139,22 +133,17 @@ namespace DouQuqu.Editor
                 Strip<Collider2D>(root);
                 Strip<SpriteRenderer>(root);
 
-                // 贴图头朝上；DemoView.FaceXz 带 +180 且覆盖根旋转，零件绕 Z 转 180 才头朝运动方向。
-                Quaternion partRotation = Quaternion.Euler(0f, 0f, 180f);
-
                 SpriteRenderer body = EnsureChildRenderer(root.transform, "Body", 20);
                 body.sprite = bodySprite;
                 body.sharedMaterial = outline;
                 body.color = Color.white;
-                body.transform.localRotation = partRotation;
+                body.transform.localRotation = Quaternion.identity;
 
                 SpriteRenderer antenna = EnsureChildRenderer(root.transform, "Antenna", 21);
                 antenna.sprite = antennaSprite;
                 antenna.sharedMaterial = DefaultSpriteMaterial();
                 antenna.color = Color.white;
-                antenna.transform.localRotation = partRotation;
-                if (flipLegacyAntennaOffset)
-                    savedAntennaPos = new Vector3(-savedAntennaPos.x, -savedAntennaPos.y, savedAntennaPos.z);
+                antenna.transform.localRotation = Quaternion.identity;
                 antenna.transform.localPosition = savedAntennaPos;
 
                 CricketVisual visual = root.GetComponent<CricketVisual>();

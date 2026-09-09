@@ -28,6 +28,8 @@ namespace DouQuqu
         [SerializeField] private SpriteRenderer[] tracks = new SpriteRenderer[MaxSlots];
         [SerializeField] private SpriteRenderer[] fills = new SpriteRenderer[MaxSlots];
         [SerializeField] private SpriteRenderer[] previews = new SpriteRenderer[MaxSlots];
+        [SerializeField] private float bakedWidth;
+        [SerializeField] private float bakedThickness;
 
         private Sprite whiteSprite;
         private Material spriteMaterial;
@@ -39,16 +41,46 @@ namespace DouQuqu
         {
             EnsureReady();
             gameObject.SetActive(true);
-            currentRatio = Mathf.Clamp01(currentRatio);
-            pendingRatio = Mathf.Clamp(pendingRatio, 0f, currentRatio);
-            float remainRatio = Mathf.Max(0f, currentRatio - pendingRatio);
-            slots = Mathf.Clamp(slots, 3, MaxSlots);
-
             float width = Mathf.Max(minWidth, bugRadius * widthScale);
             float thickness = Mathf.Max(minThickness, bugRadius * thicknessScale);
             float below = Mathf.Max(minBelow, bugRadius * belowScale);
             transform.position = worldCenter + Vector3.up * heightOffset + Vector3.back * below;
             transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            LayoutSlots(currentRatio, slots, pendingRatio, width, thickness);
+        }
+
+        /// <summary>按碰撞半径把格子烘焙进子物体，不改本节点 Transform。</summary>
+        public void Bake(float bugRadius)
+        {
+            EnsureReady();
+            bakedWidth = Mathf.Max(minWidth, bugRadius * widthScale);
+            bakedThickness = Mathf.Max(minThickness, bugRadius * thicknessScale);
+            LayoutSlots(1f, 5, 0f, bakedWidth, bakedThickness);
+        }
+
+        /// <summary>只刷新格数和填充，位置大小跟预制体。</summary>
+        public void ApplyFill(float currentRatio, int slots, float pendingRatio = 0f)
+        {
+            EnsureReady();
+            gameObject.SetActive(true);
+            if (bakedWidth < 0.05f) Bake(1.8f);
+            LayoutSlots(currentRatio, slots, pendingRatio, bakedWidth, bakedThickness);
+        }
+
+        public void ShowAuthored()
+        {
+            EnsureReady();
+            gameObject.SetActive(true);
+            if (bakedWidth < 0.05f) Bake(1.8f);
+            else LayoutSlots(1f, 5, 0f, bakedWidth, bakedThickness);
+        }
+
+        private void LayoutSlots(float currentRatio, int slots, float pendingRatio, float width, float thickness)
+        {
+            currentRatio = Mathf.Clamp01(currentRatio);
+            pendingRatio = Mathf.Clamp(pendingRatio, 0f, currentRatio);
+            float remainRatio = Mathf.Max(0f, currentRatio - pendingRatio);
+            slots = Mathf.Clamp(slots, 3, MaxSlots);
 
             Color color = currentRatio <= 0.2f ? lowColor : (currentRatio <= 0.4f ? warnColor : okColor);
             Color ghost = new Color(color.r, color.g, color.b, color.a * pendingAlpha);

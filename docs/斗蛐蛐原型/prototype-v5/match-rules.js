@@ -49,7 +49,7 @@
       heartMinHeart: 1.25,
       shieldPad: 0.08,
       nestHP: 4,
-      nestMass: 3.0,
+      nestMass: 6,
       nestR: 1.2,
       nestEggN: 5,
       eggHatchT: 3,

@@ -31,6 +31,7 @@ namespace DouQuqu
         [SerializeField] private GameObject staminaBarPrefab;
         [SerializeField] private GameObject chargeArrowPrefab;
         [SerializeField] private GameObject groundMarkerPrefab;
+        [SerializeField] private GameObject cricketUnitPrefab;
 
         [Header("显示")]
         [SerializeField] private float groundOffset = 0.35f;
@@ -216,11 +217,16 @@ namespace DouQuqu
                     if (bugViews.TryGetValue(bug.id, out old) && old != null) Destroy(old);
                     bugViews.Remove(bug.id);
                 }
-                GameObject view = GetOrCreate(bugViews, bug.id, PrefabForBug(bug.id), bugsRoot, "Bug_" + bug.id);
+                GameObject prefab = cricketUnitPrefab != null ? cricketUnitPrefab : PrefabForBug(bug.id);
+                GameObject view = GetOrCreate(bugViews, bug.id, prefab, bugsRoot, "Bug_" + bug.id);
                 if (view == null) continue;
+                CricketUnit unit = view.GetComponent<CricketUnit>();
+                if (unit != null) unit.Bind();
+                GameObject body = BodyOf(view);
+                if (body == null) continue;
                 if (!assignedBugProfiles.TryGetValue(bug.id, out assignedProfile) || assignedProfile != profile)
                 {
-                    CricketVisual skeletal = view.GetComponent<CricketVisual>();
+                    CricketVisual skeletal = body.GetComponent<CricketVisual>();
                     if (skeletal != null)
                     {
                         int quality = profile / 4 + 1;
@@ -229,34 +235,47 @@ namespace DouQuqu
                     }
                     else
                     {
-                        ApplyPremiumBugSprite(view, profile);
+                        ApplyPremiumBugSprite(body, profile);
                     }
                     assignedBugProfiles[bug.id] = profile;
                 }
                 view.SetActive(bug.alive);
                 if (!bug.alive) continue;
-                view.transform.position = bug.position + Vector3.up * (groundOffset + bug.height);
-                view.transform.localScale = Vector3.one * VisualScale(view, bug.radius, state.knobs.bugR);
+                if (unit != null)
+                {
+                    view.transform.position = new Vector3(bug.position.x, 0f, bug.position.z);
+                    view.transform.rotation = Quaternion.identity;
+                    view.transform.localScale = Vector3.one;
+                    float grow = bug.radius / Mathf.Max(0.01f, state.knobs.bugR);
+                    unit.ApplyMotion(bug.height, grow);
+                }
+                else
+                {
+                    float visualScale = VisualScale(body, bug.radius, state.knobs.bugR);
+                    view.transform.position = bug.position + Vector3.up * (groundOffset + bug.height);
+                    view.transform.localScale = Vector3.one * visualScale;
+                }
                 // 蓄力中跟摇杆（图片上部=头）；飞行中跟速度。空中不改朝向。
-                CricketVisual cricket = view.GetComponent<CricketVisual>();
-                FaceXz(view, bug.charging ? Vector3.zero : bug.velocity, bug.chargeDirection, cricket != null);
+                CricketVisual cricket = body.GetComponent<CricketVisual>();
+                FaceXz(body, bug.charging ? Vector3.zero : bug.velocity, bug.chargeDirection);
+                if (unit != null) unit.AlignMarkerToBody();
                 if (cricket != null)
                 {
                     cricket.ApplyTeam(bug.id == 0, bug.charging);
-                    CricketAnim anim = view.GetComponent<CricketAnim>();
-                    if (anim == null) anim = view.GetComponentInChildren<CricketAnim>(true);
-                    if (anim == null) anim = view.AddComponent<CricketAnim>();
+                    CricketAnim anim = body.GetComponent<CricketAnim>();
+                    if (anim == null) anim = body.GetComponentInChildren<CricketAnim>(true);
+                    if (anim == null) anim = body.AddComponent<CricketAnim>();
                     anim.Apply(bug);
                 }
                 else if (tintPlayers)
                 {
                     Color tint = PlayerColors[Mathf.Abs(bug.id) % PlayerColors.Length];
                     if (bug.charging) tint = Color.Lerp(tint, Color.white, 0.35f);
-                    Tint(view, tint);
+                    Tint(body, tint);
                 }
                 else
                 {
-                    Tint(view, bug.charging ? new Color(1f, 0.96f, 0.88f, 1f) : Color.white);
+                    Tint(body, bug.charging ? new Color(1f, 0.96f, 0.88f, 1f) : Color.white);
                 }
             }
             HideUnseen(bugViews, seenIds);
@@ -322,7 +341,7 @@ namespace DouQuqu
                 view.transform.position = baby.position + Vector3.up * (groundOffset + baby.height);
                 float babyRef = Mathf.Max(0.01f, state.knobs.bugR * Mathf.Max(0.01f, state.knobs.babyRScale));
                 view.transform.localScale = Vector3.one * VisualScale(view, baby.radius, babyRef);
-                FaceXz(view, baby.velocity, baby.chargeDirection, false);
+                FaceXz(view, baby.velocity, baby.chargeDirection);
                 Tint(view, Color.white);
             }
             HideUnseen(babyViews, seenIds);
@@ -534,7 +553,8 @@ namespace DouQuqu
         {
             GroundMarker marker = GetGroundMarker(id);
             if (marker == null) return;
-            marker.Apply(position, radius, playerColor, height, charging);
+            if (MarkerOfUnit(id) != null) marker.Paint(playerColor, charging);
+            else marker.Apply(position, radius, playerColor, height, charging);
         }
 
         private void RefreshStaminaOverlays(MatchState state)
@@ -566,11 +586,40 @@ namespace DouQuqu
             int slots = Mathf.Clamp(knobs.staminaSlots, 3, StaminaBar.MaxSlots);
             float current = Mathf.Max(0f, bug.stamina);
             float pending = bug.charging ? Rules.JumpStaminaCost(knobs, bug) : 0f;
-            bar.Apply(current / max, slots, bug.position + Vector3.up * bug.height, bug.radius, pending / max);
+            float ratio = current / max;
+            float pendingRatio = pending / max;
+            if (BarOfUnit(bug.id) != null) bar.ApplyFill(ratio, slots, pendingRatio);
+            else bar.Apply(ratio, slots, bug.position + Vector3.up * bug.height, bug.radius, pendingRatio);
+        }
+
+        private static GameObject BodyOf(GameObject view)
+        {
+            if (view == null) return null;
+            CricketUnit unit = view.GetComponent<CricketUnit>();
+            if (unit != null && unit.BodyObject != null) return unit.BodyObject;
+            return view;
+        }
+
+        private GroundMarker MarkerOfUnit(int id)
+        {
+            GameObject view;
+            if (!bugViews.TryGetValue(id, out view) || view == null) return null;
+            CricketUnit unit = view.GetComponent<CricketUnit>();
+            return unit != null ? unit.Marker : null;
+        }
+
+        private StaminaBar BarOfUnit(int id)
+        {
+            GameObject view;
+            if (!bugViews.TryGetValue(id, out view) || view == null) return null;
+            CricketUnit unit = view.GetComponent<CricketUnit>();
+            return unit != null ? unit.Bar : null;
         }
 
         private GroundMarker GetGroundMarker(int id)
         {
+            GroundMarker fromUnit = MarkerOfUnit(id);
+            if (fromUnit != null) return fromUnit;
             GroundMarker marker;
             if (groundMarkers.TryGetValue(id, out marker) && marker != null) return marker;
             Transform parent = markersRoot != null ? markersRoot : transform;
@@ -587,6 +636,8 @@ namespace DouQuqu
 
         private StaminaBar GetStaminaBar(int id)
         {
+            StaminaBar fromUnit = BarOfUnit(id);
+            if (fromUnit != null) return fromUnit;
             StaminaBar bar;
             if (staminaBars.TryGetValue(id, out bar) && bar != null) return bar;
             bar = InstantiateOverlay<StaminaBar>(staminaBarPrefab, barsRoot, "StaminaBar_" + id);
@@ -614,23 +665,23 @@ namespace DouQuqu
         private void WarnIfOverlaysMissing()
         {
             if (warnedMissingOverlays) return;
-            if (staminaBarPrefab != null && chargeArrowPrefab != null && groundMarkerPrefab != null) return;
+            bool unitReady = cricketUnitPrefab != null;
+            bool overlaysReady = staminaBarPrefab != null && groundMarkerPrefab != null;
+            if (chargeArrowPrefab != null && (unitReady || overlaysReady)) return;
             warnedMissingOverlays = true;
-            Debug.LogWarning("[DouQuqu] 缺少耐力条、蓄力箭头或脚下圈预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
+            Debug.LogWarning("[DouQuqu] 缺少成虫单位或覆盖层预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
         }
 
         /// <summary>
         /// 顶视朝向。贴图正面朝上对着顶视相机。不用 Euler(90, yaw, 0)，避免 X=90 万向节锁把偏航吃掉。
-        /// 精品立绘头在图上部：本地 +Y 对准蓄力/飞行方向。
-        /// Cricket.prefab 的 Rig/零件已绕 Z 转 180（对齐旧 FaceXz +180），头在图下部，所以反向。
+        /// 贴图头在图上部：本地 +Y 对准蓄力/飞行方向。
         /// </summary>
-        private static void FaceXz(GameObject view, Vector3 velocity, Vector2 chargeDirection, bool skeletal)
+        private static void FaceXz(GameObject view, Vector3 velocity, Vector2 chargeDirection)
         {
             Vector2 face = new Vector2(velocity.x, velocity.z);
             if (face.sqrMagnitude < 0.04f) face = chargeDirection;
             if (face.sqrMagnitude < 0.0001f) face = Vector2.up;
             Vector3 head = new Vector3(face.x, 0f, face.y);
-            if (skeletal || view.GetComponent<CricketVisual>() != null) head = -head;
             view.transform.rotation = Quaternion.LookRotation(Vector3.up, head);
         }
 

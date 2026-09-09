@@ -55,6 +55,12 @@ namespace DouQuqu
             BindHierarchy();
         }
 
+        private void OnEnable()
+        {
+            BindHierarchy();
+            ApplyOutline();
+        }
+
         public void BindParts(SpriteRenderer bodyRenderer, SpriteRenderer antennaRenderer)
         {
             body = bodyRenderer;
@@ -135,12 +141,23 @@ namespace DouQuqu
             {
                 for (int i = 0; i < renderers.Length; i++)
                 {
-                    if (!IsAntenna(renderers[i].name))
+                    if (!IsAntenna(renderers[i].name) && !IsTail(renderers[i].name))
                     {
                         body = renderers[i];
                         break;
                     }
                 }
+            }
+        }
+
+        private void ApplyOutline()
+        {
+            if (parts == null || parts.Length == 0) return;
+            if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] == null) continue;
+                ApplyOutlineBlock(parts[i], outlineColor);
             }
         }
 

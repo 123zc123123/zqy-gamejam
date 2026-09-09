@@ -1,3 +1,3 @@
-# douququzhandou Figma leaf mapping
+# Battle Figma leaf mapping
 
 Generated leaf Prefabs are in `Prefabs/Leaf`; composite Prefabs contain only PrefabInstance records.

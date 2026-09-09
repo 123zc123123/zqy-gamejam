@@ -180,7 +180,7 @@ namespace DouQuqu
         [InspectorCn("房子血量", "一次有效撞击 -1")]
         public float nestHP = 4f;
         [InspectorCn("房子质量", "不位移，只用于对撞分速度")]
-        public float nestMass = 3f;
+        public float nestMass = 6f;
         [InspectorCn("房子半径", "房子碰撞半径")]
         public float nestR = 2.4f;
         [InspectorCn("散落卵数", "房子爆开散落的卵数")]

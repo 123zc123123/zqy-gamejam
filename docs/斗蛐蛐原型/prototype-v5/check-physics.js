@@ -445,11 +445,26 @@ eq("slip sets roll", /b\.roll = 1/.test(js), true);
   eq("nest test page flag", testHtml.includes("nestDummy: true"), true);
   eq("nest test idle AI", /ai\.idle/.test(js) && /isNestTest\(\)/.test(js), true);
 eq("nest test Tab swaps control", /function switchNestControl\(/.test(js) && /e\.code === "Tab"/.test(js), true);
+eq("nest bounce on sweep contact", !/separateFromStatic\(b, nest\.x, nest\.z, nest\.r\);\s*if \(!sep\) continue;/.test(js), true);
+{
+  const bug = { x: 0, z: 0, vx: 10, vz: 0, m: 1, airborne: true, y: 1, vy: 4, vInit: 10 };
+  const house = { x: 0, z: 0, vx: 0, vz: 0, m: 3 };
+  bouncePair(bug, house, 1, 0);
+  approx("nest bounce reverses player", bug.vx, -5, 1e-6);
+  eq("nest bounce cancels jump arc", bug.airborne, false);
+  approx("nest dummy takes leftover speed", house.vx, 5, 1e-6);
+}
 eq("tab take clears ai", /if \(take\) \{\s*b\.ai = null;/.test(js), true);
 eq("AI skips player", /function updateAI\(b, dt\) \{\s*if \(!b \|\| !b\.alive \|\| b\.isPlayer/.test(js), true);
 eq("drawArc rejects NaN", /!\[start\.x, start\.y, tip\.x, tip\.y\]\.every\(Number\.isFinite\)/.test(js), true);
 eq("render cannot kill loop", /try \{ render\(\); \}/.test(js) && /requestAnimationFrame\(loop\)/.test(js), true);
 eq("babies do not pass through", /function resolveBabyOverlap\(/.test(js) && !/a\.kind === "baby" && b\.kind === "baby"\) continue/.test(js), true);
+eq("html collideNests no height gate", !/function collideNests\([\s\S]*?b\.y[\s\S]*?function collideEggs/.test(js), true);
+eq("html collideEggs no height gate", !/function collideEggs\([\s\S]*?b\.y[\s\S]*?function stepEggs/.test(js), true);
+{
+  const colCs = fs.readFileSync(path.join(__dirname, "..", "..", "..", "Assets", "Scripts", "CollisionSystem.cs"), "utf8");
+  eq("unity collide ignores height gate", !/height\s*[><]=?\s*0/.test(colCs), true);
+}
 }
 
 if (failed) {

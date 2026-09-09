@@ -25,6 +25,7 @@ namespace DouQuqu.Editor
         public const string ControllerPath = "Assets/Animations/Characters/Crickets/Cricket.controller";
         public const string ShaderPath = "Assets/Art/Characters/Shaders/SpriteOutline.shader";
         public const string MaterialPath = "Assets/Art/Characters/Materials/CricketBodyOutline.mat";
+        public const string AppendageMaterialPath = "Assets/Art/Characters/Materials/CricketAppendage.mat";
         public const string PrefabPath = "Assets/Art/Characters/Cricket.prefab";
         public const string BattleScenePath = "Assets/Scenes/Demo.unity";
         public const string DefaultLabel = "Default";
@@ -59,13 +60,14 @@ namespace DouQuqu.Editor
 
             RuntimeAnimatorController controller = BuildAnimator();
             Material outline = BuildOutlineMaterial();
-            if (outline == null)
+            Material appendage = BuildAppendageMaterial();
+            if (outline == null || appendage == null)
             {
                 Debug.LogError("[DouQuqu] 找不到 DouQuqu/SpriteOutline，确认 shader 已编译。");
                 return;
             }
 
-            if (!BuildRuntimePrefab(library, controller, outline))
+            if (!BuildRuntimePrefab(library, controller, outline, appendage))
             {
                 Debug.LogError("[DouQuqu] 骨骼 Prefab 生成失败。");
                 return;
@@ -435,10 +437,38 @@ namespace DouQuqu.Editor
             return material;
         }
 
+        private static Material BuildAppendageMaterial()
+        {
+            Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(ShaderPath);
+            if (shader == null) shader = Shader.Find("DouQuqu/SpriteOutline");
+            if (shader == null) return null;
+
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(AppendageMaterialPath);
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, AppendageMaterialPath);
+            }
+            else
+            {
+                material.shader = shader;
+            }
+
+            material.SetColor("_Color", Color.white);
+            material.SetColor("_OutlineColor", Color.black);
+            material.SetFloat("_OutlineWidth", 0f);
+            material.SetFloat("_OutlineSoftness", 0f);
+            material.SetFloat("_OutlineAlphaCutoff", 0.12f);
+            material.SetFloat("_PixelsPerUnit", 100f);
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         private static bool BuildRuntimePrefab(
             SpriteLibraryAsset library,
             RuntimeAnimatorController controller,
-            Material outline)
+            Material outline,
+            Material appendage)
         {
             GameObject source = AssetDatabase.LoadMainAssetAtPath(PsbPath) as GameObject;
             if (source == null) return false;
@@ -453,12 +483,12 @@ namespace DouQuqu.Editor
 
                 GameObject rig = (GameObject)PrefabUtility.InstantiatePrefab(source, wrapper.transform);
                 rig.name = "Rig";
-                rig.transform.localRotation = Quaternion.Euler(0f, 0f, 180f);
+                rig.transform.localRotation = Quaternion.identity;
                 rig.transform.localScale = Vector3.one;
 
                 Transform body = FindChildByName(rig.transform, "chest&body");
                 if (body != null)
-                    rig.transform.localPosition = -(rig.transform.localRotation * body.localPosition);
+                    rig.transform.localPosition = -body.localPosition;
                 else
                     rig.transform.localPosition = Vector3.zero;
 
@@ -483,9 +513,13 @@ namespace DouQuqu.Editor
                     renderer.shadowCastingMode = ShadowCastingMode.Off;
                     renderer.receiveShadows = false;
                     bool antenna = CricketVisual.IsAntenna(renderer.name);
+                    bool tail = CricketVisual.IsTail(renderer.name);
                     bool isBody = CricketVisual.IsBody(renderer.name);
-                    // 全部件共用描边材质：须/尾 width=0，仍写 stencil，避免主体描边盖到须上。
-                    renderer.sharedMaterial = outline != null ? outline : defaultMat;
+                    // 须/尾用 width=0 的描边材质：仍写 stencil，避免主体描边盖上去，但自己不扩一圈。
+                    if ((antenna || tail) && appendage != null)
+                        renderer.sharedMaterial = appendage;
+                    else
+                        renderer.sharedMaterial = outline != null ? outline : defaultMat;
                     if (isBody) bodyRenderer = renderer;
                     if (antenna && firstAntenna == null) firstAntenna = renderer;
 
