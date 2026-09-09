@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8869013569147872783}
   - component: {fileID: 1699211660477408297}
+  - component: {fileID: 5678347385470781281}
   m_Layer: 0
   m_Name: Cricket
   m_TagString: Untagged
@@ -78,6 +79,18 @@ MonoBehaviour:
   outlineColor: {r: 0, g: 0, b: 0, a: 1}
   outlineWidth: 16
   outlineSoftness: 4
+--- !u!114 &5678347385470781281
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7504085011634074711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b8a265cbd4df3745a4e2d6e15f7a05f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &6134352618824703222
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -336,8 +349,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 2.0332994e-27
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 359586622
 --- !u!1 &1397357566373125045 stripped
@@ -357,8 +370,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 5.655162e-15
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 204714434
 --- !u!212 &1541093314795157568 stripped
@@ -393,8 +406,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 1.9230125e-25
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 1012256445
 --- !u!212 &2006634346666683929 stripped
@@ -419,8 +432,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 0.91319674
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 578459065
 --- !u!1 &2685114252332308296 stripped
@@ -440,8 +453,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 6.7713423e-15
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 908811858
 --- !u!1 &2698417201704530018 stripped
@@ -461,8 +474,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 8.5167226e-27
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 632793276
 --- !u!1 &3010699993474776717 stripped
@@ -482,8 +495,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 0.33530772
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 603212409
 --- !u!1 &3014281486566588810 stripped
@@ -503,8 +516,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 0.3192019
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 131741864
 --- !u!1 &3018840436675280358 stripped
@@ -524,8 +537,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 3.5058788e-31
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 498355129
 --- !u!1 &3222538647397790740 stripped
@@ -545,8 +558,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 4.1555966e-33
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 881811002
 --- !u!1 &3231580189387742421 stripped
@@ -566,8 +579,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 1.8273973e-28
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 210550079
 --- !u!1 &3574716852656181479 stripped
@@ -587,8 +600,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 8.1027384e-33
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 753133563
 --- !u!212 &3637334911666533466 stripped
@@ -618,8 +631,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 0.000053509717
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 312731195
 --- !u!1 &4049629065393963219 stripped
@@ -639,8 +652,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 5.2015997e-21
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 674310177
 --- !u!212 &4343201976252870511 stripped
@@ -685,8 +698,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 4.9883165e-31
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 473601145
 --- !u!1 &4917200513316648166 stripped
@@ -706,8 +719,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 7.1911845e-34
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 889291258
 --- !u!1 &5280832285186871677 stripped
@@ -727,8 +740,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 0.0006363656
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 188842042
 --- !u!1 &5474294404855777879 stripped
@@ -748,8 +761,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 7.657881e-20
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 889375847
 --- !u!212 &5767038826545356241 stripped
@@ -829,8 +842,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 0.006980412
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 181362682
 --- !u!1 &6533791944071061087 stripped
@@ -850,8 +863,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 4.0513276e-36
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 601399627
 --- !u!212 &6835628611032560104 stripped
@@ -876,8 +889,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 1.14074824e-29
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 98103928
 --- !u!212 &7798691055807160544 stripped
@@ -927,8 +940,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 0.0428401
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 999879608
 --- !u!1 &8959952013088053227 stripped
@@ -948,8 +961,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 6.5395866e-29
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 218260223
 --- !u!1 &8987381461639801224 stripped
@@ -969,8 +982,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed8b1ae4e4e52b34ea557c1c11e076fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_CategoryHash: 0
-  m_labelHash: 0
+  m_CategoryHash: 9.485715e-26
+  m_labelHash: 6.4580854e-12
   m_SpriteKey: 0
   m_SpriteHash: 607745916
 --- !u!212 &9143238554808937778 stripped

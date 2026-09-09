@@ -102,6 +102,7 @@ namespace DouQuqu
             for (int i = 0; i < due.Count; i++)
             {
                 string kind = DouQuquRules.IsRage(state.knobs, state.elapsed) ? "shield" : due[i];
+                if (kind == "size") kind = "shield";
                 PickupState pickup = new PickupState(state.nextPickupId++, PlacePoint(state, state.knobs.itemMinEdge, true), kind);
                 state.pickups.Add(pickup);
                 emit?.Invoke("item-spawn:" + kind, pickup.position);

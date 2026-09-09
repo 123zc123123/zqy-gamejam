@@ -210,6 +210,8 @@ namespace DouQuqu
             };
             state.bugs = new BugState[configuredPlayers];
             state.humanPlayers = new bool[configuredPlayers];
+            CricketPick[] localPicks = DouQuquAppServices.TakePendingLocalPicks();
+            if (localPicks != null) StoreRoster(ref pendingRoster, configuredPlayers, 0, localPicks);
             EnsureRoster(configuredPlayers);
             for (int i = 0; i < state.bugs.Length; i++)
             {
@@ -705,8 +707,10 @@ namespace DouQuqu
             if (bug == null) return;
             CricketPick pick = GetPick(playerId, slot);
             bug.catalogId = pick == null ? 0 : pick.catalogId;
-            int quality = pick == null ? 1 : pick.quality;
-            int temperament = pick == null ? 1 : pick.temperament;
+            int quality = pick == null ? 1 : Mathf.Clamp(pick.quality, 1, 4);
+            int temperament = pick == null ? 1 : Mathf.Clamp(pick.temperament, 1, 4);
+            bug.quality = quality;
+            bug.temperament = temperament;
             DouQuquCricketCatalog.ApplyCombatBias(bug, quality, temperament);
             DouQuquRules.RefreshBody(knobs, bug);
             bug.slideMu = DouQuquRules.GripOf(knobs, bug);

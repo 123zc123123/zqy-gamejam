@@ -134,21 +134,106 @@ namespace DouQuqu.Editor
                 library = AssetDatabase.LoadAssetAtPath<SpriteLibraryAsset>(SpriteLibraryPath);
             }
 
-            Object[] assets = AssetDatabase.LoadAllAssetsAtPath(PsbPath);
+            int added = AddSkinLabel(library, expected, PsbPath, DefaultLabel);
+            for (int quality = 1; quality <= 4; quality++)
+            {
+                for (int temperament = 1; temperament <= 4; temperament++)
+                {
+                    string label = quality + "-" + temperament;
+                    string path = "Assets/Art/Characters/Skins/" + label + ".psb";
+                    if (!File.Exists(path))
+                        path = "Assets/Art/Characters/Skins/" + Mathf.Min(quality, 3) + "-" + temperament + ".psb";
+                    added += AddSkinLabel(library, expected, path, label);
+                }
+            }
+
+            EditorUtility.SetDirty(library);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[DouQuqu] Sprite Library 标签写入：" + added);
+            return library;
+        }
+
+        private static int AddSkinLabel(SpriteLibraryAsset library, HashSet<string> expected, string psbPath, string label)
+        {
+            if (library == null || string.IsNullOrEmpty(psbPath) || !File.Exists(psbPath)) return 0;
+            AssetDatabase.ImportAsset(psbPath, ImportAssetOptions.ImportRecursive);
+            Object[] assets = AssetDatabase.LoadAllAssetsAtPath(psbPath);
+            if (assets == null) return 0;
+            SerializedObject so = new SerializedObject(library);
+            SerializedProperty categories = so.FindProperty("m_Labels");
+            if (categories == null) return 0;
             int added = 0;
             for (int i = 0; i < assets.Length; i++)
             {
                 Sprite sprite = assets[i] as Sprite;
                 if (sprite == null) continue;
                 if (expected.Count > 0 && !expected.Contains(sprite.name)) continue;
-                library.AddCategoryLabel(sprite, sprite.name, DefaultLabel);
-                added++;
+                if (WriteCategoryLabel(categories, sprite.name, label, sprite))
+                    added++;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return added;
+        }
+
+        private static bool WriteCategoryLabel(SerializedProperty categories, string category, string label, Sprite sprite)
+        {
+            SerializedProperty categoryEntry = null;
+            for (int i = 0; i < categories.arraySize; i++)
+            {
+                SerializedProperty entry = categories.GetArrayElementAtIndex(i);
+                if (entry.FindPropertyRelative("m_Name").stringValue == category)
+                {
+                    categoryEntry = entry;
+                    break;
+                }
+            }
+            if (categoryEntry == null)
+            {
+                categories.arraySize++;
+                categoryEntry = categories.GetArrayElementAtIndex(categories.arraySize - 1);
+                categoryEntry.FindPropertyRelative("m_Name").stringValue = category;
+                categoryEntry.FindPropertyRelative("m_Hash").intValue = LibraryHash(category);
             }
 
-            EditorUtility.SetDirty(library);
+            SerializedProperty labels = categoryEntry.FindPropertyRelative("m_CategoryList");
+            SerializedProperty labelEntry = null;
+            for (int i = 0; i < labels.arraySize; i++)
+            {
+                SerializedProperty entry = labels.GetArrayElementAtIndex(i);
+                if (entry.FindPropertyRelative("m_Name").stringValue == label)
+                {
+                    labelEntry = entry;
+                    break;
+                }
+            }
+            if (labelEntry == null)
+            {
+                labels.arraySize++;
+                labelEntry = labels.GetArrayElementAtIndex(labels.arraySize - 1);
+            }
+            labelEntry.FindPropertyRelative("m_Name").stringValue = label;
+            labelEntry.FindPropertyRelative("m_Hash").intValue = LibraryHash(label);
+            labelEntry.FindPropertyRelative("m_Sprite").objectReferenceValue = sprite;
+            return true;
+        }
+
+        static int LibraryHash(string value)
+        {
+            return Animator.StringToHash(value) & 0x3FFFFFFF;
+        }
+
+        [MenuItem("DouQuqu/Refresh Cricket Skin Library")]
+        public static void RefreshSkinLibrary()
+        {
+            SpriteLibraryAsset library = BuildSpriteLibrary();
+            if (library == null)
+            {
+                Debug.LogError("[DouQuqu] Sprite Library 刷新失败。");
+                return;
+            }
             AssetDatabase.SaveAssets();
-            Debug.Log("[DouQuqu] Sprite Library Default 标签数：" + added);
-            return library;
+            AssetDatabase.Refresh();
+            Debug.Log("[DouQuqu] 皮肤 Library 已刷新：" + SpriteLibraryPath);
         }
 
         private static HashSet<string> ReadLayerNames()
@@ -301,6 +386,8 @@ namespace DouQuqu.Editor
                 visual.BindParts(bodyRenderer, firstAntenna);
                 visual.BindHierarchy();
                 visual.ApplyTeam(true, false);
+                if (wrapper.GetComponent<DouQuquCricketAnim>() == null)
+                    wrapper.AddComponent<DouQuquCricketAnim>();
 
                 string prefabDir = Path.GetDirectoryName(PrefabPath).Replace('\\', '/');
                 if (!AssetDatabase.IsValidFolder(prefabDir))

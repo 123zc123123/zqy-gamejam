@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.U2D.Animation;
 
 namespace DouQuqu
 {
@@ -60,6 +61,42 @@ namespace DouQuqu
             antenna = antennaRenderer;
             if (antennaRenderer != null)
                 antennae = new[] { antennaRenderer };
+        }
+
+        /// <summary>
+        /// 换皮只换贴图，不换带权重的网格。
+        /// 各套 PSB 图层打包位置接近，用 Default 网格的 UV 采样目标皮肤图集，动画才能继续播。
+        /// </summary>
+        public void ApplySkin(string label)
+        {
+            if (string.IsNullOrEmpty(label) || label == "1-1") label = "Default";
+            SpriteLibrary library = GetComponentInChildren<SpriteLibrary>(true);
+            SpriteLibraryAsset asset = library != null ? library.spriteLibraryAsset : null;
+            if (asset == null) return;
+            if (parts == null || parts.Length == 0) BindHierarchy();
+            if (parts == null || parts.Length == 0) return;
+            if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                SpriteRenderer renderer = parts[i];
+                if (renderer == null) continue;
+                string category = renderer.gameObject.name;
+                Sprite meshSprite = asset.GetSprite(category, "Default");
+                if (meshSprite != null) renderer.sprite = meshSprite;
+                Sprite look = asset.GetSprite(category, label);
+                if (look == null) look = meshSprite;
+                renderer.GetPropertyBlock(propertyBlock);
+                if (look != null && look.texture != null)
+                    propertyBlock.SetTexture("_MainTex", look.texture);
+                renderer.SetPropertyBlock(propertyBlock);
+                ApplyOutlineBlock(renderer, outlineColor);
+            }
+        }
+
+        public static string SkinLabel(int quality, int temperament)
+        {
+            return Mathf.Clamp(quality, 1, 4) + "-" + Mathf.Clamp(temperament, 1, 4);
         }
 
         public void BindHierarchy()

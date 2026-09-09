@@ -37,6 +37,9 @@ namespace DouQuqu
 
             if (!Bind()) return;
 
+            animator.enabled = true;
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            animator.SetLayerWeight(0, 1f);
             bool crashing = bug.hitTier != HitTier.None;
             bool settled = IsSettled(bug);
             animator.SetBool(ChargingId, bug.charging && !crashing);

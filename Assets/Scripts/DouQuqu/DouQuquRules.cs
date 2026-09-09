@@ -40,6 +40,8 @@ namespace DouQuqu
         public float chargeScale = 1.25f;
         [InspectorCn("蓄力强化持续", "秒；仅拾取，狂暴不读")]
         public float chargeBuffT = 5f;
+        [InspectorCn("狂暴加成", "加时全员蓄力速度、耐力恢复同乘；不变大")]
+        public float rageBoost = 1.25f;
 
         [Header("耐力")]
         [InspectorCn("耐力上限", "开局满；不参与跳跃和碰撞公式")]
@@ -204,7 +206,7 @@ namespace DouQuqu
         public static float ArenaHalfWidth = DefaultArenaHalfWidth;
         public static float ArenaHalfDepth = DefaultArenaHalfDepth;
         public static float ArenaCorner = DefaultArenaCorner;
-        public static readonly string[] ItemKinds = { "size", "shield", "charge" };
+        public static readonly string[] ItemKinds = { "shield", "charge" };
         public const int KillScoreBase = 10;
 
         public static void ResetArenaSize()
@@ -287,7 +289,7 @@ namespace DouQuqu
         /// <summary>判断蟋蟀是否处于蓄力强化中。</summary>
         public static bool ChargeActive(BugState bug)
         {
-            return bug.rageCharge || bug.buffChargeT > 0f;
+            return bug.buffChargeT > 0f;
         }
 
         /// <summary>判断蟋蟀的护盾是否仍有效。</summary>
@@ -332,7 +334,10 @@ namespace DouQuqu
         public static float EffectiveChargeSpeed(MatchKnobs knobs, BugState bug)
         {
             float mul = bug == null ? 1f : StatMul(bug.chargeSpeedMul);
-            return knobs.vRate * mul * (ChargeActive(bug) ? knobs.chargeScale : 1f);
+            float rate = knobs.vRate * mul;
+            if (ChargeActive(bug)) rate *= knobs.chargeScale;
+            if (bug != null && bug.rageCharge) rate *= Mathf.Max(0.01f, knobs.rageBoost);
+            return rate;
         }
 
         /// <summary>返回当前增益下蓄力条的最大持续时间。</summary>
@@ -550,6 +555,7 @@ namespace DouQuqu
             if (bug == null || !bug.alive || bug.airborne) return;
             float max = StaminaMaxOf(knobs, bug);
             float regen = Mathf.Max(0f, knobs.staminaRegen) * StatMul(bug.staminaRegenMul);
+            if (bug.rageCharge) regen *= Mathf.Max(0.01f, knobs.rageBoost);
             if (bug.charging) regen *= Mathf.Max(0f, knobs.staminaRegenCharge);
             bug.stamina = Mathf.Clamp(bug.stamina + regen * dt, 0f, max);
         }
@@ -744,18 +750,17 @@ namespace DouQuqu
             baby.buffChargeT = Mathf.Max(0f, baby.buffChargeT - dt);
         }
 
-        /// <summary>进入加时狂暴：存活蟋蟀获得永久增大和蓄力强化。</summary>
+        /// <summary>进入加时狂暴：全员蓄力速度与耐力恢复同乘 rageBoost，体型不变。</summary>
         public static void EnterRage(MatchKnobs knobs, BugState[] bugs)
         {
             for (int i = 0; i < bugs.Length; i++)
             {
                 BugState bug = bugs[i];
                 if (!bug.alive) continue;
-                bug.rageSize = true;
+                bool wasBig = bug.rageSize;
+                bug.rageSize = false;
                 bug.rageCharge = true;
-                bug.buffSizeT = 0f;
-                bug.buffChargeT = 0f;
-                RefreshBody(knobs, bug);
+                if (wasBig) RefreshBody(knobs, bug);
             }
         }
 
@@ -763,9 +768,8 @@ namespace DouQuqu
         public static string PickItemKind(ref string lastKind, float roll)
         {
             int selected = 0;
-            if (lastKind == "size") selected = roll < 0.5f ? 1 : 2;
-            else if (lastKind == "shield") selected = roll < 0.5f ? 0 : 2;
-            else if (lastKind == "charge") selected = roll < 0.5f ? 0 : 1;
+            if (lastKind == "shield") selected = 1;
+            else if (lastKind == "charge") selected = 0;
             else selected = Mathf.Clamp(Mathf.FloorToInt(roll * ItemKinds.Length), 0, ItemKinds.Length - 1);
             lastKind = ItemKinds[selected];
             return lastKind;
@@ -1075,6 +1079,8 @@ namespace DouQuqu
         public float staminaRegenMul = 1f;
         public float staminaMaxMul = 1f;
         public float tFloorMul = 1f;
+        public int quality;
+        public int temperament;
         public int grow;
         public int lastHitId = -1;
         public HitTier hitTier = HitTier.None;

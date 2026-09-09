@@ -54,7 +54,7 @@ namespace DouQuqu
         private const int MaxNameLength = 20;
         public const int StartScore = 0;
         public const int StartGold = 100;
-        public const int StartEggs = 16;
+        public const int StartEggs = 24;
         public const int ScoreCap = 999999;
         public const int GoldCap = 999999;
         public const int EggCap = 99;

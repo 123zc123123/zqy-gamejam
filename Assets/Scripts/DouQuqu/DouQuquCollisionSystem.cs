@@ -284,6 +284,7 @@ namespace DouQuqu
             }
         }
 
+
         private void BounceMasses(ref Vector3 aVelocity, ref Vector3 bVelocity, float massA, float massB, Vector3 normal)
         {
             Vector3 relative = bVelocity - aVelocity;

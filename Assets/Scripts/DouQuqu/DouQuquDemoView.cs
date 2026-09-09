@@ -115,8 +115,6 @@ namespace DouQuqu
             if (autoStart && !match.IsStarted)
             {
                 match.Configure(MatchRunMode.Offline, Mathf.Clamp(playerCount, 1, DouQuquMatchController.MaxPlayers));
-                CricketPick[] localPicks = DouQuquAppServices.TakePendingLocalPicks();
-                if (localPicks != null) match.SetRoster(0, localPicks);
                 match.ResetMatch(playerCount, randomSeed);
                 match.StartMatch();
             }
@@ -210,15 +208,29 @@ namespace DouQuqu
                 BugState bug = state.bugs[i];
                 if (bug == null) continue;
                 seenIds.Add(bug.id);
-                GameObject view = GetOrCreate(bugViews, bug.id, PrefabForBug(bug.id), bugsRoot, "Bug_" + bug.id);
-                if (view == null) continue;
                 int profile = VisualProfileForBug(state, bug);
                 int assignedProfile;
+                if (assignedBugProfiles.TryGetValue(bug.id, out assignedProfile) && assignedProfile != profile)
+                {
+                    GameObject old;
+                    if (bugViews.TryGetValue(bug.id, out old) && old != null) Destroy(old);
+                    bugViews.Remove(bug.id);
+                }
+                GameObject view = GetOrCreate(bugViews, bug.id, PrefabForBug(bug.id), bugsRoot, "Bug_" + bug.id);
+                if (view == null) continue;
                 if (!assignedBugProfiles.TryGetValue(bug.id, out assignedProfile) || assignedProfile != profile)
                 {
-                    // 骨骼蛐蛐走 Sprite Library，不能把身体 Sprite 换成精品立绘。
-                    if (view.GetComponent<DouQuquCricketVisual>() == null)
+                    DouQuquCricketVisual skeletal = view.GetComponent<DouQuquCricketVisual>();
+                    if (skeletal != null)
+                    {
+                        int quality = profile / 4 + 1;
+                        int temperament = profile % 4 + 1;
+                        skeletal.ApplySkin(DouQuquCricketVisual.SkinLabel(quality, temperament));
+                    }
+                    else
+                    {
                         ApplyPremiumBugSprite(view, profile);
+                    }
                     assignedBugProfiles[bug.id] = profile;
                 }
                 view.SetActive(bug.alive);
@@ -226,14 +238,15 @@ namespace DouQuqu
                 view.transform.position = bug.position + Vector3.up * (groundOffset + bug.height);
                 view.transform.localScale = Vector3.one * VisualScale(view, bug.radius, state.knobs.bugR);
                 // 蓄力中跟摇杆（图片上部=头）；飞行中跟速度。空中不改朝向。
-                FaceXz(view, bug.charging ? Vector3.zero : bug.velocity, bug.chargeDirection);
                 DouQuquCricketVisual cricket = view.GetComponent<DouQuquCricketVisual>();
+                FaceXz(view, bug.charging ? Vector3.zero : bug.velocity, bug.chargeDirection, cricket != null);
                 if (cricket != null)
                 {
                     cricket.ApplyTeam(bug.id == 0, bug.charging);
                     DouQuquCricketAnim anim = view.GetComponent<DouQuquCricketAnim>();
                     if (anim == null) anim = view.GetComponentInChildren<DouQuquCricketAnim>(true);
-                    if (anim != null) anim.Apply(bug);
+                    if (anim == null) anim = view.AddComponent<DouQuquCricketAnim>();
+                    anim.Apply(bug);
                 }
                 else if (tintPlayers)
                 {
@@ -251,26 +264,26 @@ namespace DouQuqu
 
         private int VisualProfileForBug(MatchState state, BugState bug)
         {
-            // 已接入选虫数据时沿用真实品质/性格；占位选虫则按对局种子分散到不同品质。
-            int quality = 0;
-            int temperament = 0;
+            int quality = bug != null ? bug.quality : 0;
+            int temperament = bug != null ? bug.temperament : 0;
             int slot = state.cricketIndex != null && bug.id >= 0 && bug.id < state.cricketIndex.Length
                 ? state.cricketIndex[bug.id] : 0;
-            if (state.roster != null && bug.id >= 0 && bug.id < state.roster.Length)
+            if (quality < 1 || temperament < 1)
             {
-                CricketPick[] picks = state.roster[bug.id];
-                CricketPick pick = picks != null && slot >= 0 && slot < picks.Length ? picks[slot] : null;
-                if (pick != null && pick.catalogId != 0)
+                if (state.roster != null && bug.id >= 0 && bug.id < state.roster.Length)
                 {
-                    quality = Mathf.Clamp(pick.quality, 1, 4);
-                    temperament = Mathf.Clamp(pick.temperament, 1, 4);
+                    CricketPick[] picks = state.roster[bug.id];
+                    CricketPick pick = picks != null && slot >= 0 && slot < picks.Length ? picks[slot] : null;
+                    if (pick != null && pick.catalogId != 0)
+                    {
+                        quality = Mathf.Clamp(pick.quality, 1, 4);
+                        temperament = Mathf.Clamp(pick.temperament, 1, 4);
+                    }
                 }
             }
 
-            if (quality == 0)
+            if (quality < 1 || temperament < 1)
             {
-                // 轮换品质保证一局里能看到不同档位，同时仍由 seed 决定，回放/联机不会漂移。
-                // slot 参与计算，虫子换代时会得到新的外观。
                 quality = PositiveModulo(state.randomSeed + bug.id + slot * 17, 4) + 1;
                 temperament = PositiveModulo((state.randomSeed / 7) + bug.id * 3 + slot * 11, 4) + 1;
             }
@@ -309,7 +322,7 @@ namespace DouQuqu
                 view.transform.position = baby.position + Vector3.up * (groundOffset + baby.height);
                 float babyRef = Mathf.Max(0.01f, state.knobs.bugR * Mathf.Max(0.01f, state.knobs.babyRScale));
                 view.transform.localScale = Vector3.one * VisualScale(view, baby.radius, babyRef);
-                FaceXz(view, baby.velocity, baby.chargeDirection);
+                FaceXz(view, baby.velocity, baby.chargeDirection, false);
                 Tint(view, Color.white);
             }
             HideUnseen(babyViews, seenIds);
@@ -357,7 +370,6 @@ namespace DouQuqu
                 if (!pickup.alive) continue;
                 view.transform.position = pickup.position + Vector3.up * groundOffset;
                 view.transform.localScale = Vector3.one;
-                Tint(view, PickupColor(pickup.kind));
             }
             HideUnseen(pickupViews, seenIds);
         }
@@ -374,17 +386,52 @@ namespace DouQuqu
             nestView.SetActive(true);
             nestView.transform.position = state.nest.position + Vector3.up * 0.15f;
             nestView.transform.localScale = Vector3.one;
-            float ratio = Mathf.Clamp01(state.nest.hp / Mathf.Max(1f, state.knobs.nestHP));
-            Tint(nestView, Color.Lerp(new Color(0.9f, 0.18f, 0.12f), new Color(0.75f, 0.42f, 0.18f), ratio));
+            Tint(nestView, Color.white);
+            RefreshNestHits(nestView, Mathf.Max(0, Mathf.CeilToInt(state.nest.hp)));
+        }
+
+        private void RefreshNestHits(GameObject nestView, int hits)
+        {
+            Transform badge = nestView.transform.Find("HitsBadge");
+            if (badge == null)
+            {
+                GameObject go = new GameObject("HitsBadge");
+                go.transform.SetParent(nestView.transform, false);
+                go.transform.localPosition = new Vector3(0.42f, -0.38f, -0.02f);
+                go.transform.localRotation = Quaternion.identity;
+                go.transform.localScale = Vector3.one * 0.45f;
+                SpriteRenderer icon = go.AddComponent<SpriteRenderer>();
+                icon.sprite = Resources.Load<Sprite>("Battle/Entities/Textures/DouQuqu_NestHits");
+                icon.sortingOrder = 16;
+                icon.color = Color.white;
+                GameObject label = new GameObject("Hits");
+                label.transform.SetParent(go.transform, false);
+                label.transform.localPosition = Vector3.zero;
+                label.transform.localRotation = Quaternion.identity;
+                label.transform.localScale = Vector3.one;
+                TextMesh text = label.AddComponent<TextMesh>();
+                text.anchor = TextAnchor.MiddleCenter;
+                text.alignment = TextAlignment.Center;
+                text.characterSize = 0.18f;
+                text.fontSize = 64;
+                text.color = Color.white;
+                text.fontStyle = FontStyle.Bold;
+                MeshRenderer mesh = label.GetComponent<MeshRenderer>();
+                if (mesh != null) mesh.sortingOrder = 17;
+                badge = go.transform;
+            }
+            TextMesh hitsText = badge.GetComponentInChildren<TextMesh>();
+            if (hitsText != null) hitsText.text = hits.ToString();
+            badge.gameObject.SetActive(hits > 0);
         }
 
         private GameObject PrefabForBug(int id)
         {
+            if (bugPrefab != null) return bugPrefab;
             if (id == 0 && qingTouPrefab != null) return qingTouPrefab;
             if (id == 1 && youHuluPrefab != null) return youHuluPrefab;
             if (id % 2 == 0 && qingTouPrefab != null) return qingTouPrefab;
-            if (youHuluPrefab != null) return youHuluPrefab;
-            return bugPrefab;
+            return youHuluPrefab;
         }
 
         /// <summary>
@@ -577,13 +624,13 @@ namespace DouQuqu
         /// 精品立绘头在图上部：本地 +Y 对准蓄力/飞行方向。
         /// Cricket.prefab 的 Rig/零件已绕 Z 转 180（对齐旧 FaceXz +180），头在图下部，所以反向。
         /// </summary>
-        private static void FaceXz(GameObject view, Vector3 velocity, Vector2 chargeDirection)
+        private static void FaceXz(GameObject view, Vector3 velocity, Vector2 chargeDirection, bool skeletal)
         {
             Vector2 face = new Vector2(velocity.x, velocity.z);
             if (face.sqrMagnitude < 0.04f) face = chargeDirection;
             if (face.sqrMagnitude < 0.0001f) face = Vector2.up;
             Vector3 head = new Vector3(face.x, 0f, face.y);
-            if (view.GetComponent<DouQuquCricketVisual>() != null) head = -head;
+            if (skeletal || view.GetComponent<DouQuquCricketVisual>() != null) head = -head;
             view.transform.rotation = Quaternion.LookRotation(Vector3.up, head);
         }
 
