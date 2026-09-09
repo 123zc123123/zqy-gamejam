@@ -457,7 +457,7 @@ GameObject:
   - component: {fileID: 772734993}
   - component: {fileID: 772734995}
   m_Layer: 0
-  m_Name: DouQuquDemoRuntime
+  m_Name: DemoRuntime
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -490,7 +490,7 @@ MonoBehaviour:
   shieldPrefab: {fileID: 5773856176217216292, guid: eb8e9847a98fdde4db9d3adc4c63a5a8, type: 3}
   chargePrefab: {fileID: 5942787168301102888, guid: b3c7379e88f371c458b737860d6a0a7d, type: 3}
   staminaRingPrefab: {fileID: 5101938472619384710, guid: 5a7c1e93d2b84f6a9e0c4d8b1f3a6720, type: 3}
-  staminaBarPrefab: {fileID: 6175969593939639869, guid: 2b3b0610772d5af40a3898fc5d8f1d90, type: 3}
+  staminaBarPrefab: {fileID: 1323498867900985776, guid: 09b86ac5b1eaea74b8911014dce0a4fe, type: 3}
   chargeArrowPrefab: {fileID: 6102849583720495820, guid: 6b8d2f04e3c9507b0f1d5e9c2a4b7831, type: 3}
   groundMarkerPrefab: {fileID: 5234999028449959958, guid: 1b180ef6f8a131048847ec47d4bb4df8, type: 3}
   groundOffset: 0.35
@@ -522,6 +522,7 @@ MonoBehaviour:
     theta: 15
     chargeScale: 1.25
     chargeBuffT: 5
+    rageBoost: 1.25
     staminaMax: 1.5
     staminaCost: 0.75
     staminaJump: 0.25
@@ -1163,7 +1164,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6497877438175872935, guid: 9a40ef2ac72d72449a7a66a9ebafc6ec, type: 3}
       propertyPath: m_Name
-      value: DouQuqu_MergePiece
+      value: MergePiece
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -1,0 +1,912 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace DouQuqu
+{
+    /// <summary>
+    /// 持有一局对战的 Unity 组件。移动、碰撞、经济和巢穴职责拆到独立系统，
+    /// 同一份状态既可本地驱动，也可由局域网主机权威驱动。
+    /// </summary>
+    public sealed class MatchController : MonoBehaviour
+    {
+        // Demo 固定最多四名玩家；输入、状态数组和局域网槽位统一使用此常量。
+        public const int MaxPlayers = 4;
+        public const int LivesPerPlayer = 3;
+        // 使用固定模拟时间，保证主机和客户端快照可以确定性重放。
+        public const float FixedDeltaTime = 1f / 60f;
+        private const int MovementSubsteps = 6;
+
+        [SerializeField, InspectorCn("运行模式")] private MatchRunMode runMode = MatchRunMode.Offline;
+        [SerializeField, InspectorCn("玩家数")] private int configuredPlayers = MaxPlayers;
+        // 单机 Demo 默认只把 0 号槽位交给真人，其余槽位由 AI 驱动；可调为 1~4 兼容本地多人键盘。
+        [SerializeField, Range(1, MaxPlayers), InspectorCn("单机真人数")] private int offlineHumanPlayers = 1;
+        [SerializeField, InspectorCn("由 Unity 推进")] private bool tickFromUnity = true;
+        [SerializeField, InspectorCn("对局旋钮")] private MatchKnobs knobs;
+
+        private readonly InputFrame[] inputs = new InputFrame[MaxPlayers];
+        private readonly MovementSystem movement = new MovementSystem();
+        private readonly CollisionSystem collision = new CollisionSystem();
+        private readonly EconomySystem economy = new EconomySystem();
+        private readonly NestSystem nestSystem = new NestSystem();
+        private readonly AISystem ai = new AISystem();
+
+        // 只有主机/单机控制器推进状态；局域网客户端只应用快照，
+        // 将此对象作为表现层读取模型。
+        private MatchState state;
+        private CricketPick[][] pendingRoster;
+        private float accumulator;
+        private int inputSequence;
+
+        public MatchRunMode RunMode => runMode;
+        public MatchKnobs Knobs => state != null && state.knobs != null ? state.knobs : knobs;
+        public MatchState State => state;
+        public int ConfiguredPlayers => configuredPlayers;
+        public int OfflineHumanPlayers => offlineHumanPlayers;
+        public BugState[] Bugs => state == null ? new BugState[0] : state.bugs;
+        public IReadOnlyList<PickupState> Pickups => state == null ? (IReadOnlyList<PickupState>)Array.Empty<PickupState>() : state.pickups;
+        public IReadOnlyList<EggState> Eggs => state == null ? (IReadOnlyList<EggState>)Array.Empty<EggState>() : state.eggs;
+        public IReadOnlyList<BabyState> Babies => state == null ? (IReadOnlyList<BabyState>)Array.Empty<BabyState>() : state.babies;
+        public NestState Nest => state == null ? null : state.nest;
+        public float Elapsed => state == null ? 0f : state.elapsed;
+        public bool IsStarted => state != null && state.started;
+        public bool IsOver => state != null && state.over;
+        public int WinnerId => state == null ? -1 : state.winnerId;
+        public MatchPhase Phase => state == null ? MatchPhase.Probe : Rules.Phase(ActiveKnobs, state.elapsed);
+
+        public event Action<MatchSnapshot> SnapshotReady;
+        public event Action<MatchState> StateChanged;
+        public event Action<int, int> CricketOut;
+        public event Action<int, int> CricketIn;
+        public event Action<int> PlayerEliminated;
+        public event Action<string, Vector3> GameplayEvent;
+
+        private void Awake()
+        {
+            if (knobs == null) knobs = Rules.DefaultKnobs();
+            configuredPlayers = Mathf.Clamp(configuredPlayers, 1, MaxPlayers);
+            for (int i = 0; i < inputs.Length; i++) inputs[i] = new InputFrame(i, Vector2.up, false, false);
+        }
+
+        private void Start()
+        {
+            KnobSaveHud.Ensure(this);
+        }
+
+        /// <summary>把当前旋钮写成 JSON，供退出 Play 后覆写 Demo 场景 Inspector。</summary>
+        public string CaptureKnobsJson()
+        {
+            if (knobs == null) knobs = Rules.DefaultKnobs();
+            return JsonUtility.ToJson(knobs);
+        }
+
+        /// <summary>用 JSON 覆写当前旋钮对象；编辑器退出 Play 后写回场景时也会走这里。</summary>
+        public void ApplyKnobsJson(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return;
+            if (knobs == null) knobs = Rules.DefaultKnobs();
+            JsonUtility.FromJsonOverwrite(json, knobs);
+            knobs.EnsureJumpKnobs();
+            if (state != null) state.knobs = knobs;
+        }
+
+        /// <summary>记下局内旋钮。Unity 不能在 Play 里持久化场景，退出 Play 后才会覆写 Demo Inspector。</summary>
+        public bool TrySaveKnobsToScene()
+        {
+            if (knobs == null) knobs = Rules.DefaultKnobs();
+            PlayerPrefs.SetString(KnobSaveKeys.Json, JsonUtility.ToJson(knobs));
+            PlayerPrefs.SetInt(KnobSaveKeys.Dirty, 1);
+            PlayerPrefs.Save();
+            return true;
+        }
+
+        /// <summary>只改当局规则，不覆写场景 Inspector 上的旋钮。</summary>
+        public void OverlayRuntimeKnobs(MatchKnobs runtime)
+        {
+            if (runtime == null || state == null) return;
+            state.knobs = runtime;
+        }
+
+        private MatchKnobs ActiveKnobs
+        {
+            get
+            {
+                if (state != null && state.knobs != null) return state.knobs;
+                if (knobs == null) knobs = Rules.DefaultKnobs();
+                return knobs;
+            }
+        }
+
+        // Unity 可变帧时间累积为固定模拟 Tick；单帧上限避免暂停后一次跳过过长对局时间。
+        private void Update()
+        {
+            if (!tickFromUnity || runMode == MatchRunMode.Client || !IsStarted || IsOver) return;
+            accumulator += Mathf.Min(Time.deltaTime, 0.1f);
+            while (accumulator >= FixedDeltaTime)
+            {
+                Tick(FixedDeltaTime);
+                accumulator -= FixedDeltaTime;
+            }
+        }
+
+        /// <summary>
+        /// 匹配选人完成后写入上场顺序。未调用时默认每人三只占位蟋蟀。
+        /// 须在 StartMatch 前设置。
+        /// </summary>
+        public void SetRoster(int playerId, CricketPick[] picks)
+        {
+            configuredPlayers = Mathf.Clamp(configuredPlayers, 1, MaxPlayers);
+            if (playerId < 0 || playerId >= MaxPlayers) return;
+            StoreRoster(ref pendingRoster, configuredPlayers, playerId, picks);
+            if (state != null)
+            {
+                StoreRoster(ref state.roster, configuredPlayers, playerId, picks);
+                if (state.bugs != null && playerId < state.bugs.Length)
+                    ApplyPickToBug(state.bugs[playerId], playerId, CricketIndex(playerId));
+            }
+        }
+
+        public int CricketIndex(int playerId)
+        {
+            if (state == null || state.cricketIndex == null || playerId < 0 || playerId >= state.cricketIndex.Length) return 0;
+            return state.cricketIndex[playerId];
+        }
+
+        public CricketPick RosterPick(int playerId, int slot)
+        {
+            return GetPick(playerId, slot);
+        }
+
+        public int LivesLeft(int playerId)
+        {
+            if (state == null || state.bugs == null || playerId < 0 || playerId >= state.bugs.Length) return 0;
+            if (state.playerIn != null && playerId < state.playerIn.Length && !state.playerIn[playerId]) return 0;
+            int unused = LivesPerPlayer - CricketIndex(playerId) - 1;
+            int current = state.bugs[playerId] != null && state.bugs[playerId].alive ? 1 : 0;
+            return current + Mathf.Max(0, unused);
+        }
+
+        public bool PlayerStillIn(int playerId)
+        {
+            if (state == null || state.playerIn == null || playerId < 0 || playerId >= state.playerIn.Length) return false;
+            return state.playerIn[playerId];
+        }
+
+        public int Place(int playerId)
+        {
+            if (state == null || state.place == null || playerId < 0 || playerId >= state.place.Length) return 0;
+            return state.place[playerId];
+        }
+
+        public int MatchScore(int playerId)
+        {
+            if (state == null || state.matchScore == null || playerId < 0 || playerId >= state.matchScore.Length) return 0;
+            return state.matchScore[playerId];
+        }
+
+        public int KillStreak(int playerId)
+        {
+            if (state == null || state.killStreak == null || playerId < 0 || playerId >= state.killStreak.Length) return 0;
+            return state.killStreak[playerId];
+        }
+
+        /// <summary>在重置前配置运行模式和玩家数量。</summary>
+        public void Configure(MatchRunMode mode, int playerCount, MatchKnobs matchKnobs = null)
+        {
+            runMode = mode;
+            configuredPlayers = Mathf.Clamp(playerCount, 1, MaxPlayers);
+            if (matchKnobs != null)
+            {
+                knobs = matchKnobs;
+                if (state != null) state.knobs = knobs;
+            }
+        }
+
+        /// <summary>重建新局的实体和确定性游标；seed 为零时使用时间种子。</summary>
+        public void ResetMatch(int playerCount = -1, int seed = 0)
+        {
+            if (knobs == null) knobs = Rules.DefaultKnobs();
+            configuredPlayers = Mathf.Clamp(playerCount < 1 ? configuredPlayers : playerCount, 1, MaxPlayers);
+            offlineHumanPlayers = Mathf.Clamp(offlineHumanPlayers, 1, configuredPlayers);
+            state = new MatchState
+            {
+                playerCount = configuredPlayers,
+                randomSeed = seed == 0 ? Environment.TickCount : seed,
+                knobs = knobs,
+                nextNestAt = knobs.nestFirstT,
+                lastHeartAt = -1f,
+                nextItemIndex = 0,
+                lastItemKind = null,
+                nextPickupId = 0,
+                nextBabyId = 100,
+                pendingNestOwnerId = -1
+            };
+            accumulator = 0f;
+            inputSequence = 0;
+            for (int i = 0; i < inputs.Length; i++) inputs[i] = new InputFrame(i, Vector2.up, false, false);
+            Vector3[] spawns =
+            {
+                new Vector3(0f, 0f, -Rules.ArenaHalfDepth * 0.38f),
+                new Vector3(0f, 0f, Rules.ArenaHalfDepth * 0.38f),
+                new Vector3(-Rules.ArenaHalfWidth * 0.38f, 0f, 0f),
+                new Vector3(Rules.ArenaHalfWidth * 0.38f, 0f, 0f)
+            };
+            state.bugs = new BugState[configuredPlayers];
+            state.humanPlayers = new bool[configuredPlayers];
+            state.idlePlayers = new bool[configuredPlayers];
+            CricketPick[] localPicks = AppServices.PendingLocalPicks;
+            if (localPicks != null) StoreRoster(ref pendingRoster, configuredPlayers, 0, localPicks);
+            EnsureRoster(configuredPlayers);
+            for (int i = 0; i < state.bugs.Length; i++)
+            {
+                state.bugs[i] = new BugState(i, spawns[i], knobs);
+                state.bugs[i].chargeDirection = (new Vector2(-spawns[i].x, -spawns[i].z)).normalized;
+                state.bugs[i].slideMu = Rules.GripOf(knobs, state.bugs[i]);
+                ApplyPickToBug(state.bugs[i], i, 0);
+                // 客户端不推进本地模拟；主机和离线模式只保留本地真人槽位，其余交给确定性 AI。
+                state.humanPlayers[i] = runMode == MatchRunMode.Client || i < offlineHumanPlayers;
+            }
+            ai.Reset(configuredPlayers);
+            economy.SeedHearts(state);
+            GameplayEvent?.Invoke("match-reset", Vector3.zero);
+            StateChanged?.Invoke(state);
+        }
+
+        /// <summary>将已准备状态设为运行中，并发出 match-start 事件。</summary>
+        public void StartMatch()
+        {
+            if (state == null || state.bugs.Length == 0) ResetMatch();
+            state.started = true;
+            state.over = false;
+            state.winnerId = -1;
+            GameplayEvent?.Invoke("match-start", Vector3.zero);
+            StateChanged?.Invoke(state);
+        }
+
+        /// <summary>停止模拟，并将当前状态标记为结束。</summary>
+        public void StopMatch()
+        {
+            if (state == null) return;
+            state.started = false;
+            state.over = true;
+            GameplayEvent?.Invoke("match-stop", Vector3.zero);
+            StateChanged?.Invoke(state);
+        }
+
+        /// <summary>接收玩家最新输入帧；序号让延迟到达的 UDP 包不会覆盖新输入。</summary>
+        public void SetInput(InputFrame frame)
+        {
+            if (state == null || frame == null || frame.playerId < 0 || frame.playerId >= state.bugs.Length || state.over) return;
+            if (state.idlePlayers != null && frame.playerId < state.idlePlayers.Length && state.idlePlayers[frame.playerId]) return;
+            if (state.playerIn != null && frame.playerId < state.playerIn.Length && !state.playerIn[frame.playerId]) return;
+            InputFrame current = inputs[frame.playerId];
+            if (current != null && frame.sequence > 0 && frame.sequence < current.sequence) return;
+            frame.sequence = frame.sequence > 0 ? frame.sequence : ++inputSequence;
+            inputs[frame.playerId] = frame;
+        }
+
+        /// <summary>供本地键盘或脚本输入使用的便捷重载。</summary>
+        public void SetInput(int playerId, Vector2 direction, bool held, bool released = false)
+        {
+            SetInput(new InputFrame(playerId, direction, held, released, ++inputSequence));
+        }
+
+        /// <summary>标记槽位由真人控制还是由内置 AI 控制。</summary>
+        public void SetPlayerHuman(int playerId, bool human)
+        {
+            if (state == null || playerId < 0 || playerId >= state.humanPlayers.Length) return;
+            state.humanPlayers[playerId] = human;
+        }
+
+        /// <summary>木桩槽位：不读输入、不跑人机，站着不跳。</summary>
+        public void SetPlayerIdle(int playerId, bool idle)
+        {
+            if (state == null || state.idlePlayers == null || playerId < 0 || playerId >= state.idlePlayers.Length) return;
+            state.idlePlayers[playerId] = idle;
+            if (!idle) return;
+            inputs[playerId] = new InputFrame(playerId, Vector2.up, false, false);
+            BugState bug = playerId < state.bugs.Length ? state.bugs[playerId] : null;
+            if (bug == null) return;
+            bug.holding = false;
+            bug.charging = false;
+            bug.pendingCharge = false;
+        }
+
+        /// <summary>推进一个权威模拟片段；移动/碰撞分步执行，再结算经济、巢穴和蓄力。</summary>
+        public void Tick(float dt)
+        {
+            if (state == null || !state.started || state.over || dt <= 0f) return;
+            dt = Mathf.Min(dt, 0.1f);
+            state.elapsed += dt;
+            state.tick++;
+            MatchKnobs active = ActiveKnobs;
+            MatchPhase phase = Rules.Phase(active, state.elapsed);
+            if (phase == MatchPhase.Rage && state.elapsed - dt < active.regTime)
+            {
+                Rules.EnterRage(active, state.bugs);
+                GameplayEvent?.Invoke("rage-start", Vector3.zero);
+            }
+
+            ai.Tick(state, inputs, dt);
+            float subDt = dt / MovementSubsteps;
+            // 先重复执行扫掠移动和碰撞，再判定淘汰，确保高速命中在出圈归因前完成。
+            for (int sub = 0; sub < MovementSubsteps; sub++)
+            {
+                // 出圈统一在所有扫掠子步结束后处理；若在子步内淘汰，
+                // 后续子步可能失去完成最终碰撞的机会。
+                movement.TickMotion(state, inputs, subDt, Emit, null);
+                collision.Resolve(state, Emit, null, OnNestHit);
+                economy.ResolvePickups(state, AddGrow, Emit);
+            }
+            for (int i = 0; i < state.bugs.Length; i++)
+                if (state.bugs[i].alive && !Rules.InsideArena(state.bugs[i].position)) MarkOut(state.bugs[i]);
+            movement.MarkBabyOutOfBounds(state, Emit);
+            economy.Tick(state, AddGrow, Emit);
+            // 巢穴计时在拾取结算后执行；蓄力/松开只在完整固定 Tick 末采样一次。
+            nestSystem.TickBeforeCollision(state, dt, Emit);
+            nestSystem.TickAfterCollision(state, Emit);
+            movement.TickCharge(state, inputs, dt);
+            CheckEnd(phase);
+            if (runMode == MatchRunMode.Host) SnapshotReady?.Invoke(CaptureSnapshot());
+            StateChanged?.Invoke(state);
+            for (int i = 0; i < inputs.Length; i++) if (inputs[i] != null) inputs[i].released = false;
+        }
+
+        /// <summary>将权威状态复制为可由 Unity JSON 序列化的快照。</summary>
+        public MatchSnapshot CaptureSnapshot()
+        {
+            if (state == null) return null;
+            MatchSnapshot snapshot = new MatchSnapshot
+            {
+                version = 8,
+                tick = state.tick,
+                playerCount = state.playerCount,
+                randomSeed = state.randomSeed,
+                elapsed = state.elapsed,
+                started = state.started,
+                over = state.over,
+                winnerId = state.winnerId,
+                phase = Rules.Phase(ActiveKnobs, state.elapsed),
+                knobs = ActiveKnobs,
+                bugs = new BugSnapshot[state.bugs.Length],
+                pickups = new PickupSnapshot[state.pickups.Count],
+                eggs = new EggSnapshot[state.eggs.Count],
+                babies = new BabySnapshot[state.babies.Count],
+                nest = state.nest == null ? null : new NestSnapshot { position = state.nest.position, hp = state.nest.hp, alive = state.nest.alive },
+                lastHeartAt = state.lastHeartAt,
+                nextItemIndex = state.nextItemIndex,
+                lastItemKind = state.lastItemKind,
+                nextPickupId = state.nextPickupId,
+                nextBabyId = state.nextBabyId,
+                nextNestAt = state.nextNestAt,
+                lastNestClearAt = state.lastNestClearAt,
+                pendingNestOwnerId = state.pendingNestOwnerId,
+                nestChainActive = state.nestChainActive,
+                cricketIndex = CopyInts(state.cricketIndex),
+                playerIn = CopyBools(state.playerIn),
+                place = CopyInts(state.place),
+                matchScore = CopyInts(state.matchScore),
+                killStreak = CopyInts(state.killStreak)
+            };
+            PackRoster(snapshot);
+            for (int i = 0; i < state.bugs.Length; i++)
+            {
+                BugState b = state.bugs[i];
+                snapshot.bugs[i] = new BugSnapshot
+                {
+                    id = b.id, catalogId = b.catalogId, alive = b.alive, position = b.position, velocity = b.velocity,
+                    height = b.height, verticalVelocity = b.verticalVelocity, radius = b.radius,
+                    chargeTime = b.chargeTime, stamina = b.stamina, grow = b.grow, score = b.score, lastHitId = b.lastHitId,
+                    buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
+                    charging = b.charging, airborne = b.airborne, hitTier = (int)b.hitTier,
+                    launchVelocity = b.launchVelocity
+                };
+            }
+            for (int i = 0; i < state.pickups.Count; i++)
+            {
+                PickupState p = state.pickups[i];
+                snapshot.pickups[i] = new PickupSnapshot { id = p.id, alive = p.alive, kind = p.kind, position = p.position };
+            }
+            for (int i = 0; i < state.eggs.Count; i++)
+            {
+                EggState e = state.eggs[i];
+                snapshot.eggs[i] = new EggSnapshot { position = e.position, velocity = e.velocity, ownerId = e.ownerId, remaining = Mathf.Max(0f, e.hatchAt - state.elapsed), alive = e.alive };
+            }
+            for (int i = 0; i < state.babies.Count; i++)
+            {
+                BabyState b = state.babies[i];
+                snapshot.babies[i] = new BabySnapshot { id = b.id, ownerId = b.ownerId, position = b.position, velocity = b.velocity,
+                    height = b.height, verticalVelocity = b.verticalVelocity, charging = b.charging, grow = b.grow, score = b.score,
+                    buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
+                    hitTier = (int)b.hitTier, remaining = Mathf.Max(0f, b.lifeEnd - state.elapsed), alive = b.alive,
+                    launchVelocity = b.launchVelocity };
+            }
+            return snapshot;
+        }
+
+        /// <summary>用主机快照替换本地状态，并重建游标，避免恢复权威后重复生成或复用 ID。</summary>
+        public void ApplySnapshot(MatchSnapshot snapshot)
+        {
+            if (snapshot == null || snapshot.bugs == null) return;
+            int snapshotPlayers = Mathf.Clamp(snapshot.playerCount, 1, MaxPlayers);
+            if (snapshot.bugs.Length != snapshotPlayers) return;
+            if (snapshot.knobs != null) knobs = snapshot.knobs;
+            if (state == null || state.bugs.Length != snapshot.playerCount)
+            {
+                knobs = knobs ?? Rules.DefaultKnobs();
+                ResetMatch(snapshot.playerCount, snapshot.randomSeed);
+            }
+            state.knobs = knobs;
+            state.tick = snapshot.tick;
+            state.randomSeed = snapshot.randomSeed;
+            state.playerCount = Mathf.Clamp(snapshot.playerCount, 1, MaxPlayers);
+            state.elapsed = snapshot.elapsed;
+            state.started = snapshot.started;
+            state.over = snapshot.over;
+            state.winnerId = snapshot.winnerId;
+            if (snapshot.version >= 4)
+            {
+                state.lastHeartAt = snapshot.lastHeartAt;
+                state.nextItemIndex = Mathf.Max(0, snapshot.nextItemIndex);
+                state.lastItemKind = snapshot.lastItemKind;
+                state.nextPickupId = Mathf.Max(0, snapshot.nextPickupId);
+                state.nextBabyId = Mathf.Max(100, snapshot.nextBabyId);
+                state.nextNestAt = snapshot.nextNestAt;
+                state.lastNestClearAt = snapshot.lastNestClearAt;
+                state.pendingNestOwnerId = snapshot.pendingNestOwnerId;
+                state.nestChainActive = snapshot.nestChainActive;
+            }
+            for (int i = 0; i < snapshot.bugs.Length && i < state.bugs.Length; i++)
+            {
+                BugSnapshot s = snapshot.bugs[i];
+                BugState b = state.bugs[i];
+                b.id = s.id; b.catalogId = s.catalogId; b.alive = s.alive; b.position = s.position; b.previousPosition = s.position - s.velocity * FixedDeltaTime;
+                b.velocity = s.velocity; b.height = s.height; b.verticalVelocity = s.verticalVelocity; b.airborne = s.airborne || s.height > 0.03f || s.verticalVelocity > 0f;
+                b.radius = s.radius; b.chargeTime = s.chargeTime; b.grow = s.grow; b.score = s.score; b.lastHitId = s.lastHitId;
+                b.stamina = snapshot.version >= 5 ? Mathf.Max(0f, s.stamina) : Rules.StaminaMaxOf(knobs, b);
+                b.buffSizeT = s.buffSizeT; b.buffShieldT = s.buffShieldT; b.buffChargeT = s.buffChargeT; b.charging = s.charging;
+                b.hitTier = Rules.CanonicalHitTier((HitTier)Mathf.Clamp(s.hitTier, 0, (int)HitTier.Slip));
+                b.launchVelocity = snapshot.version >= 8 ? s.launchVelocity : Rules.Planar(s.velocity);
+                b.initialSpeed = new Vector2(b.launchVelocity.x, b.launchVelocity.z).magnitude;
+            }
+            state.pickups.Clear();
+            if (snapshot.pickups != null)
+                for (int i = 0; i < snapshot.pickups.Length; i++)
+                {
+                    PickupSnapshot p = snapshot.pickups[i];
+                    state.pickups.Add(new PickupState(p.id, p.position, p.kind) { alive = p.alive });
+                }
+            if (snapshot.version < 4)
+            {
+                state.nextPickupId = 0;
+                for (int i = 0; i < state.pickups.Count; i++)
+                    state.nextPickupId = Mathf.Max(state.nextPickupId, state.pickups[i].id + 1);
+            }
+            state.eggs.Clear();
+            if (snapshot.eggs != null)
+                for (int i = 0; i < snapshot.eggs.Length; i++)
+                {
+                    EggSnapshot e = snapshot.eggs[i];
+                    state.eggs.Add(new EggState { position = e.position, previousPosition = e.position - e.velocity * FixedDeltaTime, velocity = e.velocity, ownerId = e.ownerId, hatchAt = state.elapsed + e.remaining, alive = e.alive });
+                }
+            state.babies.Clear();
+            if (snapshot.babies != null)
+                for (int i = 0; i < snapshot.babies.Length; i++)
+                {
+                    BabySnapshot b = snapshot.babies[i];
+                    BabyState restoredBaby = new BabyState { id = b.id, ownerId = b.ownerId, position = b.position, previousPosition = b.position - b.velocity * FixedDeltaTime,
+                        velocity = b.velocity, height = b.height, verticalVelocity = b.verticalVelocity, charging = b.charging,
+                        airborne = b.height > 0.03f || b.verticalVelocity > 0f, grow = b.grow, score = b.score,
+                        buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
+                        hitTier = Rules.CanonicalHitTier((HitTier)Mathf.Clamp(b.hitTier, 0, (int)HitTier.Slip)),
+                        lifeEnd = state.elapsed + b.remaining, alive = b.alive,
+                        radius = knobs.bugR * knobs.babyRScale, mass = knobs.babyMass,
+                        launchVelocity = snapshot.version >= 8 ? b.launchVelocity : Rules.Planar(b.velocity),
+                        initialSpeed = snapshot.version >= 8
+                            ? new Vector2(b.launchVelocity.x, b.launchVelocity.z).magnitude
+                            : new Vector2(b.velocity.x, b.velocity.z).magnitude };
+                    Rules.RefreshBabyBody(knobs, restoredBaby);
+                    state.babies.Add(restoredBaby);
+                }
+            if (snapshot.version < 4)
+            {
+                state.nextBabyId = 100;
+                for (int i = 0; i < state.babies.Count; i++)
+                    state.nextBabyId = Mathf.Max(state.nextBabyId, state.babies[i].id + 1);
+            }
+            UnpackRoster(snapshot);
+            if (state.bugs != null)
+            {
+                for (int i = 0; i < state.bugs.Length; i++)
+                    ApplyPickToBug(state.bugs[i], i, CricketIndex(i), false);
+            }
+            state.nest = snapshot.nest == null ? null : new NestState { position = snapshot.nest.position, hp = snapshot.nest.hp, alive = snapshot.nest.alive };
+            if (snapshot.version < 4)
+            {
+                state.nestChainActive = (state.nest != null && state.nest.alive) || state.eggs.Count > 0 || state.babies.Count > 0;
+                state.nextNestAt = state.nestChainActive
+                    ? float.MaxValue
+                    : (state.elapsed < knobs.nestFirstT ? knobs.nestFirstT : state.elapsed + Mathf.Max(0f, knobs.nestGap));
+            }
+            StateChanged?.Invoke(state);
+        }
+
+        private void OnNestHit(BugState bug)
+        {
+            if (state.nest != null && state.nest.hp <= 0f) state.pendingNestOwnerId = bug.id;
+        }
+
+        // 护盾只执行一次救援投影；单机把唯一角色拉回场内，多人模式则将其淘汰。
+        private void MarkOut(BugState bug)
+        {
+            if (!bug.alive) return;
+            if (Rules.TryShieldSave(knobs, bug))
+            {
+                bug.previousPosition = bug.position;
+                Emit("shield-save", bug.position);
+                return;
+            }
+            if (state.playerCount == 1)
+            {
+                bug.position = new Vector3(0f, 0f, -Rules.ArenaHalfDepth * 0.38f);
+                bug.previousPosition = bug.position;
+                bug.velocity = Vector3.zero;
+                bug.height = 0f;
+                bug.verticalVelocity = 0f;
+                bug.airborne = false;
+                bug.charging = false;
+                bug.chargeDirection = Vector2.up;
+                bug.slideMu = Rules.GripOf(knobs, bug);
+                Emit("solo-pullback", bug.position);
+                return;
+            }
+            bug.alive = false;
+            bug.charging = false;
+            bug.holding = false;
+            bug.pendingCharge = false;
+            bug.airborne = true;
+            ResetKillStreak(bug.id);
+            BugState killer = FindBug(bug.lastHitId);
+            if (killer != null && killer != bug) AwardKill(killer);
+            int slot = CricketIndex(bug.id);
+            CricketOut?.Invoke(bug.id, slot);
+            Emit("out", bug.position);
+            if (TrySpawnNext(bug.id)) return;
+            EliminatePlayer(bug.id);
+        }
+
+        private BugState FindBug(int id)
+        {
+            for (int i = 0; i < state.bugs.Length; i++) if (state.bugs[i].id == id && state.bugs[i].alive) return state.bugs[i];
+            return null;
+        }
+
+        private void AddGrow(BugState bug)
+        {
+            if (bug == null || !bug.alive) return;
+            if (bug.grow < 6) bug.grow++;
+            Rules.RefreshBody(knobs, bug);
+            Emit("grow", bug.position);
+        }
+
+        private void AwardKill(BugState killer)
+        {
+            if (killer == null || !killer.alive || state == null) return;
+            int id = killer.id;
+            EnsureScoreArrays(state.playerCount);
+            if (id < 0 || id >= state.killStreak.Length) return;
+            state.killStreak[id]++;
+            int points = Rules.KillScoreBase * state.killStreak[id];
+            state.matchScore[id] += points;
+            killer.score = state.matchScore[id];
+            Emit("kill", killer.position);
+        }
+
+        private void ResetKillStreak(int playerId)
+        {
+            if (state == null || state.killStreak == null || playerId < 0 || playerId >= state.killStreak.Length) return;
+            state.killStreak[playerId] = 0;
+        }
+
+        private void EnsureScoreArrays(int playerCount)
+        {
+            playerCount = Mathf.Max(1, playerCount);
+            if (state.matchScore == null || state.matchScore.Length < playerCount)
+                state.matchScore = CopyInts(state.matchScore, playerCount);
+            if (state.killStreak == null || state.killStreak.Length < playerCount)
+                state.killStreak = CopyInts(state.killStreak, playerCount);
+        }
+
+        private void CheckEnd(MatchPhase phase)
+        {
+            if (state.playerCount <= 1) return;
+            int remaining = CountPlayersIn();
+            if (remaining > 1 && phase != MatchPhase.Over) return;
+            int winner = remaining == 1 ? FindOnlyPlayerIn() : Rules.CenterWinner(state.bugs);
+            if (winner >= 0) AwardPlace(winner, 1);
+            state.winnerId = winner;
+            state.over = true;
+            state.started = false;
+            Emit("match-over", Vector3.zero);
+        }
+
+        private int FindOnlyAlive()
+        {
+            for (int i = 0; i < state.bugs.Length; i++) if (state.bugs[i].alive) return state.bugs[i].id;
+            return -1;
+        }
+
+        private int FindOnlyPlayerIn()
+        {
+            if (state.playerIn == null) return FindOnlyAlive();
+            for (int i = 0; i < state.playerIn.Length; i++) if (state.playerIn[i]) return i;
+            return -1;
+        }
+
+        private int CountPlayersIn()
+        {
+            if (state.playerIn == null) return 0;
+            int count = 0;
+            for (int i = 0; i < state.playerIn.Length; i++) if (state.playerIn[i]) count++;
+            return count;
+        }
+
+        private void EliminatePlayer(int playerId)
+        {
+            if (state.playerIn == null || playerId < 0 || playerId >= state.playerIn.Length) return;
+            if (!state.playerIn[playerId]) return;
+            state.playerIn[playerId] = false;
+            AwardPlace(playerId, CountPlayersIn() + 1);
+            PlayerEliminated?.Invoke(playerId);
+            Emit("player-out", state.bugs[playerId].position);
+        }
+
+        private void AwardPlace(int playerId, int place)
+        {
+            if (state.place == null || playerId < 0 || playerId >= state.place.Length) return;
+            if (state.place[playerId] > 0) return;
+            state.place[playerId] = Mathf.Max(1, place);
+        }
+
+        private bool TrySpawnNext(int playerId)
+        {
+            if (state.cricketIndex == null || playerId < 0 || playerId >= state.cricketIndex.Length) return false;
+            int next = state.cricketIndex[playerId] + 1;
+            if (next >= LivesPerPlayer) return false;
+            state.cricketIndex[playerId] = next;
+            RecycleBug(state.bugs[playerId], SpawnPoint(playerId));
+            ApplyPickToBug(state.bugs[playerId], playerId, next);
+            CricketIn?.Invoke(playerId, next);
+            Emit("cricket-in", state.bugs[playerId].position);
+            return true;
+        }
+
+        private void RecycleBug(BugState bug, Vector3 spawn)
+        {
+            bug.alive = true;
+            bug.position = spawn;
+            bug.previousPosition = spawn;
+            bug.velocity = Vector3.zero;
+            Rules.ClearLaunch(bug);
+            bug.height = 0f;
+            bug.verticalVelocity = 0f;
+            bug.airborne = false;
+            bug.charging = false;
+            bug.holding = false;
+            bug.pendingCharge = false;
+            bug.chargeTime = 0f;
+            Rules.ClearLaunch(bug);
+            bug.chargeDirection = new Vector2(-spawn.x, -spawn.z);
+            if (bug.chargeDirection.sqrMagnitude < 0.01f) bug.chargeDirection = Vector2.up;
+            else bug.chargeDirection.Normalize();
+            bug.slideMu = Rules.GripOf(knobs, bug);
+            bug.grow = 0;
+            bug.lastHitId = -1;
+            bug.hitTier = HitTier.None;
+            bug.buffSizeT = 0f;
+            bug.buffShieldT = 0f;
+            bug.buffChargeT = 0f;
+            bug.rageSize = false;
+            bug.rageCharge = false;
+            bug.score = 0;
+            bug.stamina = Rules.StaminaMaxOf(knobs, bug);
+            Rules.RefreshBody(knobs, bug);
+        }
+
+        private Vector3 SpawnPoint(int playerId)
+        {
+            Vector3[] spawns =
+            {
+                new Vector3(0f, 0f, -Rules.ArenaHalfDepth * 0.38f),
+                new Vector3(0f, 0f, Rules.ArenaHalfDepth * 0.38f),
+                new Vector3(-Rules.ArenaHalfWidth * 0.38f, 0f, 0f),
+                new Vector3(Rules.ArenaHalfWidth * 0.38f, 0f, 0f)
+            };
+            return spawns[Mathf.Clamp(playerId, 0, spawns.Length - 1)];
+        }
+
+        private void EnsureRoster(int playerCount)
+        {
+            if (state == null) return;
+            playerCount = Mathf.Clamp(playerCount, 1, MaxPlayers);
+            state.roster = CloneRoster(pendingRoster, playerCount);
+            state.cricketIndex = new int[playerCount];
+            state.playerIn = new bool[playerCount];
+            state.place = new int[playerCount];
+            state.matchScore = new int[playerCount];
+            state.killStreak = new int[playerCount];
+            for (int i = 0; i < playerCount; i++)
+            {
+                state.playerIn[i] = true;
+                if (state.roster[i] == null) state.roster[i] = DefaultPicks();
+            }
+        }
+
+        private void ApplyPickToBug(BugState bug, int playerId, int slot, bool refillStamina = true)
+        {
+            if (bug == null) return;
+            CricketPick pick = GetPick(playerId, slot);
+            bug.catalogId = pick == null ? 0 : pick.catalogId;
+            int quality = pick == null ? 1 : Mathf.Clamp(pick.quality, 1, 4);
+            int temperament = pick == null ? 1 : Mathf.Clamp(pick.temperament, 1, 4);
+            bug.quality = quality;
+            bug.temperament = temperament;
+            CricketCatalog.ApplyCombatBias(bug, quality, temperament);
+            Rules.RefreshBody(knobs, bug);
+            bug.slideMu = Rules.GripOf(knobs, bug);
+            if (refillStamina) bug.stamina = Rules.StaminaMaxOf(knobs, bug);
+        }
+
+        private CricketPick GetPick(int playerId, int slot)
+        {
+            if (state == null || state.roster == null || playerId < 0 || playerId >= state.roster.Length) return null;
+            CricketPick[] picks = state.roster[playerId];
+            if (picks == null || slot < 0 || slot >= picks.Length) return null;
+            return picks[slot];
+        }
+
+        private static void StoreRoster(ref CricketPick[][] target, int playerCount, int playerId, CricketPick[] picks)
+        {
+            playerCount = Mathf.Max(playerCount, playerId + 1);
+            if (target == null || target.Length < playerCount)
+            {
+                CricketPick[][] next = new CricketPick[playerCount][];
+                if (target != null)
+                    for (int i = 0; i < target.Length; i++) next[i] = target[i];
+                target = next;
+            }
+            target[playerId] = DefaultPicks();
+            if (picks == null) return;
+            for (int i = 0; i < LivesPerPlayer && i < picks.Length; i++)
+            {
+                CricketPick pick = picks[i] ?? new CricketPick();
+                target[playerId][i] = new CricketPick
+                {
+                    catalogId = pick.catalogId,
+                    quality = Mathf.Clamp(pick.quality, 1, 4),
+                    temperament = Mathf.Clamp(pick.temperament, 1, 4)
+                };
+            }
+        }
+
+        private static CricketPick[][] CloneRoster(CricketPick[][] source, int playerCount)
+        {
+            CricketPick[][] copy = new CricketPick[playerCount][];
+            for (int i = 0; i < playerCount; i++)
+            {
+                copy[i] = DefaultPicks();
+                if (source == null || i >= source.Length || source[i] == null) continue;
+                for (int s = 0; s < LivesPerPlayer && s < source[i].Length; s++)
+                {
+                    CricketPick pick = source[i][s] ?? new CricketPick();
+                    copy[i][s] = new CricketPick
+                    {
+                        catalogId = pick.catalogId,
+                        quality = pick.quality,
+                        temperament = pick.temperament
+                    };
+                }
+            }
+            return copy;
+        }
+
+        private static CricketPick[] DefaultPicks()
+        {
+            CricketPick[] picks = new CricketPick[LivesPerPlayer];
+            for (int i = 0; i < picks.Length; i++)
+                picks[i] = new CricketPick { catalogId = 0, quality = 1, temperament = 1 };
+            return picks;
+        }
+
+        private void PackRoster(MatchSnapshot snapshot)
+        {
+            int count = state.playerCount;
+            snapshot.rosterCatalog = new int[count * LivesPerPlayer];
+            snapshot.rosterQuality = new int[count * LivesPerPlayer];
+            snapshot.rosterTemperament = new int[count * LivesPerPlayer];
+            if (state.roster == null) return;
+            for (int i = 0; i < count; i++)
+            {
+                CricketPick[] picks = i < state.roster.Length ? state.roster[i] : null;
+                for (int s = 0; s < LivesPerPlayer; s++)
+                {
+                    int index = i * LivesPerPlayer + s;
+                    CricketPick pick = picks != null && s < picks.Length ? picks[s] : null;
+                    snapshot.rosterCatalog[index] = pick == null ? 0 : pick.catalogId;
+                    snapshot.rosterQuality[index] = pick == null ? 1 : pick.quality;
+                    snapshot.rosterTemperament[index] = pick == null ? 1 : pick.temperament;
+                }
+            }
+        }
+
+        private void UnpackRoster(MatchSnapshot snapshot)
+        {
+            int count = state.playerCount;
+            if (snapshot.version < 6 || snapshot.cricketIndex == null)
+            {
+                EnsureRoster(count);
+                if (state.bugs == null) return;
+                for (int i = 0; i < count && i < state.bugs.Length; i++)
+                {
+                    if (state.bugs[i] != null && state.bugs[i].alive) continue;
+                    state.cricketIndex[i] = LivesPerPlayer;
+                    state.playerIn[i] = false;
+                }
+                return;
+            }
+
+            state.cricketIndex = CopyInts(snapshot.cricketIndex, count);
+            state.playerIn = CopyBools(snapshot.playerIn, count);
+            state.place = CopyInts(snapshot.place, count);
+            state.matchScore = CopyInts(snapshot.matchScore, count);
+            state.killStreak = snapshot.version >= 7
+                ? CopyInts(snapshot.killStreak, count)
+                : new int[count];
+            state.roster = new CricketPick[count][];
+            for (int i = 0; i < count; i++)
+            {
+                state.roster[i] = DefaultPicks();
+                if (snapshot.rosterCatalog == null) continue;
+                for (int s = 0; s < LivesPerPlayer; s++)
+                {
+                    int index = i * LivesPerPlayer + s;
+                    if (index >= snapshot.rosterCatalog.Length) break;
+                    state.roster[i][s] = new CricketPick
+                    {
+                        catalogId = snapshot.rosterCatalog[index],
+                        quality = snapshot.rosterQuality != null && index < snapshot.rosterQuality.Length ? snapshot.rosterQuality[index] : 1,
+                        temperament = snapshot.rosterTemperament != null && index < snapshot.rosterTemperament.Length ? snapshot.rosterTemperament[index] : 1
+                    };
+                }
+            }
+        }
+
+        private static int[] CopyInts(int[] source, int length = -1)
+        {
+            if (source == null) return length > 0 ? new int[length] : Array.Empty<int>();
+            int count = length > 0 ? length : source.Length;
+            int[] copy = new int[count];
+            Array.Copy(source, copy, Mathf.Min(source.Length, count));
+            return copy;
+        }
+
+        private static bool[] CopyBools(bool[] source, int length = -1)
+        {
+            if (source == null)
+            {
+                bool[] empty = length > 0 ? new bool[length] : Array.Empty<bool>();
+                for (int i = 0; i < empty.Length; i++) empty[i] = true;
+                return empty;
+            }
+            int count = length > 0 ? length : source.Length;
+            bool[] copy = new bool[count];
+            Array.Copy(source, copy, Mathf.Min(source.Length, count));
+            return copy;
+        }
+
+        private void Emit(string kind, Vector3 position)
+        {
+            GameplayEvent?.Invoke(kind, position);
+        }
+    }
+}

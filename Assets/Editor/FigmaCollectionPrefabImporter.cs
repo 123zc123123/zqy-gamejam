@@ -105,7 +105,7 @@ public static class FigmaCollectionPrefabImporter
             group.transform,
             Badge1Bounds,
             new Rect(6147f, 344f, 72f, 55f),
-            DouQuquCricketCatalog.QualityName(1),
+            CricketCatalog.QualityName(1),
             36f,
             Color.white,
             TextAlignmentOptions.TopLeft,
@@ -123,7 +123,7 @@ public static class FigmaCollectionPrefabImporter
             group.transform,
             Badge3Bounds,
             new Rect(6147f, 481f, 72f, 55f),
-            DouQuquCricketCatalog.TemperamentName(1),
+            CricketCatalog.TemperamentName(1),
             36f,
             Color.white,
             TextAlignmentOptions.TopLeft,
@@ -322,8 +322,8 @@ public static class FigmaCollectionPrefabImporter
 
     static void ApplyCardVariant(GameObject card, int quality, int temperament)
     {
-        ApplyBadgeVariant(card.transform, "品级", DouQuquCricketCatalog.QualityName(quality), DouQuquCricketCatalog.QualityColors[quality]);
-        ApplyBadgeVariant(card.transform, "性格", DouQuquCricketCatalog.TemperamentName(temperament), DouQuquCricketCatalog.TemperamentColors[temperament]);
+        ApplyBadgeVariant(card.transform, "品级", CricketCatalog.QualityName(quality), CricketCatalog.QualityColors[quality]);
+        ApplyBadgeVariant(card.transform, "性格", CricketCatalog.TemperamentName(temperament), CricketCatalog.TemperamentColors[temperament]);
     }
 
     static void ApplyBadgeVariant(Transform root, string badgeName, string label, Color color)

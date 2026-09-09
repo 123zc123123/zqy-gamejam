@@ -421,7 +421,7 @@ GameObject:
   - component: {fileID: 1047765477}
   - component: {fileID: 1047765476}
   m_Layer: 0
-  m_Name: DouQuquMainMenuRuntime
+  m_Name: MainMenuRuntime
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -612,7 +612,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 140583883249772845, guid: 3d3cff3bfbda9cb4b991c9d82b8c27b6, type: 3}
       propertyPath: m_Name
-      value: DouQuquMainMenu
+      value: MainMenu
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

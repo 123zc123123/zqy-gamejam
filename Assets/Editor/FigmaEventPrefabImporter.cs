@@ -334,7 +334,7 @@ public static class FigmaEventPrefabImporter
 
         GameObject root = CreateBoundObject("FigmaImport_event-face-painting_10_593", canvas, EventBounds, EventBounds, "10:593", "FRAME");
         root.AddComponent<RectMask2D>();
-        root.AddComponent<DouQuquEventQuestPopup>();
+        root.AddComponent<EventQuestPopup>();
 
         CreateSpriteImage("festive-courtyard-bg", root.transform, EventBounds, EventBounds, EventSliceFolder + "/10_594.png", "10:594", "RECTANGLE");
         CreateText("斗蛐蛐", root.transform, EventBounds, new Rect(2452f, 95f, 288f, 146f), "斗蛐蛐", 96f, TitleColor, TextAlignmentOptions.Center, "10:606");
@@ -384,7 +384,7 @@ public static class FigmaEventPrefabImporter
             if (nestedImage != null) nestedImage.raycastTarget = false;
         }
 
-        SerializedObject so = new SerializedObject(root.GetComponent<DouQuquEventQuestPopup>());
+        SerializedObject so = new SerializedObject(root.GetComponent<EventQuestPopup>());
         so.FindProperty("popupRoot").objectReferenceValue = popup;
         so.ApplyModifiedPropertiesWithoutUndo();
         return root;

@@ -106,8 +106,8 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             GameObject carousel = BuildPanelPart("bottom-event-carousel", new Vector2(1080,200), new Vector2(0,-860), new Color(0.624f,0.604f,0.431f,1), Color.clear, 0, false);
             AddNested(carousel, backIcon, new Vector2(-441,12));
             BuildCarouselTabs(carousel, tabPrefab);
-            if (carousel.GetComponent<DouQuqu.DouQuquBottomNavBar>() == null)
-                carousel.AddComponent<DouQuqu.DouQuquBottomNavBar>();
+            if (carousel.GetComponent<DouQuqu.BottomNavBar>() == null)
+                carousel.AddComponent<DouQuqu.BottomNavBar>();
             carousel = SaveExisting(carousel, Parts + "/BottomEventCarousel.prefab");
 
             GameObject goldIcon = BuildImagePart("Coins", new Vector2(38,38), Color.white, coin);
@@ -163,9 +163,9 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             layout.preferredHeight = 150f;
             layout.minWidth = 219f;
             layout.minHeight = 150f;
-            DouQuqu.DouQuquBottomNavTab hook = tab.GetComponent<DouQuqu.DouQuquBottomNavTab>();
-            if (hook == null) hook = tab.AddComponent<DouQuqu.DouQuquBottomNavTab>();
-            hook.Configure(DouQuqu.DouQuquBottomNavTab.NavModule.Battle, "功能", "");
+            DouQuqu.BottomNavTab hook = tab.GetComponent<DouQuqu.BottomNavTab>();
+            if (hook == null) hook = tab.AddComponent<DouQuqu.BottomNavTab>();
+            hook.Configure(DouQuqu.BottomNavTab.NavModule.Battle, "功能", "");
             SaveExisting(tab, Parts + "/BottomNavTab.prefab");
             return AssetDatabase.LoadAssetAtPath<GameObject>(Parts + "/BottomNavTab.prefab");
         }
@@ -209,19 +209,19 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
 
             var tabs = new[]
             {
-                new { name = "BattleTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Battle, label = "斗蛐蛐" },
-                new { name = "BreedingTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Breeding, label = "育虫盘" },
-                new { name = "RegistryTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Registry, label = "蛐蛐谱" },
-                new { name = "RankingTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Ranking, label = "排行榜" },
-                new { name = "ShopTab", module = DouQuqu.DouQuquBottomNavTab.NavModule.Shop, label = "小铺" }
+                new { name = "BattleTab", module = DouQuqu.BottomNavTab.NavModule.Battle, label = "斗蛐蛐" },
+                new { name = "BreedingTab", module = DouQuqu.BottomNavTab.NavModule.Breeding, label = "育虫盘" },
+                new { name = "RegistryTab", module = DouQuqu.BottomNavTab.NavModule.Registry, label = "蛐蛐谱" },
+                new { name = "RankingTab", module = DouQuqu.BottomNavTab.NavModule.Ranking, label = "排行榜" },
+                new { name = "ShopTab", module = DouQuqu.BottomNavTab.NavModule.Shop, label = "小铺" }
             };
             for (int i = 0; i < tabs.Length; i++)
             {
                 GameObject instance = PrefabUtility.InstantiatePrefab(tabPrefab, content.transform) as GameObject;
                 if (instance == null) continue;
                 instance.name = tabs[i].name;
-                DouQuqu.DouQuquBottomNavTab hook = instance.GetComponent<DouQuqu.DouQuquBottomNavTab>();
-                if (hook == null) hook = instance.AddComponent<DouQuqu.DouQuquBottomNavTab>();
+                DouQuqu.BottomNavTab hook = instance.GetComponent<DouQuqu.BottomNavTab>();
+                if (hook == null) hook = instance.AddComponent<DouQuqu.BottomNavTab>();
                 hook.Configure(tabs[i].module, tabs[i].label, "");
             }
         }

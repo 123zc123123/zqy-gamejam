@@ -1,0 +1,271 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace DouQuqu
+{
+    /// <summary>决定由哪个组件推进模拟。</summary>
+    public enum MatchRunMode
+    {
+        [InspectorName("单机")] Offline,
+        [InspectorName("主机")] Host,
+        [InspectorName("客户端")] Client
+    }
+
+    /// <summary>撞后摩擦档。Normal 已并入 Control，读档时按可控处理。</summary>
+    public enum HitTier { None, Normal, Control, Slip }
+
+    [Serializable]
+    /// <summary>
+    /// 一次完整输入采样。方向以 X/Z 标量保存，便于 Unity JSON 工具序列化为局域网消息。
+    /// </summary>
+    public sealed class InputFrame
+    {
+        public int playerId;
+        public int sequence;
+        public float x;
+        public float z;
+        public bool held;
+        public bool released;
+
+        /// <summary>以 Unity 的 X/Y 向量形式返回保存的平面瞄准方向。</summary>
+        public Vector2 Direction => new Vector2(x, z);
+
+        public InputFrame() { }
+
+        public InputFrame(int id, Vector2 direction, bool isHeld, bool isReleased, int inputSequence = 0)
+        {
+            playerId = id;
+            x = direction.x;
+            z = direction.y;
+            held = isHeld;
+            released = isReleased;
+            sequence = inputSequence;
+        }
+    }
+
+    [Serializable]
+    /// <summary>记录玩家可以撞击的静态巢穴权威状态。</summary>
+    public sealed class NestState
+    {
+        public Vector3 position;
+        public float hp;
+        public bool alive;
+
+        // 接触 ID 仅在运行时使用，避免持续重叠在相邻 Tick 被重复计为多次撞击。
+        [NonSerialized] public readonly HashSet<int> touching = new HashSet<int>();
+    }
+
+    [Serializable]
+    /// <summary>记录巢穴孵化出的幼虫运行时状态。</summary>
+    public sealed class BabyState
+    {
+        public int id;
+        public int ownerId = -1;
+        public Vector3 position;
+        public Vector3 previousPosition;
+        public Vector3 velocity;
+        public float radius;
+        public float mass;
+        public float height;
+        public float verticalVelocity;
+        public float chargeTime;
+        public Vector3 launchVelocity;
+        public float initialSpeed;
+        public float slideMu;
+        public Vector2 chargeDirection = Vector2.up;
+        public float lifeEnd;
+        public float attackCooldown;
+        public int grow;
+        public int score;
+        public float buffSizeT;
+        public float buffShieldT;
+        public float buffChargeT;
+        public bool charging;
+        public bool holding;
+        public bool pendingCharge;
+        public bool airborne;
+        public HitTier hitTier = HitTier.None;
+        public bool alive = true;
+
+        public BabyState() { }
+
+        public BabyState(int babyId, Vector3 at, int owner, float end, MatchKnobs knobs)
+        {
+            id = babyId;
+            ownerId = owner;
+            position = at;
+            previousPosition = at;
+            lifeEnd = end;
+            Rules.RefreshBabyBody(knobs, this);
+        }
+    }
+
+    [Serializable]
+    /// <summary>匹配时选中的一只蟋蟀。选人界面未完成前 catalogId=0 表示占位。</summary>
+    public sealed class CricketPick
+    {
+        public int catalogId;
+        public int quality = 1;
+        public int temperament = 1;
+    }
+
+    [Serializable]
+    /// <summary>随网络快照发送的可序列化蟋蟀状态。</summary>
+    public sealed class BugSnapshot
+    {
+        public int id;
+        public int catalogId;
+        public bool alive;
+        public Vector3 position;
+        public Vector3 velocity;
+        public float height;
+        public float verticalVelocity;
+        public float radius;
+        public float chargeTime;
+        public float stamina;
+        public int grow;
+        public int score;
+        public int lastHitId;
+        public float buffSizeT;
+        public float buffShieldT;
+        public float buffChargeT;
+        public bool charging;
+        public bool airborne;
+        public int hitTier;
+        public Vector3 launchVelocity;
+    }
+
+    [Serializable]
+    /// <summary>随网络快照发送的可序列化拾取物状态。</summary>
+    public sealed class PickupSnapshot
+    {
+        public int id;
+        public bool alive;
+        public string kind;
+        public Vector3 position;
+    }
+
+    [Serializable]
+    /// <summary>可序列化蛋状态；remaining 是相对于快照时刻的剩余时间。</summary>
+    public sealed class EggSnapshot
+    {
+        public Vector3 position;
+        public Vector3 velocity;
+        public int ownerId;
+        public float remaining;
+        public bool alive;
+    }
+
+    [Serializable]
+    /// <summary>可序列化幼虫状态；remaining 是相对于快照时刻的剩余时间。</summary>
+    public sealed class BabySnapshot
+    {
+        public int id;
+        public int ownerId;
+        public Vector3 position;
+        public Vector3 velocity;
+        public float height;
+        public float verticalVelocity;
+        public bool charging;
+        public int grow;
+        public int score;
+        public float buffSizeT;
+        public float buffShieldT;
+        public float buffChargeT;
+        public int hitTier;
+        public float remaining;
+        public bool alive;
+        public Vector3 launchVelocity;
+    }
+
+    [Serializable]
+    /// <summary>随网络快照发送的可序列化巢穴状态。</summary>
+    public sealed class NestSnapshot
+    {
+        public Vector3 position;
+        public float hp;
+        public bool alive;
+    }
+
+    [Serializable]
+    /// <summary>
+    /// 完整权威状态。v7 含连杀；v6 含三条命阵容与出局名次；v5 含耐力；v4 含经济和巢穴游标。
+    /// </summary>
+    public sealed class MatchSnapshot
+    {
+        public int version = 8;
+        public int tick;
+        public int playerCount;
+        public int randomSeed;
+        public float elapsed;
+        public bool started;
+        public bool over;
+        public int winnerId = -1;
+        public MatchPhase phase;
+        public MatchKnobs knobs;
+        public int[] cricketIndex;
+        public bool[] playerIn;
+        public int[] place;
+        public int[] matchScore;
+        public int[] killStreak;
+        public int[] rosterCatalog;
+        public int[] rosterQuality;
+        public int[] rosterTemperament;
+        public BugSnapshot[] bugs;
+        public PickupSnapshot[] pickups;
+        public EggSnapshot[] eggs;
+        public BabySnapshot[] babies;
+        public NestSnapshot nest;
+        // 保存临时模拟游标，应用快照后可以安全恢复权威，避免复用 ID 或提前生成经济/巢穴波次。
+        public float lastHeartAt;
+        public int nextItemIndex;
+        public string lastItemKind;
+        public int nextPickupId;
+        public int nextBabyId;
+        public float nextNestAt;
+        public float lastNestClearAt;
+        public int pendingNestOwnerId;
+        public bool nestChainActive;
+    }
+
+    [Serializable]
+    /// <summary>
+    /// 由控制器和纯逻辑系统共同使用的可变模拟状态。仅运行时游标标记为 NonSerialized，
+    /// 应用快照时单独重建或传递。
+    /// </summary>
+    public sealed class MatchState
+    {
+        public int playerCount;
+        public int randomSeed;
+        public int tick;
+        public float elapsed;
+        public bool started;
+        public bool over;
+        public int winnerId = -1;
+        public MatchKnobs knobs;
+        public BugState[] bugs = new BugState[0];
+        public bool[] humanPlayers = new bool[0];
+        public bool[] idlePlayers = new bool[0];
+        public CricketPick[][] roster;
+        public int[] cricketIndex = new int[0];
+        public bool[] playerIn = new bool[0];
+        public int[] place = new int[0];
+        public int[] matchScore = new int[0];
+        public int[] killStreak = new int[0];
+        public readonly List<PickupState> pickups = new List<PickupState>();
+        public readonly List<EggState> eggs = new List<EggState>();
+        public readonly List<BabyState> babies = new List<BabyState>();
+        public NestState nest;
+
+        [NonSerialized] public float lastHeartAt = -1f;
+        [NonSerialized] public int nextItemIndex;
+        [NonSerialized] public string lastItemKind;
+        [NonSerialized] public int nextPickupId;
+        [NonSerialized] public int nextBabyId = 100;
+        [NonSerialized] public float nextNestAt;
+        [NonSerialized] public float lastNestClearAt = -1f;
+        [NonSerialized] public int pendingNestOwnerId = -1;
+        [NonSerialized] public bool nestChainActive;
+    }
+}

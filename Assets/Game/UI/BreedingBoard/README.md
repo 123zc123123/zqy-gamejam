@@ -1,6 +1,6 @@
 # 育虫盘美术预制体
 
-正式玩法场景用 **`Assets/Scenes/Merge.unity`**，里面放的是本目录的页面预制体，由 `DouQuquBreedingBoardView` 绑格子和按钮。
+正式玩法场景用 **`Assets/Scenes/Merge.unity`**，里面放的是本目录的页面预制体，由 `BreedingBoardView` 绑格子和按钮。
 
 美术预览场景是 `Scenes/BreedingBoard.unity`，和正式场景用同一份页面，只用来对布局。
 
@@ -39,7 +39,7 @@ BreedingBoard                  页面壳 1080×1920
                 └── RankingTab / ShopTab
 ```
 
-格子编号：`Cell 1` 左上，`Cell 4` 右上，`Cell 17` 左下，`Cell 20` 右下。程序按这个编号对 `DouQuquMergeBoard` 的 0–19。场景对象名带空格，共用 `Prefabs/Parts/Cell.prefab`。
+格子编号：`Cell 1` 左上，`Cell 4` 右上，`Cell 17` 左下，`Cell 20` 右下。程序按这个编号对 `MergeBoard` 的 0–19。场景对象名带空格，共用 `Prefabs/Parts/Cell.prefab`。
 
 点中间金圈（规则和背包之间）会在空格放一只幼虫。同级拖到一起合成：幼虫 → 中虫 → 成虫 → 精品虫。
 

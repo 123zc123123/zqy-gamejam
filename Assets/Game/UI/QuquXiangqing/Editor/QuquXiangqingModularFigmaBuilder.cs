@@ -20,7 +20,7 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
         const string ScenePath="Assets/Scenes/Preview/ququxiangqing.unity";
         const string ReferenceExport=Textures+"/QuquXiangqing_10_527.png";
         const string CricketPath=Textures+"/VioletCricketIllustration.png", LinePath=Textures+"/DecorativeLine.svg";
-        const string FontPath="Assets/Resources/Fonts/DouQuquChinese SDF.asset";
+        const string FontPath="Assets/Resources/Fonts/Chinese SDF.asset";
 
         static readonly Vector2 Design=new Vector2(972,1336);
         static readonly Color Paper=new Color(.960784f,.92549f,.823529f,1);

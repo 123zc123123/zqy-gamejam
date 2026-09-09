@@ -319,7 +319,7 @@ GameObject:
   - component: {fileID: 1837356551}
   - component: {fileID: 1837356550}
   m_Layer: 0
-  m_Name: DouQuquLoginRuntime
+  m_Name: LoginRuntime
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
