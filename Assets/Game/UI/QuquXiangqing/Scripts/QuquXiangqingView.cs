@@ -28,6 +28,8 @@ namespace ZqyGameJam.UI.QuquXiangqing
 
         public const int OverlaySortingOrder = 400;
         public const string PrefabResourcePath = "Collection/Prefabs/CricketDetail";
+        private const string DimmerName = "Dimmer";
+        private static readonly Color DimmerColor = new Color(0.05f, 0.03f, 0.02f, 0.65f);
 
         /// <summary>实例化详情覆盖层，盖在大厅底栏之上。</summary>
         public static QuquXiangqingView InstantiateOverlay(GameObject prefab)
@@ -70,6 +72,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
 
         private void Awake()
         {
+            EnsureDimmer();
             CacheButtons();
             if (closeButton != null)
             {
@@ -143,6 +146,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
 
         public void Show(string rank, string displayName, string description, Sprite sprite, string subtitle = null, string[] stats = null, bool[] strongStats = null)
         {
+            EnsureDimmer();
             CacheButtons();
             CacheLabels();
             BringToFront();
@@ -201,6 +205,47 @@ namespace ZqyGameJam.UI.QuquXiangqing
         {
             gameObject.SetActive(false);
             Closed?.Invoke();
+        }
+
+        /// <summary>详情卡外铺一层遮黑；点遮黑关弹窗，点卡片本身不关。</summary>
+        private void EnsureDimmer()
+        {
+            Transform existing = transform.Find(DimmerName);
+            GameObject dim = existing != null ? existing.gameObject : null;
+            if (dim == null)
+            {
+                dim = new GameObject(DimmerName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+                RectTransform dimRect = dim.GetComponent<RectTransform>();
+                dimRect.SetParent(transform, false);
+                dimRect.SetAsFirstSibling();
+                dimRect.anchorMin = Vector2.zero;
+                dimRect.anchorMax = Vector2.one;
+                dimRect.pivot = new Vector2(0.5f, 0.5f);
+                dimRect.offsetMin = Vector2.zero;
+                dimRect.offsetMax = Vector2.zero;
+                dimRect.localScale = Vector3.one;
+            }
+            else dim.transform.SetAsFirstSibling();
+
+            Image dimImage = dim.GetComponent<Image>();
+            dimImage.color = DimmerColor;
+            dimImage.raycastTarget = true;
+
+            Button dimButton = dim.GetComponent<Button>();
+            if (dimButton == null) dimButton = dim.AddComponent<Button>();
+            dimButton.transition = Selectable.Transition.None;
+            dimButton.targetGraphic = dimImage;
+            dimButton.onClick.RemoveListener(Hide);
+            dimButton.onClick.AddListener(Hide);
+
+            Transform surface = transform.Find("PageSurface");
+            if (surface == null) return;
+            Image[] images = surface.GetComponentsInChildren<Image>(true);
+            for (int i = 0; i < images.Length; i++)
+            {
+                if (images[i] == null) continue;
+                images[i].raycastTarget = true;
+            }
         }
 
         public void BringToFront()

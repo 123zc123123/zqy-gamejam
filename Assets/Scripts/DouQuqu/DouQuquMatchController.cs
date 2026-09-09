@@ -17,12 +17,12 @@ namespace DouQuqu
         public const float FixedDeltaTime = 1f / 60f;
         private const int MovementSubsteps = 6;
 
-        [SerializeField] private MatchRunMode runMode = MatchRunMode.Offline;
-        [SerializeField] private int configuredPlayers = MaxPlayers;
+        [SerializeField, InspectorCn("运行模式")] private MatchRunMode runMode = MatchRunMode.Offline;
+        [SerializeField, InspectorCn("玩家数")] private int configuredPlayers = MaxPlayers;
         // 单机 Demo 默认只把 0 号槽位交给真人，其余槽位由 AI 驱动；可调为 1~4 兼容本地多人键盘。
-        [SerializeField, Range(1, MaxPlayers)] private int offlineHumanPlayers = 1;
-        [SerializeField] private bool tickFromUnity = true;
-        [SerializeField] private MatchKnobs knobs;
+        [SerializeField, Range(1, MaxPlayers), InspectorCn("单机真人数")] private int offlineHumanPlayers = 1;
+        [SerializeField, InspectorCn("由 Unity 推进")] private bool tickFromUnity = true;
+        [SerializeField, InspectorCn("对局旋钮")] private MatchKnobs knobs;
 
         private readonly InputFrame[] inputs = new InputFrame[MaxPlayers];
         private readonly DouQuquMovementSystem movement = new DouQuquMovementSystem();
@@ -66,6 +66,37 @@ namespace DouQuqu
             if (knobs == null) knobs = DouQuquRules.DefaultKnobs();
             configuredPlayers = Mathf.Clamp(configuredPlayers, 1, MaxPlayers);
             for (int i = 0; i < inputs.Length; i++) inputs[i] = new InputFrame(i, Vector2.up, false, false);
+        }
+
+        private void Start()
+        {
+            DouQuquKnobSaveHud.Ensure(this);
+        }
+
+        /// <summary>把当前旋钮写成 JSON，供退出 Play 后覆写 Demo 场景 Inspector。</summary>
+        public string CaptureKnobsJson()
+        {
+            if (knobs == null) knobs = DouQuquRules.DefaultKnobs();
+            return JsonUtility.ToJson(knobs);
+        }
+
+        /// <summary>用 JSON 覆写当前旋钮对象；编辑器退出 Play 后写回场景时也会走这里。</summary>
+        public void ApplyKnobsJson(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return;
+            if (knobs == null) knobs = new MatchKnobs();
+            JsonUtility.FromJsonOverwrite(json, knobs);
+            if (state != null) state.knobs = knobs;
+        }
+
+        /// <summary>记下局内旋钮。Unity 不能在 Play 里持久化场景，退出 Play 后才会覆写 Demo Inspector。</summary>
+        public bool TrySaveKnobsToScene()
+        {
+            if (knobs == null) knobs = DouQuquRules.DefaultKnobs();
+            PlayerPrefs.SetString(DouQuquKnobSaveKeys.Json, JsonUtility.ToJson(knobs));
+            PlayerPrefs.SetInt(DouQuquKnobSaveKeys.Dirty, 1);
+            PlayerPrefs.Save();
+            return true;
         }
 
         // Unity 可变帧时间累积为固定模拟 Tick；单帧上限避免暂停后一次跳过过长对局时间。
@@ -184,7 +215,7 @@ namespace DouQuqu
             {
                 state.bugs[i] = new BugState(i, spawns[i], knobs);
                 state.bugs[i].chargeDirection = (new Vector2(-spawns[i].x, -spawns[i].z)).normalized;
-                state.bugs[i].slideMu = knobs.mu;
+                state.bugs[i].slideMu = DouQuquRules.GripOf(knobs, state.bugs[i]);
                 ApplyPickToBug(state.bugs[i], i, 0);
                 // 客户端不推进本地模拟；主机和离线模式只保留本地真人槽位，其余交给确定性 AI。
                 state.humanPlayers[i] = runMode == MatchRunMode.Client || i < offlineHumanPlayers;
@@ -285,7 +316,7 @@ namespace DouQuqu
             if (state == null) return null;
             MatchSnapshot snapshot = new MatchSnapshot
             {
-                version = 7,
+                version = 8,
                 tick = state.tick,
                 playerCount = state.playerCount,
                 randomSeed = state.randomSeed,
@@ -325,7 +356,8 @@ namespace DouQuqu
                     height = b.height, verticalVelocity = b.verticalVelocity, radius = b.radius,
                     chargeTime = b.chargeTime, stamina = b.stamina, grow = b.grow, score = b.score, lastHitId = b.lastHitId,
                     buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
-                    charging = b.charging, airborne = b.airborne, hitTier = (int)b.hitTier
+                    charging = b.charging, airborne = b.airborne, hitTier = (int)b.hitTier,
+                    launchVelocity = b.launchVelocity
                 };
             }
             for (int i = 0; i < state.pickups.Count; i++)
@@ -344,7 +376,8 @@ namespace DouQuqu
                 snapshot.babies[i] = new BabySnapshot { id = b.id, ownerId = b.ownerId, position = b.position, velocity = b.velocity,
                     height = b.height, verticalVelocity = b.verticalVelocity, charging = b.charging, grow = b.grow, score = b.score,
                     buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
-                    hitTier = (int)b.hitTier, remaining = Mathf.Max(0f, b.lifeEnd - state.elapsed), alive = b.alive };
+                    hitTier = (int)b.hitTier, remaining = Mathf.Max(0f, b.lifeEnd - state.elapsed), alive = b.alive,
+                    launchVelocity = b.launchVelocity };
             }
             return snapshot;
         }
@@ -388,9 +421,11 @@ namespace DouQuqu
                 b.id = s.id; b.catalogId = s.catalogId; b.alive = s.alive; b.position = s.position; b.previousPosition = s.position - s.velocity * FixedDeltaTime;
                 b.velocity = s.velocity; b.height = s.height; b.verticalVelocity = s.verticalVelocity; b.airborne = s.airborne || s.height > 0.03f || s.verticalVelocity > 0f;
                 b.radius = s.radius; b.chargeTime = s.chargeTime; b.grow = s.grow; b.score = s.score; b.lastHitId = s.lastHitId;
-                b.stamina = snapshot.version >= 5 ? Mathf.Max(0f, s.stamina) : Mathf.Max(0f, knobs.staminaMax);
+                b.stamina = snapshot.version >= 5 ? Mathf.Max(0f, s.stamina) : DouQuquRules.StaminaMaxOf(knobs, b);
                 b.buffSizeT = s.buffSizeT; b.buffShieldT = s.buffShieldT; b.buffChargeT = s.buffChargeT; b.charging = s.charging;
-                b.hitTier = (HitTier)Mathf.Clamp(s.hitTier, 0, (int)HitTier.Slip);
+                b.hitTier = DouQuquRules.CanonicalHitTier((HitTier)Mathf.Clamp(s.hitTier, 0, (int)HitTier.Slip));
+                b.launchVelocity = snapshot.version >= 8 ? s.launchVelocity : DouQuquRules.Planar(s.velocity);
+                b.initialSpeed = new Vector2(b.launchVelocity.x, b.launchVelocity.z).magnitude;
             }
             state.pickups.Clear();
             if (snapshot.pickups != null)
@@ -421,9 +456,13 @@ namespace DouQuqu
                         velocity = b.velocity, height = b.height, verticalVelocity = b.verticalVelocity, charging = b.charging,
                         airborne = b.height > 0.03f || b.verticalVelocity > 0f, grow = b.grow, score = b.score,
                         buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
-                        hitTier = (HitTier)Mathf.Clamp(b.hitTier, 0, (int)HitTier.Slip),
+                        hitTier = DouQuquRules.CanonicalHitTier((HitTier)Mathf.Clamp(b.hitTier, 0, (int)HitTier.Slip)),
                         lifeEnd = state.elapsed + b.remaining, alive = b.alive,
-                        radius = knobs.bugR * knobs.babyRScale, mass = knobs.babyMass };
+                        radius = knobs.bugR * knobs.babyRScale, mass = knobs.babyMass,
+                        launchVelocity = snapshot.version >= 8 ? b.launchVelocity : DouQuquRules.Planar(b.velocity),
+                        initialSpeed = snapshot.version >= 8
+                            ? new Vector2(b.launchVelocity.x, b.launchVelocity.z).magnitude
+                            : new Vector2(b.velocity.x, b.velocity.z).magnitude };
                     DouQuquRules.RefreshBabyBody(knobs, restoredBaby);
                     state.babies.Add(restoredBaby);
                 }
@@ -434,6 +473,11 @@ namespace DouQuqu
                     state.nextBabyId = Mathf.Max(state.nextBabyId, state.babies[i].id + 1);
             }
             UnpackRoster(snapshot);
+            if (state.bugs != null)
+            {
+                for (int i = 0; i < state.bugs.Length; i++)
+                    ApplyPickToBug(state.bugs[i], i, CricketIndex(i), false);
+            }
             state.nest = snapshot.nest == null ? null : new NestState { position = snapshot.nest.position, hp = snapshot.nest.hp, alive = snapshot.nest.alive };
             if (snapshot.version < 4)
             {
@@ -470,7 +514,7 @@ namespace DouQuqu
                 bug.airborne = false;
                 bug.charging = false;
                 bug.chargeDirection = Vector2.up;
-                bug.slideMu = knobs.mu;
+                bug.slideMu = DouQuquRules.GripOf(knobs, bug);
                 Emit("solo-pullback", bug.position);
                 return;
             }
@@ -601,7 +645,7 @@ namespace DouQuqu
             bug.position = spawn;
             bug.previousPosition = spawn;
             bug.velocity = Vector3.zero;
-            bug.initialSpeed = 0f;
+            DouQuquRules.ClearLaunch(bug);
             bug.height = 0f;
             bug.verticalVelocity = 0f;
             bug.airborne = false;
@@ -609,11 +653,11 @@ namespace DouQuqu
             bug.holding = false;
             bug.pendingCharge = false;
             bug.chargeTime = 0f;
-            bug.initialSpeed = 0f;
+            DouQuquRules.ClearLaunch(bug);
             bug.chargeDirection = new Vector2(-spawn.x, -spawn.z);
             if (bug.chargeDirection.sqrMagnitude < 0.01f) bug.chargeDirection = Vector2.up;
             else bug.chargeDirection.Normalize();
-            bug.slideMu = knobs.mu;
+            bug.slideMu = DouQuquRules.GripOf(knobs, bug);
             bug.grow = 0;
             bug.lastHitId = -1;
             bug.hitTier = HitTier.None;
@@ -623,7 +667,7 @@ namespace DouQuqu
             bug.rageSize = false;
             bug.rageCharge = false;
             bug.score = 0;
-            bug.stamina = knobs == null ? 5f : Mathf.Max(0f, knobs.staminaMax);
+            bug.stamina = DouQuquRules.StaminaMaxOf(knobs, bug);
             DouQuquRules.RefreshBody(knobs, bug);
         }
 
@@ -656,15 +700,17 @@ namespace DouQuqu
             }
         }
 
-        private void ApplyPickToBug(BugState bug, int playerId, int slot)
+        private void ApplyPickToBug(BugState bug, int playerId, int slot, bool refillStamina = true)
         {
             if (bug == null) return;
             CricketPick pick = GetPick(playerId, slot);
             bug.catalogId = pick == null ? 0 : pick.catalogId;
             int quality = pick == null ? 1 : pick.quality;
             int temperament = pick == null ? 1 : pick.temperament;
-            bug.massMul = DouQuquCricketCatalog.StatFactor(quality, temperament, DouQuquCricketCatalog.PanelStat.Mass);
+            DouQuquCricketCatalog.ApplyCombatBias(bug, quality, temperament);
             DouQuquRules.RefreshBody(knobs, bug);
+            bug.slideMu = DouQuquRules.GripOf(knobs, bug);
+            if (refillStamina) bug.stamina = DouQuquRules.StaminaMaxOf(knobs, bug);
         }
 
         private CricketPick GetPick(int playerId, int slot)

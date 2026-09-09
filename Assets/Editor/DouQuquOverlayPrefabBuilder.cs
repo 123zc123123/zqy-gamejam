@@ -15,8 +15,11 @@ namespace DouQuqu.Editor
         private const string RingPath = "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_StaminaRing.prefab";
         private const string BarPath = "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_StaminaBar.prefab";
         private const string ArrowPath = "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_ChargeArrow.prefab";
+        private const string MarkerPath = "Assets/Resources/Battle/Entities/Prefabs/DouQuqu_GroundMarker.prefab";
         private const string FillSvg = "Assets/Resources/Battle/Entities/Textures/DouQuqu_ChargeFill.svg";
         private const string ChevronSvg = "Assets/Resources/Battle/Entities/Textures/DouQuqu_ChargeChevron.svg";
+        private const string GroundFillSvg = "Assets/Resources/Battle/Entities/Textures/DouQuqu_GroundFill.svg";
+        private const string GroundRingSvg = "Assets/Resources/Battle/Entities/Textures/DouQuqu_GroundRing.svg";
         private const string BattleScene = "Assets/Scenes/Demo.unity";
 
         [InitializeOnLoadMethod]
@@ -24,8 +27,18 @@ namespace DouQuqu.Editor
         {
             EditorApplication.delayCall += () =>
             {
-                if (File.Exists(BarPath)) return;
-                BuildBar();
+                bool built = false;
+                if (!File.Exists(BarPath))
+                {
+                    BuildBar();
+                    built = true;
+                }
+                if (!File.Exists(MarkerPath))
+                {
+                    BuildMarker();
+                    built = true;
+                }
+                if (!built) return;
                 AssignBarToBattleScene(false);
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
@@ -39,10 +52,11 @@ namespace DouQuqu.Editor
             BuildRing(lineMaterial);
             BuildBar();
             BuildArrow();
+            BuildMarker();
             AssignToBattleScene();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[DouQuqu] 覆盖层预制体已重建：耐力环、耐力条、蓄力箭头。");
+            Debug.Log("[DouQuqu] 覆盖层预制体已重建：耐力环、耐力条、蓄力箭头、脚下圈。");
         }
 
         [MenuItem("DouQuqu/Rebuild Stamina Bar Prefab")]
@@ -146,6 +160,50 @@ namespace DouQuqu.Editor
             }
         }
 
+        private static void BuildMarker()
+        {
+            Sprite fillSprite = AssetDatabase.LoadAssetAtPath<Sprite>(GroundFillSvg);
+            Sprite ringSprite = AssetDatabase.LoadAssetAtPath<Sprite>(GroundRingSvg);
+            if (fillSprite == null || ringSprite == null)
+            {
+                Debug.LogError("[DouQuqu] 找不到脚下圈 SVG，等导入后再跑一次：" + GroundFillSvg + " / " + GroundRingSvg);
+                return;
+            }
+
+            GameObject root;
+            bool existed = File.Exists(MarkerPath);
+            if (existed) root = PrefabUtility.LoadPrefabContents(MarkerPath);
+            else root = new GameObject("DouQuqu_GroundMarker");
+
+            try
+            {
+                root.name = "DouQuqu_GroundMarker";
+                root.transform.localPosition = Vector3.zero;
+                root.transform.localRotation = Quaternion.identity;
+                root.transform.localScale = Vector3.one;
+
+                DouQuquGroundMarker marker = root.GetComponent<DouQuquGroundMarker>();
+                if (marker == null) marker = root.AddComponent<DouQuquGroundMarker>();
+                SerializedObject so = new SerializedObject(marker);
+                SetObject(so, "fillSprite", fillSprite);
+                SetObject(so, "ringSprite", ringSprite);
+                so.ApplyModifiedPropertiesWithoutUndo();
+                marker.EnsureReady();
+
+                if (existed) PrefabUtility.SaveAsPrefabAsset(root, MarkerPath);
+                else
+                {
+                    PrefabUtility.SaveAsPrefabAsset(root, MarkerPath);
+                    Object.DestroyImmediate(root);
+                    root = null;
+                }
+            }
+            finally
+            {
+                if (root != null && existed) PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
         private static void BuildBar()
         {
             GameObject root;
@@ -231,6 +289,7 @@ namespace DouQuqu.Editor
             SetPrefab(so, "staminaRingPrefab", RingPath);
             SetPrefab(so, "staminaBarPrefab", BarPath);
             SetPrefab(so, "chargeArrowPrefab", ArrowPath);
+            SetPrefab(so, "groundMarkerPrefab", MarkerPath);
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(view);
             EditorSceneManager.MarkSceneDirty(battle);

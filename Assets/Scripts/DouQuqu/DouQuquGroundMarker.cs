@@ -43,6 +43,8 @@ namespace DouQuqu
             return null;
         }
 
+        [SerializeField] private Sprite fillSprite;
+        [SerializeField] private Sprite ringSprite;
         [SerializeField] private SpriteRenderer shadow;
         [SerializeField] private SpriteRenderer fill;
         [SerializeField] private SpriteRenderer ring;
@@ -51,9 +53,8 @@ namespace DouQuqu
         [SerializeField] private float shadowOffsetScale = 0.22f;
         [SerializeField] private float heightOffset = 0.03f;
 
-        private static Sprite fillSprite;
-        private static Sprite ringSprite;
-        private static Sprite shadowSprite;
+        private Sprite fallbackFill;
+        private Sprite fallbackRing;
         private Material spriteMaterial;
 
         public static Color ColorForPlayer(int playerId)
@@ -72,11 +73,12 @@ namespace DouQuqu
             float lift = 1f / (1f + Mathf.Max(0f, height) * 0.55f);
             float radius = Mathf.Max(0.2f, bugRadius);
             Color paint = charging ? Color.Lerp(playerColor, Color.white, 0.28f) : playerColor;
-            Layout(shadow, shadowSprite, radius * shadowScale * lift, new Color(0.02f, 0.02f, 0.02f, 0.55f * lift), -22);
+            Sprite disc = UsableSprite(fillSprite, true);
+            Layout(shadow, disc, radius * shadowScale * lift, new Color(0.02f, 0.02f, 0.02f, 0.55f * lift), -22);
             if (shadow != null)
                 shadow.transform.localPosition = new Vector3(0f, 0f, -radius * shadowOffsetScale * lift);
-            Layout(fill, fillSprite, radius * ringScale, new Color(paint.r, paint.g, paint.b, charging ? 0.34f : 0.22f), -21);
-            Layout(ring, ringSprite, radius * ringScale, new Color(paint.r, paint.g, paint.b, 0.94f), -20);
+            Layout(fill, disc, radius * ringScale, new Color(paint.r, paint.g, paint.b, charging ? 0.34f : 0.22f), -21);
+            Layout(ring, UsableSprite(ringSprite, false), radius * ringScale, new Color(paint.r, paint.g, paint.b, 0.94f), -20);
         }
 
         public void Hide()
@@ -89,9 +91,15 @@ namespace DouQuqu
             if (shadow == null) shadow = CreateSprite("Shadow", -22);
             if (fill == null) fill = CreateSprite("Fill", -21);
             if (ring == null) ring = CreateSprite("Ring", -20);
-            shadow.sprite = ShadowSprite();
-            fill.sprite = FillSprite();
-            ring.sprite = RingSprite();
+            shadow.sprite = UsableSprite(fillSprite, true);
+            fill.sprite = UsableSprite(fillSprite, true);
+            ring.sprite = UsableSprite(ringSprite, false);
+        }
+
+        private Sprite UsableSprite(Sprite authored, bool filled)
+        {
+            if (authored != null && authored.bounds.size.sqrMagnitude > 0.0001f) return authored;
+            return filled ? FallbackFill() : FallbackRing();
         }
 
         private void Layout(SpriteRenderer renderer, Sprite sprite, float worldRadius, Color color, int sorting)
@@ -137,22 +145,16 @@ namespace DouQuqu
             return renderer;
         }
 
-        private static Sprite FillSprite()
+        private Sprite FallbackFill()
         {
-            if (fillSprite == null) fillSprite = MakeDisc("GroundFill", 128, 0f, 1f, 0.045f, false);
-            return fillSprite;
+            if (fallbackFill == null) fallbackFill = MakeDisc("GroundFill", 128, 0f, 1f, 0.045f, false);
+            return fallbackFill;
         }
 
-        private static Sprite RingSprite()
+        private Sprite FallbackRing()
         {
-            if (ringSprite == null) ringSprite = MakeDisc("GroundRing", 128, 0.82f, 1f, 0.04f, false);
-            return ringSprite;
-        }
-
-        private static Sprite ShadowSprite()
-        {
-            if (shadowSprite == null) shadowSprite = MakeDisc("GroundShadow", 128, 0f, 1f, 0.12f, true);
-            return shadowSprite;
+            if (fallbackRing == null) fallbackRing = MakeDisc("GroundRing", 128, 0.82f, 1f, 0.04f, false);
+            return fallbackRing;
         }
 
         private static Sprite MakeDisc(string spriteName, int pixels, float inner, float outer, float softness, bool quadratic)

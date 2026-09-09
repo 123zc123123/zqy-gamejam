@@ -11,7 +11,7 @@ namespace DouQuqu
         public const string ChargeState = "Charge";
         public const float ChargeHoldTime = 0.25f;
 
-        const float SettleSpeed = 0.06f;
+        const float SettleSpeed = DouQuquRules.SettleSnap;
 
         static readonly int ChargingId = Animator.StringToHash("Charging");
         static readonly int AirborneId = Animator.StringToHash("Airborne");
@@ -43,7 +43,7 @@ namespace DouQuqu
             animator.SetBool(AirborneId, bug.airborne && !crashing);
             animator.SetBool(SettledId, settled && !crashing);
             animator.SetBool(CrashId, crashing);
-            animator.SetBool(CrashControlId, bug.hitTier == HitTier.Control);
+            animator.SetBool(CrashControlId, DouQuquRules.CanonicalHitTier(bug.hitTier) == HitTier.Control);
             if (bug.charging && !crashing) HoldChargeFrame();
         }
 

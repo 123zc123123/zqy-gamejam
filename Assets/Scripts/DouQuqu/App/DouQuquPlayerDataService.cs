@@ -110,6 +110,8 @@ namespace DouQuqu
                 CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
             }
 
+            EnsureStarterBackpack(CurrentPlayer);
+
             error = SaveDatabase() ? string.Empty : "玩家数据保存失败，请检查设备存储权限";
             PlayerDataChanged?.Invoke();
             return string.IsNullOrEmpty(error);
@@ -311,6 +313,29 @@ namespace DouQuqu
                 quality = source.quality,
                 temperament = source.temperament
             };
+        }
+
+        /// <summary>开档送凡品 1-1～1-4。旧档背包仍空时补一次，已有虫不补。</summary>
+        private static void EnsureStarterBackpack(DouQuquPlayerProfile player)
+        {
+            if (player == null) return;
+            if (player.backpack == null) player.backpack = new List<CricketBackpackEntry>();
+            for (int i = 0; i < player.backpack.Count; i++)
+            {
+                CricketBackpackEntry existing = player.backpack[i];
+                if (existing != null && !string.IsNullOrEmpty(existing.instanceId)) return;
+            }
+
+            player.backpack.Clear();
+            for (int temperament = 1; temperament <= 4; temperament++)
+            {
+                player.backpack.Add(new CricketBackpackEntry
+                {
+                    instanceId = Guid.NewGuid().ToString("N"),
+                    quality = 1,
+                    temperament = temperament
+                });
+            }
         }
 
         /// <summary>返回图鉴快照，调用者不能直接修改数据库中的原始对象。</summary>

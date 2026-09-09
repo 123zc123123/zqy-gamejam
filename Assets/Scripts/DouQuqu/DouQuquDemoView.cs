@@ -30,6 +30,7 @@ namespace DouQuqu
         [SerializeField] private GameObject staminaRingPrefab;
         [SerializeField] private GameObject staminaBarPrefab;
         [SerializeField] private GameObject chargeArrowPrefab;
+        [SerializeField] private GameObject groundMarkerPrefab;
 
         [Header("显示")]
         [SerializeField] private float groundOffset = 0.35f;
@@ -167,6 +168,7 @@ namespace DouQuqu
             markersRoot = CreateRoot("GroundMarkers");
             if (ringsRoot != null) ringsRoot.gameObject.SetActive(false);
             _ = staminaRingPrefab;
+            _ = groundMarkerPrefab;
         }
 
         private Transform CreateRoot(string rootName)
@@ -513,7 +515,7 @@ namespace DouQuqu
         {
             DouQuquStaminaBar bar = GetStaminaBar(bug.id);
             if (bar == null) return;
-            float max = Mathf.Max(1f, knobs.staminaMax);
+            float max = Mathf.Max(1f, DouQuquRules.StaminaMaxOf(knobs, bug));
             int slots = Mathf.Clamp(knobs.staminaSlots, 3, DouQuquStaminaBar.MaxSlots);
             float current = Mathf.Max(0f, bug.stamina);
             float pending = bug.charging ? DouQuquRules.JumpStaminaCost(knobs, bug) : 0f;
@@ -525,9 +527,13 @@ namespace DouQuqu
             DouQuquGroundMarker marker;
             if (groundMarkers.TryGetValue(id, out marker) && marker != null) return marker;
             Transform parent = markersRoot != null ? markersRoot : transform;
-            GameObject view = new GameObject("GroundMarker_" + id);
-            view.transform.SetParent(parent, false);
-            marker = view.AddComponent<DouQuquGroundMarker>();
+            marker = InstantiateOverlay<DouQuquGroundMarker>(groundMarkerPrefab, parent, "GroundMarker_" + id);
+            if (marker == null)
+            {
+                GameObject view = new GameObject("GroundMarker_" + id);
+                view.transform.SetParent(parent, false);
+                marker = view.AddComponent<DouQuquGroundMarker>();
+            }
             groundMarkers[id] = marker;
             return marker;
         }
@@ -561,9 +567,9 @@ namespace DouQuqu
         private void WarnIfOverlaysMissing()
         {
             if (warnedMissingOverlays) return;
-            if (staminaBarPrefab != null && chargeArrowPrefab != null) return;
+            if (staminaBarPrefab != null && chargeArrowPrefab != null && groundMarkerPrefab != null) return;
             warnedMissingOverlays = true;
-            Debug.LogWarning("[DouQuqu] 缺少耐力条或蓄力箭头预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
+            Debug.LogWarning("[DouQuqu] 缺少耐力条、蓄力箭头或脚下圈预制体，请在菜单运行 DouQuqu/Rebuild Overlay Prefabs。");
         }
 
         /// <summary>

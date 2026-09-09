@@ -8,8 +8,7 @@ namespace DouQuqu
     /// </summary>
     public sealed class DouQuquMovementSystem
     {
-        // 以下是模拟阈值，不是表现调参：用于判断角色是否停稳，以及何时可以重新蓄力。
-        private const float SettleSpeed = 0.06f;
+        // 停稳 = 水平速度为 0。Snap 只用于数值收口，不是旧的 0.06 死区。
         private const float Epsilon = 0.03f;
 
         /// <summary>兼容旧调用的一体化入口；控制器使用拆分入口以便在移动与蓄力之间插入碰撞。</summary>
@@ -247,11 +246,11 @@ namespace DouQuqu
             float speed = DouQuquRules.JumpDeltaV(knobs, bug);
             Vector2 direction = bug.chargeDirection.sqrMagnitude > 0.0001f ? bug.chargeDirection.normalized : Vector2.up;
             bug.velocity = new Vector3(direction.x * speed, 0f, direction.y * speed);
-            bug.initialSpeed = speed;
+            DouQuquRules.SetLaunch(bug, bug.velocity);
             bug.verticalVelocity = speed * DouQuquRules.TanTheta(knobs);
             bug.height = 0.02f;
             bug.airborne = true;
-            bug.slideMu = knobs.mu;
+            bug.slideMu = DouQuquRules.GripOf(knobs, bug);
             bug.chargeTime = 0f;
             bug.charging = false;
             bug.pendingCharge = false;
@@ -262,7 +261,7 @@ namespace DouQuqu
             float speed = DouQuquRules.BabyJumpSpeed(knobs, baby);
             Vector2 direction = baby.chargeDirection.sqrMagnitude > 0.0001f ? baby.chargeDirection.normalized : Vector2.up;
             baby.velocity = new Vector3(direction.x * speed, 0f, direction.y * speed);
-            baby.initialSpeed = speed;
+            DouQuquRules.SetLaunch(baby, baby.velocity);
             baby.verticalVelocity = speed * DouQuquRules.TanTheta(knobs);
             baby.height = 0.02f;
             baby.airborne = true;
@@ -283,30 +282,54 @@ namespace DouQuqu
 
         private bool IsSettled(BugState bug)
         {
-            return !bug.airborne && bug.height <= Epsilon && new Vector2(bug.velocity.x, bug.velocity.z).magnitude < SettleSpeed;
+            return !bug.airborne && bug.height <= Epsilon && DouQuquRules.IsPlanarSettled(bug.velocity);
         }
 
         private bool IsBabySettled(BabyState baby)
         {
-            return !baby.airborne && baby.height <= Epsilon && new Vector2(baby.velocity.x, baby.velocity.z).magnitude < SettleSpeed;
+            return !baby.airborne && baby.height <= Epsilon && DouQuquRules.IsPlanarSettled(baby.velocity);
         }
 
         private void ApplyGroundFriction(MatchKnobs knobs, BugState bug, float dt)
         {
             float speed = new Vector2(bug.velocity.x, bug.velocity.z).magnitude;
-            if (speed < SettleSpeed) { bug.velocity = Vector3.zero; bug.initialSpeed = 0f; bug.hitTier = HitTier.None; return; }
+            if (speed <= DouQuquRules.SettleSnap)
+            {
+                bug.velocity = Vector3.zero;
+                DouQuquRules.ClearLaunch(bug);
+                bug.hitTier = HitTier.None;
+                return;
+            }
             float next = speed - DouQuquRules.FrictionAcceleration(knobs, bug.slideMu > 0f ? bug.slideMu : knobs.mu) * dt;
-            if (next <= SettleSpeed) { bug.velocity = Vector3.zero; bug.initialSpeed = 0f; bug.hitTier = HitTier.None; return; }
+            if (next <= DouQuquRules.SettleSnap)
+            {
+                bug.velocity = Vector3.zero;
+                DouQuquRules.ClearLaunch(bug);
+                bug.hitTier = HitTier.None;
+                return;
+            }
             bug.velocity *= next / speed;
         }
 
         private void ApplyBabyFriction(MatchKnobs knobs, BabyState baby, float dt)
         {
             float speed = new Vector2(baby.velocity.x, baby.velocity.z).magnitude;
-            if (speed < SettleSpeed) { baby.velocity = Vector3.zero; baby.initialSpeed = 0f; baby.hitTier = HitTier.None; return; }
+            if (speed <= DouQuquRules.SettleSnap)
+            {
+                baby.velocity = Vector3.zero;
+                DouQuquRules.ClearLaunch(baby);
+                baby.hitTier = HitTier.None;
+                return;
+            }
             float mu = baby.slideMu > 0f ? baby.slideMu : knobs.mu;
             float next = speed - DouQuquRules.FrictionAcceleration(knobs, mu) * dt;
-            if (next <= SettleSpeed) { baby.velocity = Vector3.zero; baby.initialSpeed = 0f; baby.hitTier = HitTier.None; return; }
+            if (next <= DouQuquRules.SettleSnap)
+            {
+                baby.velocity = Vector3.zero;
+                DouQuquRules.ClearLaunch(baby);
+                baby.hitTier = HitTier.None;
+                return;
+            }
             baby.velocity *= next / speed;
         }
     }

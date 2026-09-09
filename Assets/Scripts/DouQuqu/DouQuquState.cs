@@ -5,9 +5,14 @@ using UnityEngine;
 namespace DouQuqu
 {
     /// <summary>决定由哪个组件推进模拟。</summary>
-    public enum MatchRunMode { Offline, Host, Client }
+    public enum MatchRunMode
+    {
+        [InspectorName("单机")] Offline,
+        [InspectorName("主机")] Host,
+        [InspectorName("客户端")] Client
+    }
 
-    /// <summary>用于选择命中后摩擦力的碰撞响应档位。</summary>
+    /// <summary>撞后摩擦档。Normal 已并入 Control，读档时按可控处理。</summary>
     public enum HitTier { None, Normal, Control, Slip }
 
     [Serializable]
@@ -65,6 +70,7 @@ namespace DouQuqu
         public float height;
         public float verticalVelocity;
         public float chargeTime;
+        public Vector3 launchVelocity;
         public float initialSpeed;
         public float slideMu;
         public Vector2 chargeDirection = Vector2.up;
@@ -127,6 +133,7 @@ namespace DouQuqu
         public bool charging;
         public bool airborne;
         public int hitTier;
+        public Vector3 launchVelocity;
     }
 
     [Serializable]
@@ -169,6 +176,7 @@ namespace DouQuqu
         public int hitTier;
         public float remaining;
         public bool alive;
+        public Vector3 launchVelocity;
     }
 
     [Serializable]
@@ -186,7 +194,7 @@ namespace DouQuqu
     /// </summary>
     public sealed class MatchSnapshot
     {
-        public int version = 7;
+        public int version = 8;
         public int tick;
         public int playerCount;
         public int randomSeed;

@@ -201,19 +201,19 @@ namespace DouQuqu
             return flags;
         }
 
-        /// <summary>把品质强度和性格倾向叠到战斗参数上：基础 knobs × 合成常数。</summary>
-        public static void ApplyCombatBias(MatchKnobs knobs, int quality, int temperament)
+        /// <summary>把品质强度和性格倾向叠到这只虫上：局内 knobs × 详情值。不改共享旋钮。</summary>
+        public static void ApplyCombatBias(BugState bug, int quality, int temperament)
         {
-            if (knobs == null) return;
+            if (bug == null) return;
             quality = Mathf.Clamp(quality, 1, 4);
             temperament = Mathf.Clamp(temperament, 1, 4);
-            knobs.mass *= StatFactor(quality, temperament, PanelStat.Mass);
-            knobs.mu *= StatFactor(quality, temperament, PanelStat.Grip);
-            knobs.vRate *= StatFactor(quality, temperament, PanelStat.ChargeSpeed);
-            knobs.tChargeMax *= StatFactor(quality, temperament, PanelStat.ChargeTime);
-            knobs.staminaRegen *= StatFactor(quality, temperament, PanelStat.StaminaRegen);
-            knobs.staminaMax *= StatFactor(quality, temperament, PanelStat.StaminaMax);
-            knobs.tFloor *= QualityFactor(quality);
+            bug.massMul = StatFactor(quality, temperament, PanelStat.Mass);
+            bug.gripMul = StatFactor(quality, temperament, PanelStat.Grip);
+            bug.chargeSpeedMul = StatFactor(quality, temperament, PanelStat.ChargeSpeed);
+            bug.chargeTimeMul = StatFactor(quality, temperament, PanelStat.ChargeTime);
+            bug.staminaRegenMul = StatFactor(quality, temperament, PanelStat.StaminaRegen);
+            bug.staminaMaxMul = StatFactor(quality, temperament, PanelStat.StaminaMax);
+            bug.tFloorMul = QualityFactor(quality);
         }
     }
 }

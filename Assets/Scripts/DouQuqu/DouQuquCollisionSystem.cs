@@ -97,8 +97,9 @@ namespace DouQuqu
                 if (!MoveToContact(bug.position, bug.previousPosition, nest.position, nest.position, bug.radius + state.knobs.nestR, out normal, out bugPosition, out _)) continue;
                 bug.position = bugPosition;
                 currentTouching.Add(bug.id);
-                // 巢穴是静态物体，取蟋蟀相对巢穴的法向速度。
-                float normalVelocity = Vector3.Dot(-bug.velocity, normal);
+                DouQuquRules.UseCurrentAsLaunchIfHitSliding(bug);
+                // 巢穴是静态物体，接近判定与换速都读出发速度。
+                float normalVelocity = Vector3.Dot(-DouQuquRules.LaunchOf(bug), normal);
                 SeparateStatic(bug, nest.position, state.knobs.nestR, normal);
                 BounceStatic(state.knobs, bug, normal, state.knobs.nestMass, emit);
                 if (DouQuquRules.IsNewNestContact(nest.touching.Contains(bug.id), normalVelocity))
@@ -138,16 +139,19 @@ namespace DouQuqu
                     bug.position = bugPosition;
                     egg.position = eggPosition;
                     Separate(bug, ref egg.position, state.knobs.eggR, normal, state.knobs.eggMass);
-                    float normalSpeed = Vector3.Dot(egg.velocity - bug.velocity, normal);
-                    Vector3 eggVelocity = egg.velocity;
+                    DouQuquRules.UseCurrentAsLaunchIfHitSliding(bug);
+                    Vector3 bugLaunch = DouQuquRules.LaunchOf(bug);
+                    Vector3 eggLaunch = DouQuquRules.Planar(egg.velocity);
+                    float normalSpeed = Vector3.Dot(eggLaunch - bugLaunch, normal);
                     HitTier bugTier = normalSpeed < -0.0001f
-                        ? TierForEggContact(state.knobs, bug, eggVelocity, normal)
+                        ? DouQuquRules.HitTierFor(state.knobs, bug.hitTier, bug.mass, bugLaunch, state.knobs.eggMass, eggLaunch, normal)
                         : HitTier.None;
-                    BounceMasses(ref bug.velocity, ref eggVelocity, bug.mass, state.knobs.eggMass, normal);
-                    egg.velocity = eggVelocity;
+                    BounceMasses(ref bugLaunch, ref eggLaunch, bug.mass, state.knobs.eggMass, normal);
                     if (normalSpeed < -0.0001f)
                     {
-                        bug.initialSpeed = bug.velocity.magnitude;
+                        bug.velocity = bugLaunch;
+                        egg.velocity = eggLaunch;
+                        DouQuquRules.SetLaunch(bug, bugLaunch);
                         FaceVelocity(bug);
                         // 蛋没有玩家归属，不能作为淘汰时的击杀者。
                         bug.lastHitId = -1;
@@ -203,23 +207,22 @@ namespace DouQuqu
             return true;
         }
 
-        // 使用质量加权的一维弹性冲量，并分别计算双方的命中档位。
+        // 换速和分档都读出发速度；当前位置只用于碰上判定。
         private void BouncePair(MatchKnobs knobs, BugState a, BugState b, Vector3 normal, Action<string, Vector3> emit)
         {
-            Vector3 relative = b.velocity - a.velocity;
-            float normalSpeed = Vector3.Dot(relative, normal);
+            DouQuquRules.UseCurrentAsLaunchIfHitSliding(a);
+            DouQuquRules.UseCurrentAsLaunchIfHitSliding(b);
+            Vector3 launchA = DouQuquRules.LaunchOf(a);
+            Vector3 launchB = DouQuquRules.LaunchOf(b);
+            float normalSpeed = Vector3.Dot(launchB - launchA, normal);
             if (normalSpeed >= -0.0001f) return;
-            // 命中档位描述的是碰撞发生前的来势。必须在冲量改变速度前计算，
-            // 否则非对称碰撞可能把 Control/Slip 判反。
-            HitTier tierA = TierFor(knobs, a, b, normal);
-            HitTier tierB = TierFor(knobs, b, a, -normal);
-            float inverseA = 1f / Mathf.Max(0.01f, a.mass);
-            float inverseB = 1f / Mathf.Max(0.01f, b.mass);
-            float impulse = -(1f + Elasticity) * normalSpeed / (inverseA + inverseB);
-            a.velocity -= normal * impulse * inverseA;
-            b.velocity += normal * impulse * inverseB;
-            a.initialSpeed = a.velocity.magnitude;
-            b.initialSpeed = b.velocity.magnitude;
+            HitTier tierA = DouQuquRules.HitTierFor(knobs, a.hitTier, a.mass, launchA, b.mass, launchB, normal);
+            HitTier tierB = DouQuquRules.HitTierFor(knobs, b.hitTier, b.mass, launchB, a.mass, launchA, -normal);
+            BounceMasses(ref launchA, ref launchB, a.mass, b.mass, normal);
+            a.velocity = launchA;
+            b.velocity = launchB;
+            DouQuquRules.SetLaunch(a, launchA);
+            DouQuquRules.SetLaunch(b, launchB);
             FaceVelocity(a);
             FaceVelocity(b);
             a.lastHitId = b.id;
@@ -231,86 +234,54 @@ namespace DouQuqu
 
         private void BounceBabyPair(BabyState a, BabyState b, Vector3 normal)
         {
-            Vector3 va = a.velocity;
-            Vector3 vb = b.velocity;
-            BounceMasses(ref va, ref vb, a.mass, b.mass, normal);
-            a.velocity = va;
-            b.velocity = vb;
-            a.initialSpeed = a.velocity.magnitude;
-            b.initialSpeed = b.velocity.magnitude;
+            DouQuquRules.UseCurrentAsLaunchIfHitSliding(a);
+            DouQuquRules.UseCurrentAsLaunchIfHitSliding(b);
+            Vector3 launchA = DouQuquRules.LaunchOf(a);
+            Vector3 launchB = DouQuquRules.LaunchOf(b);
+            BounceMasses(ref launchA, ref launchB, a.mass, b.mass, normal);
+            a.velocity = launchA;
+            b.velocity = launchB;
+            DouQuquRules.SetLaunch(a, launchA);
+            DouQuquRules.SetLaunch(b, launchB);
             FaceVelocity(a);
             FaceVelocity(b);
         }
 
         private void BounceBabyBug(MatchKnobs knobs, BabyState baby, BugState bug, Vector3 normal, Action<string, Vector3> emit)
         {
-            Vector3 babyVelocity = baby.velocity;
-            Vector3 bugVelocity = bug.velocity;
-            float speed = Vector3.Dot(bugVelocity - babyVelocity, normal);
+            DouQuquRules.UseCurrentAsLaunchIfHitSliding(baby);
+            DouQuquRules.UseCurrentAsLaunchIfHitSliding(bug);
+            Vector3 babyLaunch = DouQuquRules.LaunchOf(baby);
+            Vector3 bugLaunch = DouQuquRules.LaunchOf(bug);
+            float speed = Vector3.Dot(bugLaunch - babyLaunch, normal);
             HitTier bugTier = HitTier.None;
             HitTier babyTier = HitTier.None;
             if (speed < -0.0001f)
-                bugTier = TierForBabyContact(knobs, baby, bug, normal, out babyTier);
-            BounceMasses(ref babyVelocity, ref bugVelocity, baby.mass, bug.mass, normal);
-            baby.velocity = babyVelocity;
-            bug.velocity = bugVelocity;
+            {
+                bugTier = DouQuquRules.HitTierFor(knobs, bug.hitTier, bug.mass, bugLaunch, baby.mass, babyLaunch, normal);
+                babyTier = DouQuquRules.HitTierFor(knobs, baby.hitTier, baby.mass, babyLaunch, bug.mass, bugLaunch, -normal);
+            }
+            BounceMasses(ref babyLaunch, ref bugLaunch, baby.mass, bug.mass, normal);
             if (speed < -0.0001f)
             {
-                baby.initialSpeed = baby.velocity.magnitude;
-                bug.initialSpeed = bug.velocity.magnitude;
+                baby.velocity = babyLaunch;
+                bug.velocity = bugLaunch;
+                DouQuquRules.SetLaunch(baby, babyLaunch);
+                DouQuquRules.SetLaunch(bug, bugLaunch);
                 FaceVelocity(baby);
                 FaceVelocity(bug);
                 bug.lastHitId = DouQuquRules.HitCreditId(baby);
-                bug.hitTier = bugTier;
+                ApplyHitSlide(knobs, bug, bugTier);
                 baby.hitTier = babyTier;
-                bug.slideMu = MuForTier(knobs, bugTier);
-                baby.slideMu = MuForTier(knobs, babyTier);
-                bug.charging = false;
-                bug.chargeTime = 0f;
-                bug.pendingCharge = bug.holding;
+                baby.slideMu = DouQuquRules.SlideMuFor(knobs, babyTier);
                 baby.charging = false;
                 baby.chargeTime = 0f;
                 baby.pendingCharge = true;
-                bug.airborne = false;
-                bug.height = 0f;
-                bug.verticalVelocity = 0f;
                 baby.airborne = false;
                 baby.height = 0f;
                 baby.verticalVelocity = 0f;
                 emit?.Invoke("baby-hit", bug.position);
             }
-        }
-
-        private HitTier TierForBabyContact(MatchKnobs knobs, BabyState baby, BugState bug, Vector3 normal, out HitTier babyTier)
-        {
-            float bugNormal = Vector3.Dot(bug.velocity, normal);
-            float babyNormal = Vector3.Dot(baby.velocity, normal);
-            HitTier bugTier;
-            if (Mathf.Abs(bugNormal) + 1e-9f >= Mathf.Abs(babyNormal)) bugTier = HitTier.Control;
-            else
-            {
-                float bugInitial = (!bug.airborne && bug.charging)
-                    ? DouQuquRules.ChargeDelta(knobs, bug) * Mathf.Max(0f, knobs.rChargeScale)
-                    : (bug.initialSpeed > 0f ? bug.initialSpeed : bug.velocity.magnitude);
-                float babyInitial = baby.initialSpeed > 0f ? baby.initialSpeed : baby.velocity.magnitude;
-                float bugNormalInitial = bug.velocity.magnitude < 1e-8f ? 0f : bugInitial * bugNormal / bug.velocity.magnitude;
-                float babyNormalInitial = baby.velocity.magnitude < 1e-8f ? 0f : babyInitial * babyNormal / baby.velocity.magnitude;
-                float deltaMomentum = baby.mass * (-babyNormalInitial) - bug.mass * bugNormalInitial;
-                float vmax = DouQuquRules.PanelVMax(knobs);
-                float resistance = knobs.rStand * vmax * bug.mass;
-                if (vmax > 1e-6f)
-                    resistance += Mathf.Clamp(bugInitial / vmax, 0f, 1f) * (knobs.rMax * bug.mass * vmax - knobs.rStand * vmax * bug.mass);
-                bugTier = deltaMomentum <= resistance ? HitTier.Normal : HitTier.Slip;
-            }
-            babyTier = bugTier == HitTier.Control ? HitTier.Slip : HitTier.Control;
-            return bugTier;
-        }
-
-        private float MuForTier(MatchKnobs knobs, HitTier tier)
-        {
-            if (tier == HitTier.Control) return knobs.mu * knobs.muCtrlScale;
-            if (tier == HitTier.Slip) return knobs.mu * knobs.muSlipScale;
-            return knobs.mu;
         }
 
         private void BounceMasses(ref Vector3 aVelocity, ref Vector3 bVelocity, float massA, float massB, Vector3 normal)
@@ -383,76 +354,30 @@ namespace DouQuqu
 
         private void BounceStatic(MatchKnobs knobs, BugState bug, Vector3 normal, float staticMass, Action<string, Vector3> emit)
         {
-            // normal 从蟋蟀指向静态物体；用相对速度判断是否正在接近。
-            // 只有接近巢穴时才施加反弹，离开巢穴时不重复反弹。
-            float normalSpeed = Vector3.Dot(-bug.velocity, normal);
+            // normal 从蟋蟀指向静态物体；接近和换速都读出发速度。
+            DouQuquRules.UseCurrentAsLaunchIfHitSliding(bug);
+            Vector3 launch = DouQuquRules.LaunchOf(bug);
+            float normalSpeed = Vector3.Dot(-launch, normal);
             if (normalSpeed >= -0.0001f) return;
-            float inverseBug = 1f / Mathf.Max(0.01f, bug.mass);
-            float inverseStatic = 1f / Mathf.Max(0.01f, staticMass);
-            float impulse = -(1f + Elasticity) * normalSpeed / (inverseBug + inverseStatic);
-            bug.velocity -= normal * impulse * inverseBug;
-            bug.initialSpeed = bug.velocity.magnitude;
+            HitTier tier = DouQuquRules.HitTierFor(knobs, bug.hitTier, bug.mass, launch, staticMass, Vector3.zero, normal);
+            Vector3 staticLaunch = Vector3.zero;
+            BounceMasses(ref launch, ref staticLaunch, bug.mass, staticMass, normal);
+            bug.velocity = launch;
+            DouQuquRules.SetLaunch(bug, launch);
             FaceVelocity(bug);
             bug.lastHitId = -1;
-            // 对静止巢穴而言，运动中的蟋蟀视为控制方，
-            // 与原型中的静态占位刚体碰撞路径一致。
-            ApplyHitSlide(knobs, bug, HitTier.Control);
+            ApplyHitSlide(knobs, bug, tier);
             emit?.Invoke("hit", bug.position);
-        }
-
-        private HitTier TierFor(MatchKnobs knobs, BugState me, BugState other, Vector3 normal)
-        {
-            return TierForContact(knobs, me, other.mass, other.velocity, other.initialSpeed, normal);
-        }
-
-        private HitTier TierForEggContact(MatchKnobs knobs, BugState bug, Vector3 eggVelocity, Vector3 normal)
-        {
-            return TierForContact(knobs, bug, knobs.eggMass, eggVelocity, eggVelocity.magnitude, normal);
-        }
-
-        // 先比较法向速度决定控制方，否则用初始动量差与抗性判断 Normal/Slip。
-        private HitTier TierForContact(MatchKnobs knobs, BugState me, float otherMass, Vector3 otherVelocity, float otherInitialSpeed, Vector3 normal)
-        {
-            float meNormal = Vector3.Dot(me.velocity, normal);
-            float otherNormal = Vector3.Dot(otherVelocity, normal);
-            if (Mathf.Abs(meNormal) + 1e-9f >= Mathf.Abs(otherNormal)) return HitTier.Control;
-            float meInitial = InitialNormalSpeed(me, normal);
-            float otherSpeed = otherVelocity.magnitude;
-            float otherInitial = otherSpeed < 1e-8f ? 0f : otherInitialSpeed * otherNormal / otherSpeed;
-            float deltaMomentum = otherMass * (-otherInitial) - me.mass * meInitial;
-            return deltaMomentum <= ResistanceOf(knobs, me) ? HitTier.Normal : HitTier.Slip;
-        }
-
-        private float InitialNormalSpeed(BugState bug, Vector3 normal)
-        {
-            float speed = bug.velocity.magnitude;
-            if (speed < 1e-8f) return 0f;
-            float initial = bug.initialSpeed > 0f ? bug.initialSpeed : speed;
-            return initial * Vector3.Dot(bug.velocity, normal) / speed;
-        }
-
-        private float ResistanceOf(MatchKnobs knobs, BugState bug)
-        {
-            // 与原型 resistOf() 相同的阻力插值公式。
-            float vmax = DouQuquRules.PanelVMax(knobs);
-            float v0 = knobs.rStand * vmax;
-            float resistanceSpeed = (!bug.airborne && bug.charging)
-                ? DouQuquRules.ChargeDelta(knobs, bug) * Mathf.Max(0f, knobs.rChargeScale)
-                : (bug.initialSpeed > 0f ? bug.initialSpeed : bug.velocity.magnitude);
-            float t = vmax < 1e-6f ? 0f : Mathf.Clamp(resistanceSpeed / vmax, 0f, 1f);
-            return v0 * bug.mass + t * (knobs.rMax * bug.mass * vmax - v0 * bug.mass);
         }
 
         // 命中后落地滑行，并清除当前蓄力；若仍按住按键则交给 pendingCharge 续蓄。
         private void ApplyHitSlide(MatchKnobs knobs, BugState bug, HitTier tier)
         {
-            bug.hitTier = tier;
+            bug.hitTier = DouQuquRules.CanonicalHitTier(tier);
             bug.airborne = false;
             bug.height = 0f;
             bug.verticalVelocity = 0f;
-            if (tier == HitTier.Control) bug.slideMu = knobs.mu * knobs.muCtrlScale;
-            else if (tier == HitTier.Slip) bug.slideMu = knobs.mu * knobs.muSlipScale;
-            else bug.slideMu = knobs.mu;
+            bug.slideMu = DouQuquRules.SlideMuFor(knobs, bug, bug.hitTier);
             bug.charging = false;
             bug.chargeTime = 0f;
             bug.pendingCharge = bug.holding;
