@@ -86,6 +86,21 @@ const knobs = R.mergeKnobs();
 }
 
 {
+  const g = 1 + 6 * 0.16;
+  const bug = { grow: 6, chargeT: knobs.tChargeMax };
+  const e = R.effectiveCharge(knobs, bug);
+  approx("grown vRate", e.vRate, 23 * g, 1e-9);
+  approx("grown tMax unchanged", e.tMax, 0.55, 1e-9);
+  approx("grown extra Δv", R.chargeDeltaV(knobs, bug), 23 * g * 0.55, 1e-9);
+  approx("grown full jump", R.jumpDeltaV(knobs, bug), 23 * g * 0.67, 1e-9);
+  const buffed = { grow: 6, buffChargeT: 5, chargeT: 0 };
+  approx("grown+buff tap", R.jumpDeltaV(knobs, buffed), 23 * g * 1.25 * 0.12, 1e-9);
+  buffed.chargeT = R.effectiveCharge(knobs, buffed).tMax;
+  approx("grown+buff extra still A1 g Tmax", R.chargeDeltaV(knobs, buffed), 23 * g * 0.55, 1e-9);
+  approx("grown+buff tMax still shortened", R.effectiveCharge(knobs, buffed).tMax, 0.44, 1e-9);
+}
+
+{
   const bug = { x: 30, z: 0, r: 0.9, vx: 4, vz: 0, buffShieldT: 8 };
   const sdf = (x) => Math.hypot(x, 0) - 10;
   const grad = () => ({ x: 1, z: 0 });
@@ -282,6 +297,9 @@ const knobs = R.mergeKnobs();
   const stats = R.babyChargeStats(knobs);
   approx("baby A1", stats.vRate, 23 * 0.4, 1e-9);
   approx("baby tMax", stats.tMax, 0.16, 1e-9);
+  const grownBaby = { grow: 2, chargeT: 0.16 };
+  approx("baby grow A1", R.babyChargeStats(knobs, grownBaby).vRate, 23 * 0.4 * g, 1e-9);
+  approx("baby grow Δv", R.babyChargeDeltaV(knobs, grownBaby), 23 * 0.4 * g * 0.16, 1e-9);
   eq("player credit", R.hitCreditId({ id: 1 }), 1);
   eq("baby credit owner", R.hitCreditId({ kind: "baby", id: 100, ownerId: 0 }), 0);
   eq("unowned baby credit", R.hitCreditId({ kind: "baby", id: 101, ownerId: -1 }), -1);

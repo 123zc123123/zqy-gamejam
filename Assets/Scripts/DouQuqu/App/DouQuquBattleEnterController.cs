@@ -42,6 +42,7 @@ namespace DouQuqu
 
         public void EnterRandomMatch()
         {
+            DouQuquAppServices.PendingMatchKind = DouQuquMatchKind.Random;
             InRoom = true;
             friendRoom = false;
             ApplyVisual();
@@ -50,6 +51,7 @@ namespace DouQuqu
 
         public void EnterFriendRoom()
         {
+            DouQuquAppServices.PendingMatchKind = DouQuquMatchKind.Friend;
             InRoom = true;
             friendRoom = true;
             ApplyVisual();
@@ -122,7 +124,8 @@ namespace DouQuqu
 
         private static void OpenTrainingCamp()
         {
-            DouQuquBottomNavBar.NotifyComingSoon("训练营");
+            DouQuquAppServices.PendingMatchKind = DouQuquMatchKind.Training;
+            DouQuquLobby.Show(DouQuquLobby.Page.HeroSelection);
         }
 
         private void RelabelMatchButton()

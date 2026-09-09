@@ -37,9 +37,14 @@ namespace DouQuqu
             else if (match != null)
             {
                 match.Configure(MatchRunMode.Offline, DouQuquMatchController.MaxPlayers);
-                if (DouQuquAppServices.PendingLocalPicks != null)
-                    match.SetRoster(0, DouQuquAppServices.PendingLocalPicks);
+                DouQuquMatchKind kind = ApplyPendingRosters(match);
                 match.ResetMatch(DouQuquMatchController.MaxPlayers, System.Environment.TickCount);
+                if (kind == DouQuquMatchKind.Training)
+                {
+                    match.OverlayRuntimeKnobs(DouQuquTrainingCamp.WithDuration(match.Knobs));
+                    for (int i = 0; i < DouQuquTrainingCamp.BotCount; i++)
+                        match.SetPlayerIdle(i + 1, true);
+                }
             }
 
             DouQuquTouchInput touchInput = GetComponent<DouQuquTouchInput>();
@@ -177,6 +182,18 @@ namespace DouQuqu
         {
             if (network != null) network.Stop();
             DouQuquSceneNames.Load(DouQuquSceneNames.BattleEntrance);
+        }
+
+        private static DouQuquMatchKind ApplyPendingRosters(DouQuquMatchController match)
+        {
+            DouQuquMatchKind kind = DouQuquAppServices.TakePendingMatchKind();
+            if (match == null) return kind;
+            CricketPick[] localPicks = DouQuquAppServices.TakePendingLocalPicks();
+            if (localPicks != null) match.SetRoster(0, localPicks);
+            if (kind != DouQuquMatchKind.Training) return kind;
+            for (int i = 0; i < DouQuquTrainingCamp.BotCount; i++)
+                match.SetRoster(i + 1, DouQuquTrainingCamp.PicksForBot(i));
+            return kind;
         }
     }
 }

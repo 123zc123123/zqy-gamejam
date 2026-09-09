@@ -43,6 +43,7 @@ namespace DouQuqu
             for (int i = 0; i < state.bugs.Length && i < inputs.Length; i++)
             {
                 if (i >= state.humanPlayers.Length || state.humanPlayers[i]) continue;
+                if (state.idlePlayers != null && i < state.idlePlayers.Length && state.idlePlayers[i]) continue;
                 BugState bug = state.bugs[i];
                 if (bug == null || !bug.alive)
                 {

@@ -213,7 +213,7 @@ namespace DouQuqu
             bug.chargeTimeMul = StatFactor(quality, temperament, PanelStat.ChargeTime);
             bug.staminaRegenMul = StatFactor(quality, temperament, PanelStat.StaminaRegen);
             bug.staminaMaxMul = StatFactor(quality, temperament, PanelStat.StaminaMax);
-            bug.tFloorMul = QualityFactor(quality);
+            bug.dMinMul = QualityFactor(quality);
         }
     }
 }

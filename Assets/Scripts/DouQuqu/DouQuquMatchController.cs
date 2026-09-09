@@ -39,7 +39,7 @@ namespace DouQuqu
         private int inputSequence;
 
         public MatchRunMode RunMode => runMode;
-        public MatchKnobs Knobs => knobs;
+        public MatchKnobs Knobs => state != null && state.knobs != null ? state.knobs : knobs;
         public MatchState State => state;
         public int ConfiguredPlayers => configuredPlayers;
         public int OfflineHumanPlayers => offlineHumanPlayers;
@@ -52,7 +52,7 @@ namespace DouQuqu
         public bool IsStarted => state != null && state.started;
         public bool IsOver => state != null && state.over;
         public int WinnerId => state == null ? -1 : state.winnerId;
-        public MatchPhase Phase => state == null ? MatchPhase.Probe : DouQuquRules.Phase(knobs ?? state.knobs ?? DouQuquRules.DefaultKnobs(), state.elapsed);
+        public MatchPhase Phase => state == null ? MatchPhase.Probe : DouQuquRules.Phase(ActiveKnobs, state.elapsed);
 
         public event Action<MatchSnapshot> SnapshotReady;
         public event Action<MatchState> StateChanged;
@@ -84,8 +84,9 @@ namespace DouQuqu
         public void ApplyKnobsJson(string json)
         {
             if (string.IsNullOrEmpty(json)) return;
-            if (knobs == null) knobs = new MatchKnobs();
+            if (knobs == null) knobs = DouQuquRules.DefaultKnobs();
             JsonUtility.FromJsonOverwrite(json, knobs);
+            knobs.EnsureJumpKnobs();
             if (state != null) state.knobs = knobs;
         }
 
@@ -97,6 +98,23 @@ namespace DouQuqu
             PlayerPrefs.SetInt(DouQuquKnobSaveKeys.Dirty, 1);
             PlayerPrefs.Save();
             return true;
+        }
+
+        /// <summary>只改当局规则，不覆写场景 Inspector 上的旋钮。</summary>
+        public void OverlayRuntimeKnobs(MatchKnobs runtime)
+        {
+            if (runtime == null || state == null) return;
+            state.knobs = runtime;
+        }
+
+        private MatchKnobs ActiveKnobs
+        {
+            get
+            {
+                if (state != null && state.knobs != null) return state.knobs;
+                if (knobs == null) knobs = DouQuquRules.DefaultKnobs();
+                return knobs;
+            }
         }
 
         // Unity 可变帧时间累积为固定模拟 Tick；单帧上限避免暂停后一次跳过过长对局时间。
@@ -210,6 +228,7 @@ namespace DouQuqu
             };
             state.bugs = new BugState[configuredPlayers];
             state.humanPlayers = new bool[configuredPlayers];
+            state.idlePlayers = new bool[configuredPlayers];
             CricketPick[] localPicks = DouQuquAppServices.PendingLocalPicks;
             if (localPicks != null) StoreRoster(ref pendingRoster, configuredPlayers, 0, localPicks);
             EnsureRoster(configuredPlayers);
@@ -253,6 +272,7 @@ namespace DouQuqu
         public void SetInput(InputFrame frame)
         {
             if (state == null || frame == null || frame.playerId < 0 || frame.playerId >= state.bugs.Length || state.over) return;
+            if (state.idlePlayers != null && frame.playerId < state.idlePlayers.Length && state.idlePlayers[frame.playerId]) return;
             if (state.playerIn != null && frame.playerId < state.playerIn.Length && !state.playerIn[frame.playerId]) return;
             InputFrame current = inputs[frame.playerId];
             if (current != null && frame.sequence > 0 && frame.sequence < current.sequence) return;
@@ -273,6 +293,20 @@ namespace DouQuqu
             state.humanPlayers[playerId] = human;
         }
 
+        /// <summary>木桩槽位：不读输入、不跑人机，站着不跳。</summary>
+        public void SetPlayerIdle(int playerId, bool idle)
+        {
+            if (state == null || state.idlePlayers == null || playerId < 0 || playerId >= state.idlePlayers.Length) return;
+            state.idlePlayers[playerId] = idle;
+            if (!idle) return;
+            inputs[playerId] = new InputFrame(playerId, Vector2.up, false, false);
+            BugState bug = playerId < state.bugs.Length ? state.bugs[playerId] : null;
+            if (bug == null) return;
+            bug.holding = false;
+            bug.charging = false;
+            bug.pendingCharge = false;
+        }
+
         /// <summary>推进一个权威模拟片段；移动/碰撞分步执行，再结算经济、巢穴和蓄力。</summary>
         public void Tick(float dt)
         {
@@ -280,10 +314,11 @@ namespace DouQuqu
             dt = Mathf.Min(dt, 0.1f);
             state.elapsed += dt;
             state.tick++;
-            MatchPhase phase = DouQuquRules.Phase(knobs, state.elapsed);
-            if (phase == MatchPhase.Rage && state.elapsed - dt < knobs.regTime)
+            MatchKnobs active = ActiveKnobs;
+            MatchPhase phase = DouQuquRules.Phase(active, state.elapsed);
+            if (phase == MatchPhase.Rage && state.elapsed - dt < active.regTime)
             {
-                DouQuquRules.EnterRage(knobs, state.bugs);
+                DouQuquRules.EnterRage(active, state.bugs);
                 GameplayEvent?.Invoke("rage-start", Vector3.zero);
             }
 
@@ -326,8 +361,8 @@ namespace DouQuqu
                 started = state.started,
                 over = state.over,
                 winnerId = state.winnerId,
-                phase = DouQuquRules.Phase(knobs, state.elapsed),
-                knobs = knobs,
+                phase = DouQuquRules.Phase(ActiveKnobs, state.elapsed),
+                knobs = ActiveKnobs,
                 bugs = new BugSnapshot[state.bugs.Length],
                 pickups = new PickupSnapshot[state.pickups.Count],
                 eggs = new EggSnapshot[state.eggs.Count],

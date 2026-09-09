@@ -246,6 +246,7 @@ namespace DouQuqu
         public MatchKnobs knobs;
         public BugState[] bugs = new BugState[0];
         public bool[] humanPlayers = new bool[0];
+        public bool[] idlePlayers = new bool[0];
         public CricketPick[][] roster;
         public int[] cricketIndex = new int[0];
         public bool[] playerIn = new bool[0];

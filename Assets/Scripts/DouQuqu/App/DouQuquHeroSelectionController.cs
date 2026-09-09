@@ -25,6 +25,7 @@ namespace DouQuqu
         private Transform backpackRoot;
         private Transform cardGrid;
         private Transform[] otherZones;
+        private OtherZoneView[] otherZoneViews;
         private Transform readyBadge;
         private RectTransform greenBox;
         private Sprite[] qualitySprites;
@@ -70,6 +71,7 @@ namespace DouQuqu
             for (int i = 0; i < SlotCount; i++) slotEntries[i] = null;
             deadlineUnscaled = Time.unscaledTime + SelectSeconds;
             ApplyCollapsed();
+            ApplyOtherZones();
             RefreshAll();
         }
 
@@ -113,6 +115,7 @@ namespace DouQuqu
                 FindNamed(root, "PlayerZone2"),
                 FindNamed(root, "PlayerZone3")
             };
+            CaptureOtherZones();
 
             if (ownZone != null)
             {
@@ -545,6 +548,111 @@ namespace DouQuqu
             }
         }
 
+        private void CaptureOtherZones()
+        {
+            if (otherZones == null) return;
+            otherZoneViews = new OtherZoneView[otherZones.Length];
+            for (int i = 0; i < otherZones.Length; i++)
+                otherZoneViews[i] = ReadOtherZone(otherZones[i]);
+        }
+
+        private OtherZoneView ReadOtherZone(Transform zone)
+        {
+            if (zone == null) return null;
+            OtherZoneView view = new OtherZoneView { root = zone, slots = new SlotView[SlotCount] };
+            Transform name = FindNamed(zone, "玩家二") ?? FindNamed(zone, "PlayerName");
+            view.playerName = name != null ? name.GetComponent<TMP_Text>() : null;
+            view.homeName = view.playerName != null ? view.playerName.text : string.Empty;
+            view.homeQualities = new string[SlotCount];
+            view.homeNames = new string[SlotCount];
+            view.homeSprites = new Sprite[SlotCount];
+            view.homeColors = new Color[SlotCount];
+            view.homeBadge = new bool[SlotCount];
+
+            Transform frame = FindNamed(zone, "Frame 6");
+            if (frame == null) return view;
+            int index = 0;
+            for (int c = 0; c < frame.childCount && index < SlotCount; c++)
+            {
+                SlotView slot = ReadSlot(frame.GetChild(c));
+                view.slots[index] = slot;
+                view.homeQualities[index] = slot.quality != null ? slot.quality.text : string.Empty;
+                view.homeNames[index] = slot.name != null ? slot.name.text : string.Empty;
+                view.homeSprites[index] = slot.portrait != null ? slot.portrait.sprite : null;
+                view.homeColors[index] = slot.portrait != null ? slot.portrait.color : Color.white;
+                view.homeBadge[index] = slot.badgeRoot != null && slot.badgeRoot.activeSelf;
+                index++;
+            }
+
+            return view;
+        }
+
+        private void ApplyOtherZones()
+        {
+            if (otherZoneViews == null) return;
+            bool training = DouQuquAppServices.PendingMatchKind == DouQuquMatchKind.Training;
+            for (int i = 0; i < otherZoneViews.Length; i++)
+            {
+                OtherZoneView zone = otherZoneViews[i];
+                if (zone == null) continue;
+                if (training) PaintTrainingZone(zone, i);
+                else RestoreOtherZone(zone);
+            }
+        }
+
+        private void PaintTrainingZone(OtherZoneView zone, int botIndex)
+        {
+            if (zone.playerName != null)
+                zone.playerName.text = DouQuquTrainingCamp.BotName(botIndex);
+            CricketPick[] picks = DouQuquTrainingCamp.PicksForBot(botIndex);
+            for (int i = 0; i < SlotCount; i++)
+                PaintSlot(zone.slots[i], i < picks.Length ? picks[i] : null);
+        }
+
+        private void RestoreOtherZone(OtherZoneView zone)
+        {
+            if (zone.playerName != null) zone.playerName.text = zone.homeName;
+            for (int i = 0; i < SlotCount; i++)
+            {
+                SlotView slot = zone.slots[i];
+                if (slot == null) continue;
+                if (slot.quality != null) slot.quality.text = zone.homeQualities[i];
+                if (slot.name != null) slot.name.text = zone.homeNames[i];
+                if (slot.portrait != null)
+                {
+                    slot.portrait.enabled = true;
+                    slot.portrait.preserveAspect = true;
+                    slot.portrait.sprite = zone.homeSprites[i];
+                    slot.portrait.color = zone.homeColors[i];
+                }
+                if (slot.badgeRoot != null) slot.badgeRoot.SetActive(zone.homeBadge[i]);
+            }
+        }
+
+        private void PaintSlot(SlotView slot, CricketPick pick)
+        {
+            if (slot == null) return;
+            bool filled = pick != null && pick.catalogId != 0;
+            if (slot.badgeRoot != null) slot.badgeRoot.SetActive(filled);
+            if (slot.quality != null)
+                slot.quality.text = filled ? DouQuquCricketCatalog.QualityName(pick.quality) : string.Empty;
+            if (slot.name != null)
+                slot.name.text = filled ? DouQuquCricketCatalog.CricketName(pick.quality, pick.temperament) : string.Empty;
+            if (slot.portrait == null) return;
+            slot.portrait.enabled = true;
+            slot.portrait.preserveAspect = true;
+            if (filled)
+            {
+                slot.portrait.sprite = SpriteFor(pick.quality, pick.temperament);
+                slot.portrait.color = Color.white;
+            }
+            else
+            {
+                slot.portrait.sprite = null;
+                slot.portrait.color = new Color(0.55f, 0.55f, 0.48f, 0.45f);
+            }
+        }
+
         private void EnsureGreenBox()
         {
             if (greenBox != null) return;
@@ -755,6 +863,19 @@ namespace DouQuqu
             public TMP_Text quality;
             public TMP_Text name;
             public GameObject badgeRoot;
+        }
+
+        private sealed class OtherZoneView
+        {
+            public Transform root;
+            public TMP_Text playerName;
+            public SlotView[] slots;
+            public string homeName;
+            public string[] homeQualities;
+            public string[] homeNames;
+            public Sprite[] homeSprites;
+            public Color[] homeColors;
+            public bool[] homeBadge;
         }
 
         private sealed class CardView

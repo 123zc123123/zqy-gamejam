@@ -55,10 +55,10 @@ namespace DouQuqu
             MatchKnobs knobs = match.Knobs;
             SetLabel("已记下");
             Debug.Log(string.Format(
-                "[DouQuqu] 已记下当前旋钮。退出 Play 后会覆写 Demo Inspector。蓄满时间={0} 起跳力气={1} 蓄力速度={2}",
+                "[DouQuqu] 已记下当前旋钮。退出 Play 后会覆写 Demo Inspector。蓄满时间={0} 点跳距离={1} 距离比={2}",
                 knobs != null ? knobs.tChargeMax : 0f,
-                knobs != null ? knobs.tFloor : 0f,
-                knobs != null ? knobs.vRate : 0f));
+                knobs != null ? knobs.dMin : 0f,
+                knobs != null ? knobs.jumpDistRatio : 0f));
         }
 
         private void SetLabel(string text)

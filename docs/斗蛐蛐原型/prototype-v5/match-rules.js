@@ -136,10 +136,15 @@
     return bug.buffShieldT > 0;
   }
 
+  function growRate(knobs, grow) {
+    return 1 + (grow || 0) * Math.max(0, knobs.growPer);
+  }
+
   function effectiveCharge(knobs, bug) {
     const s = chargeActive(bug) ? knobs.chargeScale : 1;
+    const g = growRate(knobs, bug && bug.grow);
     return {
-      vRate: knobs.vRate * s,
+      vRate: knobs.vRate * g * s,
       tMax: knobs.tChargeMax / Math.max(1e-6, s),
       scale: s,
     };
@@ -203,7 +208,7 @@
   }
 
   function refreshBody(knobs, bug) {
-    const g = 1 + (bug.grow || 0) * Math.max(0, knobs.growPer);
+    const g = growRate(knobs, bug && bug.grow);
     const s = sizeActive(bug) ? knobs.sizeScale : 1;
     const bugR = knobs.bugR == null ? 1.8 : knobs.bugR;
     bug.r = bugR * g * s;
@@ -218,20 +223,21 @@
   function refreshBabyBody(knobs, baby) {
     const bugR = knobs.bugR == null ? 1.8 : knobs.bugR;
     const scale = knobs.babyRScale == null ? 0.4 : knobs.babyRScale;
-    const grow = 1 + (baby.grow || 0) * Math.max(0, knobs.growPer);
+    const grow = growRate(knobs, baby && baby.grow);
     baby.r = bugR * scale * grow;
     baby.m = Math.max(0.05, knobs.babyMass == null ? 0.35 : knobs.babyMass) * grow;
     return baby;
   }
 
-  function babyChargeStats(knobs) {
-    const a1 = Math.max(0, knobs.vRate) * Math.max(0, knobs.babyA1Scale == null ? 0.4 : knobs.babyA1Scale);
+  function babyChargeStats(knobs, baby) {
+    const g = growRate(knobs, baby && baby.grow);
+    const a1 = Math.max(0, knobs.vRate) * Math.max(0, knobs.babyA1Scale == null ? 0.4 : knobs.babyA1Scale) * g;
     const tMax = Math.max(0.02, knobs.babyChargeT == null ? 0.16 : knobs.babyChargeT);
     return { vRate: a1, tMax };
   }
 
   function babyChargeDeltaV(knobs, baby) {
-    const e = babyChargeStats(knobs);
+    const e = babyChargeStats(knobs, baby);
     return e.vRate * clamp(baby.chargeT || 0, 0, e.tMax);
   }
 
@@ -553,6 +559,7 @@
     sizeActive,
     chargeActive,
     shieldActive,
+    growRate,
     effectiveCharge,
     tFloor,
     panelVMax,

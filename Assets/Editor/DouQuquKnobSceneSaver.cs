@@ -70,10 +70,10 @@ namespace DouQuqu.Editor
 
             MatchKnobs knobs = controller.Knobs;
             Debug.Log(string.Format(
-                "[DouQuqu] 已覆写 Demo 对局旋钮并保存场景。蓄满时间={0} 起跳力气={1} 蓄力速度={2}",
+                "[DouQuqu] 已覆写 Demo 对局旋钮并保存场景。蓄满时间={0} 点跳距离={1} 距离比={2}",
                 knobs != null ? knobs.tChargeMax : 0f,
-                knobs != null ? knobs.tFloor : 0f,
-                knobs != null ? knobs.vRate : 0f));
+                knobs != null ? knobs.dMin : 0f,
+                knobs != null ? knobs.jumpDistRatio : 0f));
 
             if (openedHere)
                 EditorSceneManager.CloseScene(demo, true);

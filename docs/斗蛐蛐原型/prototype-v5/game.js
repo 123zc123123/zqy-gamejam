@@ -692,7 +692,7 @@
   }
 
   function chargeTMax(b) {
-    if (b.kind === "baby") return R.babyChargeStats(knobs).tMax;
+    if (b.kind === "baby") return R.babyChargeStats(knobs, b).tMax;
     return R.effectiveCharge(knobs, b).tMax;
   }
 

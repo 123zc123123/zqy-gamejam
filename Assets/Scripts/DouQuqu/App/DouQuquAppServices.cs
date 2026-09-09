@@ -22,12 +22,24 @@ namespace DouQuqu
 
         public DouQuquLanSession Network { get; private set; }
 
+        /// <summary>进战入口种类。选虫页和战斗开局读取；战斗读走后清空。</summary>
+        public static DouQuquMatchKind PendingMatchKind { get; set; }
+
         /// <summary>选虫页锁定后带到战斗场景的己方三槽。战斗开局读走即清空。</summary>
         public static CricketPick[] PendingLocalPicks { get; set; }
 
         public static CricketPick[] TakePendingLocalPicks()
         {
-            return PendingLocalPicks;
+            CricketPick[] picks = PendingLocalPicks;
+            PendingLocalPicks = null;
+            return picks;
+        }
+
+        public static DouQuquMatchKind TakePendingMatchKind()
+        {
+            DouQuquMatchKind kind = PendingMatchKind;
+            PendingMatchKind = DouQuquMatchKind.None;
+            return kind;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]

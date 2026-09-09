@@ -514,35 +514,39 @@ MonoBehaviour:
   tickFromUnity: 1
   knobs:
     tChargeMin: 0
-    tChargeMax: 2
-    tFloor: 0.3
-    staminaMax: 3
-    staminaCost: 0.7
-    staminaJump: 0.3
-    staminaRegen: 1
-    staminaRegenCharge: 0
-    staminaSlots: 3
-    dMin: 8
-    vRate: 20
+    tChargeMax: 0.6
+    dMin: 3
+    jumpDistRatio: 4
+    tFloor: 1
+    vRate: 25
     theta: 15
+    chargeScale: 1.25
+    chargeBuffT: 5
+    staminaMax: 1.5
+    staminaCost: 0.75
+    staminaJump: 0.25
+    staminaRegen: 0.5
+    staminaRegenCharge: 0
+    staminaSlots: 6
     mass: 1
     gravity: 120
     mu: 1.8
+    resistK: 1
+    muSlipScale: 0.8
     rStand: 0.4
     rMax: 0.4
     rChargeScale: 0.5
     muCtrlScale: 1
-    muSlipScale: 0.5
+    resistSchema: 1
+    jumpKnobSchema: 1
     growPer: 0.16
     bugR: 1.8
     sizeScale: 1.3
     sizeT: 6
     shieldT: 90
-    chargeScale: 1.25
-    chargeBuffT: 5
+    shieldPad: 0.08
     aiAttackRange: 14
     aiSafeEdgeMargin: 4
-    itemR: 1.35
     regTime: 90
     otTime: 30
     heartStart: 4
@@ -553,6 +557,7 @@ MonoBehaviour:
     heartGap: 7
     heartGapOt: 5
     heartOpenAt: 20
+    itemR: 1.35
     v3Rate: 23
     itemMinEdge: 2.4
     itemMinBug: 3
@@ -563,7 +568,6 @@ MonoBehaviour:
     heartMinEdge: 1.4
     heartMinBug: 1.3
     heartMinHeart: 1.25
-    shieldPad: 0.08
     nestHP: 4
     nestMass: 3
     nestR: 2.4

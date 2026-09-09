@@ -28,15 +28,20 @@ namespace DouQuqu
         [InspectorCn("蓄力下限", "未满松手取消；0 = 点一下就跳")]
         public float tChargeMin = 0f;
         [FormerlySerializedAs("tMax")]
-        [InspectorCn("蓄满时间", "蓄满后可继续按，速度不再涨")]
-        public float tChargeMax = 0.6f;
-        [InspectorCn("起跳力气", "每次有效起跳额外加算的时间；点跳距离由它反推")]
+        [InspectorCn("蓄满时间", "按满要多久；蓄满后可继续按，距离不再涨。不进跳出力气")]
+        public float tChargeMax = 1f;
+        [InspectorCn("点跳距离", "点一下的水平总位移。满蓄 = 该值 × 距离比。改重力/仰角/摩擦不改落点")]
+        public float dMin = 1f;
+        [InspectorCn("满蓄距离比", "满蓄水平总位移 / 点跳水平总位移。蓄力进度对距离线性")]
+        [Range(1.2f, 8f)]
+        public float jumpDistRatio = 3f;
+        [HideInInspector]
         public float tFloor = 0.3f;
-        [InspectorCn("蓄力速度", "A1，水平加速度；出手速度 = A1 × (蓄力时间 + 起跳力气)")]
+        [InspectorCn("幼虫蓄力速度", "崽 A1 = 该值 × 崽蓄力速度倍率。玩家跳跃不读")]
         public float vRate = 40f;
         [InspectorCn("起跳仰角", "度；与摩擦一起定空中匀速占比")]
         public float theta = 15f;
-        [InspectorCn("蓄力强化倍率", "拾取与狂暴共用，A1 × s、蓄满时间 / s")]
+        [InspectorCn("蓄力强化倍率", "拾取与狂暴共用。加快蓄满、点跳变大；未强化满蓄距离不变")]
         public float chargeScale = 1.25f;
         [InspectorCn("蓄力强化持续", "秒；仅拾取，狂暴不读")]
         public float chargeBuffT = 5f;
@@ -56,8 +61,6 @@ namespace DouQuqu
         public float staminaRegenCharge = 0f;
         [InspectorCn("耐力格数", "身周耐力圆环格数")]
         public int staminaSlots = 3;
-        [HideInInspector]
-        public float dMin = 8f;
 
         [Header("跳跃与碰撞")]
         [InspectorCn("基础质量", "对撞分速度，也进抵抗")]
@@ -77,15 +80,36 @@ namespace DouQuqu
         [HideInInspector] public float rChargeScale = 0.5f;
         [HideInInspector] public float muCtrlScale = 1f;
         [HideInInspector] public int resistSchema;
+        [HideInInspector] public int jumpKnobSchema;
 
         public void OnBeforeSerialize() { }
 
         public void OnAfterDeserialize()
         {
+            EnsureJumpKnobs();
             if (resistSchema >= 1) return;
             resistK = 1f;
             muSlipScale = 0.8f;
             resistSchema = 1;
+        }
+
+        /// <summary>旧档把 tFloor×vRate 折成点跳距离，只跑一次。</summary>
+        public void EnsureJumpKnobs()
+        {
+            if (jumpDistRatio < 1f) jumpDistRatio = 3f;
+            if (jumpKnobSchema >= 1)
+            {
+                if (dMin < 0f) dMin = 0f;
+                return;
+            }
+            float g = Mathf.Max(0.01f, gravity);
+            float tan = Mathf.Tan(theta * Mathf.Deg2Rad);
+            float friction = Mathf.Max(0.0001f, mu);
+            float speed = Mathf.Max(0f, vRate) * Mathf.Max(0f, tFloor);
+            float air = 2f * speed * speed * tan / g;
+            float ground = speed * speed / (2f * friction * g);
+            dMin = Mathf.Max(0.01f, air + ground);
+            jumpKnobSchema = 1;
         }
         [InspectorCn("每层成长", "每层给半径和质量加的倍率")]
         public float growPer = 0.16f;
@@ -179,7 +203,7 @@ namespace DouQuqu
         public float babyRScale = 0.4f;
         [InspectorCn("崽质量", "不吃饲主成长")]
         public float babyMass = 0.5f;
-        [InspectorCn("崽蓄力速度倍率", "崽 A1 = 面板蓄力速度 × 该值")]
+        [InspectorCn("崽蓄力速度倍率", "崽 A1 = 幼虫蓄力速度 × 该值")]
         public float babyA1Scale = 0.4f;
         [InspectorCn("崽蓄力时间", "崽自动蓄多久再跳（秒）")]
         public float babyChargeT = 0.8f;
@@ -231,7 +255,9 @@ namespace DouQuqu
         /// <summary>返回一份默认规则参数。</summary>
         public static MatchKnobs DefaultKnobs()
         {
-            return new MatchKnobs();
+            MatchKnobs knobs = new MatchKnobs();
+            knobs.EnsureJumpKnobs();
+            return knobs;
         }
 
         /// <summary>返回经济系统使用的默认参数，目前与完整默认参数相同。</summary>
@@ -289,7 +315,7 @@ namespace DouQuqu
         /// <summary>判断蟋蟀是否处于蓄力强化中。</summary>
         public static bool ChargeActive(BugState bug)
         {
-            return bug.buffChargeT > 0f;
+            return bug != null && bug.buffChargeT > 0f;
         }
 
         /// <summary>判断蟋蟀的护盾是否仍有效。</summary>
@@ -298,10 +324,18 @@ namespace DouQuqu
             return bug.buffShieldT > 0f;
         }
 
-        /// <summary>计算成长层数对体型和质量产生的倍率。</summary>
+        /// <summary>成长层倍率。半径、质量各乘一次；玩家跳跃乘在点跳距离 dMin 上。</summary>
         public static float GrowRate(MatchKnobs knobs, BugState bug)
         {
+            if (bug == null) return 1f;
             return 1f + bug.grow * Mathf.Max(0f, knobs.growPer);
+        }
+
+        /// <summary>计算幼虫自身成长层对体型、质量和蓄力速度产生的倍率。</summary>
+        public static float GrowRate(MatchKnobs knobs, BabyState baby)
+        {
+            if (baby == null) return 1f;
+            return 1f + baby.grow * Mathf.Max(0f, knobs.growPer);
         }
 
         /// <summary>按开局体型、成长和临时增大刷新碰撞半径与质量。</summary>
@@ -319,7 +353,7 @@ namespace DouQuqu
         public static void RefreshBabyBody(MatchKnobs knobs, BabyState baby)
         {
             if (baby == null) return;
-            float g = 1f + baby.grow * Mathf.Max(0f, knobs.growPer);
+            float g = GrowRate(knobs, baby);
             float size = baby.buffSizeT > 0f ? knobs.sizeScale : 1f;
             baby.radius = knobs.bugR * Mathf.Max(0f, knobs.babyRScale) * g * size;
             baby.mass = Mathf.Max(0.05f, knobs.babyMass) * g * size;
@@ -334,7 +368,7 @@ namespace DouQuqu
         public static float EffectiveChargeSpeed(MatchKnobs knobs, BugState bug)
         {
             float mul = bug == null ? 1f : StatMul(bug.chargeSpeedMul);
-            float rate = knobs.vRate * mul;
+            float rate = knobs.vRate * mul * GrowRate(knobs, bug);
             if (ChargeActive(bug)) rate *= knobs.chargeScale;
             if (bug != null && bug.rageCharge) rate *= Mathf.Max(0.01f, knobs.rageBoost);
             return rate;
@@ -560,19 +594,35 @@ namespace DouQuqu
             bug.stamina = Mathf.Clamp(bug.stamina + regen * dt, 0f, max);
         }
 
-        /// <summary>起跳力气。每次有效起跳都加上，不受蓄力强化缩短。点跳保底只随品质放大。</summary>
-        public static float TFloor(MatchKnobs knobs, BugState bug = null)
+        /// <summary>满蓄水平总位移 / 点跳水平总位移。小于 1 当作 3。</summary>
+        public static float JumpDistRatio(MatchKnobs knobs)
         {
-            float mul = bug == null ? 1f : StatMul(bug.tFloorMul);
-            return Mathf.Max(0f, knobs.tFloor) * mul;
+            float r = knobs == null ? 3f : knobs.jumpDistRatio;
+            return r > 1f ? r : 3f;
         }
 
-        /// <summary>未强化满蓄水平速度 v_max = A1 (T_max + t_floor)。</summary>
+        /// <summary>点跳水平总位移。品质和成长都直接乘距离。</summary>
+        public static float DMinOf(MatchKnobs knobs, BugState bug = null)
+        {
+            float d = Mathf.Max(0f, knobs.dMin);
+            float mul = bug == null ? 1f : StatMul(bug.dMinMul);
+            return d * mul * GrowRate(knobs, bug);
+        }
+
+        /// <summary>把水平总位移反推成出手速度。D = v²/g × (2tanθ + 1/(2μ))。</summary>
+        public static float JumpSpeedFromDistance(MatchKnobs knobs, float distance)
+        {
+            float g = Gravity(knobs);
+            float tangent = TanTheta(knobs);
+            float mu = Mathf.Max(0.0001f, knobs.mu);
+            float coeff = 2f * tangent + 1f / (2f * mu);
+            return Mathf.Sqrt(Mathf.Max(0f, distance) * g / Mathf.Max(1e-6f, coeff));
+        }
+
+        /// <summary>未强化满蓄水平速度，对应距离 dMin × R。</summary>
         public static float PanelVMax(MatchKnobs knobs, BugState bug = null)
         {
-            float rate = Mathf.Max(0f, knobs.vRate) * (bug == null ? 1f : StatMul(bug.chargeSpeedMul));
-            float tMax = Mathf.Max(0f, knobs.tChargeMax) * (bug == null ? 1f : StatMul(bug.chargeTimeMul));
-            return rate * (tMax + TFloor(knobs, bug));
+            return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug)) * Mathf.Sqrt(JumpDistRatio(knobs));
         }
 
         /// <summary>返回带下限保护的重力值。</summary>
@@ -594,18 +644,23 @@ namespace DouQuqu
             return Mathf.Max(0.0001f, mu * Gravity(knobs));
         }
 
-        /// <summary>点跳水平速度 = A1' t_floor。蓄力强化会抬高，t_floor 本身不缩短。</summary>
+        /// <summary>点跳水平速度。蓄力强化把点跳距离乘 s²，速度乘 s。</summary>
         public static float JumpSpeedMin(MatchKnobs knobs, BugState bug = null)
         {
-            float rate = bug == null ? Mathf.Max(0f, knobs.vRate) : EffectiveChargeSpeed(knobs, bug);
-            return rate * TFloor(knobs, bug);
+            float s = ChargeActive(bug) ? Mathf.Max(0.01f, knobs.chargeScale) : 1f;
+            return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug)) * s;
         }
 
-        /// <summary>跳出力气对应的水平速度：Δv_x = A1' (t_蓄 + t_floor)。</summary>
+        /// <summary>出手水平速度。距离对蓄力进度线性；满蓄钉在未强化的 dMin × R。成长已含在 dMin 里。</summary>
         public static float JumpDeltaV(MatchKnobs knobs, BugState bug, float chargeTime)
         {
-            float tAcc = Mathf.Clamp(chargeTime, 0f, EffectiveChargeTime(knobs, bug));
-            return EffectiveChargeSpeed(knobs, bug) * (tAcc + TFloor(knobs, bug));
+            float tMax = Mathf.Max(0.000001f, EffectiveChargeTime(knobs, bug));
+            float p = Mathf.Clamp(chargeTime, 0f, tMax) / tMax;
+            float s = ChargeActive(bug) ? Mathf.Max(0.01f, knobs.chargeScale) : 1f;
+            float r = JumpDistRatio(knobs);
+            float rEff = Mathf.Max(1f, r / (s * s));
+            float v0 = JumpSpeedFromDistance(knobs, DMinOf(knobs, bug));
+            return v0 * s * Mathf.Sqrt(1f + p * (rEff - 1f));
         }
 
         /// <summary>用当前蓄力时间算出手速度。</summary>
@@ -623,7 +678,7 @@ namespace DouQuqu
         /// <summary>根据幼虫蓄力时间计算其冲撞速度。</summary>
         public static float BabyChargeSpeed(MatchKnobs knobs, BabyState baby)
         {
-            float rate = Mathf.Max(0f, knobs.vRate) * Mathf.Max(0f, knobs.babyA1Scale);
+            float rate = Mathf.Max(0f, knobs.vRate) * Mathf.Max(0f, knobs.babyA1Scale) * GrowRate(knobs, baby);
             return rate * Mathf.Clamp(baby == null ? 0f : baby.chargeTime, 0f, BabyChargeTime(knobs));
         }
 
@@ -646,9 +701,10 @@ namespace DouQuqu
         }
 
         /// <summary>返回幼虫蓄力速度和蓄力时长，供面板或调试信息展示。</summary>
-        public static float[] BabyChargeStats(MatchKnobs knobs)
+        public static float[] BabyChargeStats(MatchKnobs knobs, BabyState baby = null)
         {
-            return new[] { Mathf.Max(0f, knobs.vRate) * Mathf.Max(0f, knobs.babyA1Scale), BabyChargeTime(knobs) };
+            float rate = Mathf.Max(0f, knobs.vRate) * Mathf.Max(0f, knobs.babyA1Scale) * GrowRate(knobs, baby);
+            return new[] { rate, BabyChargeTime(knobs) };
         }
 
         /// <summary>返回幼虫本次蓄力产生的速度增量。</summary>
@@ -1081,6 +1137,7 @@ namespace DouQuqu
         public float tFloorMul = 1f;
         public int quality;
         public int temperament;
+        public float dMinMul = 1f;
         public int grow;
         public int lastHitId = -1;
         public HitTier hitTier = HitTier.None;
