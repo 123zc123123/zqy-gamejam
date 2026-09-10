@@ -32,6 +32,7 @@ namespace DouQuqu
         public string hostName;
         public int port;
         public int playerCount;
+        public string roomCode;
     }
 
     [Serializable]
@@ -95,7 +96,12 @@ namespace DouQuqu
         private float startBroadcastTick;
         private MatchSnapshot pendingSnapshot;
         private int pendingWelcomePlayerCount;
+        private string roomCode = string.Empty;
+        private bool searchingRoom;
+        private float roomSearchElapsed;
+        private const float RoomSearchTimeout = 1.4f;
 
+        public string RoomCode => roomCode;
         public bool IsRunning => running;
         public bool IsHost { get; private set; }
         public int LocalPlayerId { get; private set; } = -1;
@@ -131,6 +137,33 @@ namespace DouQuqu
         public void SetLocalPlayerName(string playerName)
         {
             if (!string.IsNullOrWhiteSpace(playerName)) localPlayerName = playerName.Trim();
+        }
+
+        public static string NormalizeRoomCode(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+            return raw.Trim().ToUpperInvariant();
+        }
+
+        /// <summary>同一 Wi-Fi、同一房号：先找到房则加入，约 1.4 秒没人则自己当房主。</summary>
+        public bool JoinOrCreateRoom(string code, string playerName)
+        {
+            string normalized = NormalizeRoomCode(code);
+            if (normalized.Length == 0)
+            {
+                NetworkError?.Invoke("请输入房间号");
+                return false;
+            }
+            SetLocalPlayerName(playerName);
+            StartClient();
+            if (!running) return false;
+            roomCode = normalized;
+            searchingRoom = true;
+            roomSearchElapsed = 0f;
+            automaticMatchmaking = false;
+            matchReady = false;
+            NotifyLobbyChanged();
+            return true;
         }
 
         /// <summary>
@@ -217,6 +250,7 @@ namespace DouQuqu
                 }
             }
             TickAutomaticMatchmaking();
+            TickRoomSearch();
             if (IsHost && match != null && match.IsStarted)
             {
                 snapshotTimer -= Time.unscaledDeltaTime;
@@ -333,6 +367,9 @@ namespace DouQuqu
             automaticMatchmaking = false;
             automaticElapsed = 0f;
             hostPromotionDelay = 0f;
+            searchingRoom = false;
+            roomSearchElapsed = 0f;
+            roomCode = string.Empty;
             matchReady = false;
             matchReadyEventRaised = false;
             matchSeed = 0;
@@ -399,6 +436,35 @@ namespace DouQuqu
                 return;
             }
             if (automaticElapsed >= automaticTimeout) CompleteAutomaticMatch(true);
+        }
+
+        private void TickRoomSearch()
+        {
+            if (!searchingRoom || matchReady) return;
+            if (hostEndpoint != null || IsHost)
+            {
+                searchingRoom = false;
+                return;
+            }
+            roomSearchElapsed += Time.unscaledDeltaTime;
+            if (roomSearchElapsed < RoomSearchTimeout) return;
+            string keepCode = roomCode;
+            string keepName = localPlayerName;
+            StartHost(MatchController.MaxPlayers);
+            roomCode = keepCode;
+            SetLocalPlayerName(keepName);
+            if (!running)
+            {
+                StartClient();
+                roomCode = keepCode;
+                searchingRoom = true;
+                roomSearchElapsed = 0f;
+                return;
+            }
+            if (slots[0] != null)
+                slots[0].playerName = string.IsNullOrWhiteSpace(keepName) ? "Host" : keepName;
+            searchingRoom = false;
+            NotifyLobbyChanged();
         }
 
         /// <summary>没有发现房间时升为主机；端口已被占用则退回客户端继续发现。</summary>
@@ -489,15 +555,29 @@ namespace DouQuqu
                     IPEndPoint endpoint = new IPEndPoint(IPAddress.Any, 0);
                     byte[] data = discoverySocket.Receive(ref endpoint);
                     string text = Encoding.UTF8.GetString(data);
-                    if (text == "DISCOVER" && IsHost)
+                    if (IsHost && (text == "DISCOVER" || text.StartsWith("DISCOVER|", StringComparison.Ordinal)))
                     {
-                        LanHostInfo info = new LanHostInfo { hostName = advertisedName, port = SessionPort, playerCount = match == null ? 0 : match.Bugs.Length };
+                        string asked = text.StartsWith("DISCOVER|", StringComparison.Ordinal) ? text.Substring(9) : string.Empty;
+                        if (asked.Length > 0 && !string.Equals(asked, roomCode, StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        LanHostInfo info = new LanHostInfo
+                        {
+                            hostName = advertisedName,
+                            port = SessionPort,
+                            playerCount = ConnectedHumanCount(),
+                            roomCode = roomCode
+                        };
                         SendRaw(discoverySocket, endpoint, Encoding.UTF8.GetBytes("HOST|" + JsonUtility.ToJson(info)));
                     }
                     else if (text.StartsWith("HOST|", StringComparison.Ordinal) && !IsHost)
                     {
                         LanHostInfo info = JsonUtility.FromJson<LanHostInfo>(text.Substring(5));
+                        if (info == null) continue;
+                        if (roomCode.Length > 0 && !string.IsNullOrEmpty(info.roomCode)
+                            && !string.Equals(info.roomCode, roomCode, StringComparison.OrdinalIgnoreCase))
+                            continue;
                         hostEndpoint = new IPEndPoint(endpoint.Address, info.port);
+                        searchingRoom = false;
                         HostDiscovered?.Invoke(hostEndpoint.Address + ":" + info.port);
                         SendEnvelope(sessionSocket, hostEndpoint, "HELLO", localPlayerName ?? string.Empty, -1);
                     }
@@ -632,7 +712,8 @@ namespace DouQuqu
         private void SendDiscovery()
         {
             if (discoverySocket == null) return;
-            SendRaw(discoverySocket, new IPEndPoint(IPAddress.Broadcast, DiscoveryPort), Encoding.UTF8.GetBytes("DISCOVER"));
+            string payload = roomCode.Length > 0 ? "DISCOVER|" + roomCode : "DISCOVER";
+            SendRaw(discoverySocket, new IPEndPoint(IPAddress.Broadcast, DiscoveryPort), Encoding.UTF8.GetBytes(payload));
         }
 
         // 对局快照以主机为权威；客户端不自行模拟后再尝试回滚同步。

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -29,7 +30,31 @@ namespace DouQuqu
             EnsureReadyButton();
             RelabelMatchButton();
             BindButtons();
+            HookLobby();
             ApplyVisual();
+        }
+
+        private void OnEnable()
+        {
+            HookLobby();
+        }
+
+        private void OnDisable()
+        {
+            if (AppServices.Instance == null || AppServices.Instance.Network == null) return;
+            AppServices.Instance.Network.LobbyChanged -= OnLobbyChanged;
+        }
+
+        private void HookLobby()
+        {
+            if (AppServices.Instance == null || AppServices.Instance.Network == null) return;
+            AppServices.Instance.Network.LobbyChanged -= OnLobbyChanged;
+            AppServices.Instance.Network.LobbyChanged += OnLobbyChanged;
+        }
+
+        private void OnLobbyChanged(LanLobbySnapshot snapshot)
+        {
+            RefreshLobbyNames();
         }
 
         private void Start()
@@ -51,10 +76,25 @@ namespace DouQuqu
 
         public void EnterFriendRoom()
         {
+            string code = ReadRoomCode();
+            if (string.IsNullOrEmpty(code))
+            {
+                Debug.LogWarning("[DouQuqu] 请输入房间号");
+                return;
+            }
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null)
+            {
+                Debug.LogWarning("[DouQuqu] 没有局域网会话");
+                return;
+            }
+            string playerName = PlayerDataService.IsLoggedIn ? PlayerDataService.CurrentPlayerName : "玩家";
+            if (!network.JoinOrCreateRoom(code, playerName)) return;
             AppServices.PendingMatchKind = MatchKind.Friend;
             InRoom = true;
             friendRoom = true;
             ApplyVisual();
+            RefreshLobbyNames();
         }
 
         public void GoHeroSelection()
@@ -73,6 +113,8 @@ namespace DouQuqu
         {
             InRoom = false;
             friendRoom = false;
+            if (AppServices.Instance != null && AppServices.Instance.Network != null)
+                AppServices.Instance.Network.Stop();
             ApplyVisual();
         }
 
@@ -312,9 +354,44 @@ namespace DouQuqu
             field.textViewport = room;
             field.textComponent = inputText;
             field.placeholder = placeholder;
-            field.characterLimit = 8;
+            field.characterLimit = 6;
             field.lineType = TMP_InputField.LineType.SingleLine;
             field.caretWidth = 2;
+        }
+
+        private string ReadRoomCode()
+        {
+            if (pageRoot == null) return string.Empty;
+            TMP_InputField field = pageRoot.GetComponentInChildren<TMP_InputField>(true);
+            if (field != null) return LanSession.NormalizeRoomCode(field.text);
+            Transform room = FindNamed(pageRoot.transform, "Rectangle 8");
+            if (room == null) return string.Empty;
+            TMP_Text label = room.GetComponentInChildren<TMP_Text>(true);
+            if (label == null) return string.Empty;
+            string text = label.text ?? string.Empty;
+            if (text.IndexOf("房间", System.StringComparison.Ordinal) >= 0) return string.Empty;
+            return LanSession.NormalizeRoomCode(text);
+        }
+
+        private void RefreshLobbyNames()
+        {
+            if (playersRoot == null || AppServices.Instance == null || AppServices.Instance.Network == null) return;
+            IReadOnlyList<LanPlayerSlot> slots = AppServices.Instance.Network.Slots;
+            TMP_Text[] labels = playersRoot.GetComponentsInChildren<TMP_Text>(true);
+            int slot = 0;
+            for (int i = 0; i < labels.Length && slot < 4; i++)
+            {
+                TMP_Text label = labels[i];
+                if (label == null) continue;
+                string sample = label.text ?? string.Empty;
+                if (sample.IndexOf("离开", System.StringComparison.Ordinal) >= 0) continue;
+                if (sample.IndexOf("准备", System.StringComparison.Ordinal) >= 0) continue;
+                string name = "空位";
+                if (slots != null && slot < slots.Count && slots[slot] != null && slots[slot].connected)
+                    name = string.IsNullOrEmpty(slots[slot].playerName) ? "玩家" : slots[slot].playerName;
+                label.text = name;
+                slot++;
+            }
         }
 
         private void ApplyVisual()
