@@ -622,12 +622,46 @@ namespace DouQuqu
             if (state.playerCount <= 1) return;
             int remaining = CountPlayersIn();
             if (remaining > 1 && phase != MatchPhase.Over) return;
-            int winner = remaining == 1 ? FindOnlyPlayerIn() : Rules.CenterWinner(state.bugs);
-            if (winner >= 0) AwardPlace(winner, 1);
-            state.winnerId = winner;
+            if (remaining == 1)
+            {
+                int winner = FindOnlyPlayerIn();
+                if (winner >= 0) AwardPlace(winner, 1);
+                state.winnerId = winner;
+            }
+            else
+            {
+                RankSurvivorsAtTimeUp();
+            }
             state.over = true;
             state.started = false;
             Emit("match-over", Vector3.zero);
+        }
+
+        /// <summary>时间到了：没出局的人占前面名次，生命多的靠前，相同再比本局积分。</summary>
+        private void RankSurvivorsAtTimeUp()
+        {
+            int[] ids = new int[state.playerCount];
+            int count = 0;
+            for (int i = 0; i < state.playerCount; i++)
+            {
+                if (!PlayerStillIn(i) || Place(i) > 0) continue;
+                ids[count++] = i;
+            }
+            for (int a = 0; a < count; a++)
+            {
+                for (int b = a + 1; b < count; b++)
+                {
+                    int cmp = LivesLeft(ids[b]).CompareTo(LivesLeft(ids[a]));
+                    if (cmp == 0) cmp = MatchScore(ids[b]).CompareTo(MatchScore(ids[a]));
+                    if (cmp == 0) cmp = ids[a].CompareTo(ids[b]);
+                    if (cmp < 0) continue;
+                    int tmp = ids[a];
+                    ids[a] = ids[b];
+                    ids[b] = tmp;
+                }
+            }
+            for (int i = 0; i < count; i++) AwardPlace(ids[i], i + 1);
+            state.winnerId = count > 0 ? ids[0] : -1;
         }
 
         private int FindOnlyAlive()

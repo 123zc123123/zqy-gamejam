@@ -72,6 +72,7 @@ namespace DouQuqu
             DontDestroyOnLoad(gameObject);
             Network = GetComponent<LanSession>();
             if (Network == null) Network = gameObject.AddComponent<LanSession>();
+            if (GetComponent<VenueClient>() == null) gameObject.AddComponent<VenueClient>();
         }
 
         private void OnApplicationQuit()

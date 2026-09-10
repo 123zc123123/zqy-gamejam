@@ -8,6 +8,8 @@
 AGENTS.md
 CLAUDE.md
 
+venue-server/players.json
+
 # Local Unity editor / generated files
 Library/
 Temp/

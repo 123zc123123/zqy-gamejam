@@ -75,6 +75,36 @@ namespace DouQuqu
         public static int Eggs => CurrentPlayer == null ? 0 : CurrentPlayer.eggs;
         public static event Action PlayerDataChanged;
 
+        /// <summary>本机所有登过的名字，按账号积分从高到低；同分先登录的在前。</summary>
+        public static List<PlayerProfile> GetRankingSnapshot()
+        {
+            EnsureLoaded();
+            List<PlayerProfile> result = new List<PlayerProfile>();
+            if (database == null || database.players == null) return result;
+            List<int> order = new List<int>();
+            for (int i = 0; i < database.players.Count; i++)
+            {
+                if (database.players[i] == null || string.IsNullOrEmpty(database.players[i].playerName)) continue;
+                order.Add(i);
+            }
+            order.Sort((a, b) =>
+            {
+                int sc = database.players[b].score.CompareTo(database.players[a].score);
+                if (sc != 0) return sc;
+                return a.CompareTo(b);
+            });
+            for (int i = 0; i < order.Count; i++)
+            {
+                PlayerProfile source = database.players[order[i]];
+                result.Add(new PlayerProfile
+                {
+                    playerName = source.playerName,
+                    score = source.score
+                });
+            }
+            return result;
+        }
+
         /// <summary>按玩家名登录；同名玩家会加载旧资料，新名字会创建新资料。</summary>
         public static bool LoginOrCreate(string rawName, out string error)
         {
@@ -118,6 +148,29 @@ namespace DouQuqu
             error = SaveDatabase() ? string.Empty : "玩家数据保存失败，请检查设备存储权限";
             PlayerDataChanged?.Invoke();
             return string.IsNullOrEmpty(error);
+        }
+
+        /// <summary>展会账本登录成功后采用远端档，并写一份到本机。</summary>
+        public static void AdoptRemote(PlayerProfile remote)
+        {
+            if (remote == null) return;
+            EnsureLoaded();
+            if (remote.crickets == null) remote.crickets = new List<CricketCollectionEntry>();
+            if (remote.backpack == null) remote.backpack = new List<CricketBackpackEntry>();
+            EnsureEconomy(remote);
+            EnsureStarterBackpack(remote);
+            CurrentPlayer = remote;
+            if (database.players == null) database.players = new List<PlayerProfile>();
+            PlayerProfile existing = database.players.Find(player =>
+                player != null && string.Equals(player.playerName, remote.playerName, StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
+            {
+                int index = database.players.IndexOf(existing);
+                database.players[index] = remote;
+            }
+            else database.players.Add(remote);
+            SaveDatabase();
+            PlayerDataChanged?.Invoke();
         }
 
         public static string FormatGold(int amount)
@@ -446,6 +499,8 @@ namespace DouQuqu
                 string directory = Path.GetDirectoryName(DatabasePath);
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
                 File.WriteAllText(DatabasePath, JsonUtility.ToJson(database, true));
+                if (VenueClient.Instance != null && VenueClient.Instance.HasServer && CurrentPlayer != null)
+                    VenueClient.Instance.StartCoroutine(VenueClient.Instance.PushCurrent());
                 return true;
             }
             catch (Exception exception)

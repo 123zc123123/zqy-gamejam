@@ -13,6 +13,7 @@ namespace DouQuqu
 
         private void Start()
         {
+            VenueClient.Ensure();
             BuildUi();
             nameInput.ActivateInputField();
         }
@@ -38,12 +39,41 @@ namespace DouQuqu
         private void Login()
         {
             loginButton.interactable = false;
-            string error;
-            if (!PlayerDataService.LoginOrCreate(nameInput.text, out error))
+            StartCoroutine(LoginRoutine());
+        }
+
+        private System.Collections.IEnumerator LoginRoutine()
+        {
+            VenueClient venue = VenueClient.Ensure();
+            if (venue != null && venue.HasServer)
             {
-                statusText.text = error;
+                statusText.text = "正在连展会账本…";
+                bool done = false;
+                PlayerProfile remote = null;
+                string remoteError = null;
+                yield return venue.Login(nameInput.text, (player, error) =>
+                {
+                    remote = player;
+                    remoteError = error;
+                    done = true;
+                });
+                while (!done) yield return null;
+                if (remote != null)
+                {
+                    PlayerDataService.AdoptRemote(remote);
+                    statusText.text = "登录成功（展会账本）";
+                    SceneNames.Load(SceneNames.MainMenu);
+                    yield break;
+                }
+                if (!string.IsNullOrEmpty(remoteError)) statusText.text = remoteError + "，改用本机";
+            }
+
+            string errorLocal;
+            if (!PlayerDataService.LoginOrCreate(nameInput.text, out errorLocal))
+            {
+                statusText.text = errorLocal;
                 loginButton.interactable = true;
-                return;
+                yield break;
             }
             statusText.text = "登录成功";
             SceneNames.Load(SceneNames.MainMenu);
