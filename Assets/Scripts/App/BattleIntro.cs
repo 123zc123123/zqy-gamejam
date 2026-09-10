@@ -157,7 +157,8 @@ namespace DouQuqu
                 if (pit != null && child == pit) continue;
                 if (shot != null && child == shot) continue;
                 string name = child.name;
-                if (name == "BattleIntroShot" || name == "BattleCount321" || name == "ArenaBackgroundScenery" || name == "Battlefield")
+                if (name == "BattleIntroShot" || name == "BattleCount321" || name == "Board"
+                    || name == "ArenaBackgroundScenery" || name == "Battlefield")
                     continue;
                 list.Add(child.gameObject);
             }
