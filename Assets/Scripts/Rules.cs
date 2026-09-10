@@ -37,7 +37,7 @@ namespace DouQuqu
         public float jumpDistRatio = 3f;
         [HideInInspector]
         public float tFloor = 0.3f;
-        [InspectorCn("幼虫蓄力速度", "崽 A1 = 该值 × 崽蓄力速度倍率。玩家跳跃不读")]
+        [InspectorCn("幼虫蓄力速度", "仅当点跳距离未定时，崽用该值当 A1。玩家跳跃不读")]
         public float vRate = 40f;
         [InspectorCn("起跳仰角", "度；与摩擦一起定空中匀速占比")]
         public float theta = 15f;
@@ -72,13 +72,15 @@ namespace DouQuqu
         [InspectorCn("抵抗系数", "R = K × 质量 × 出发法向速度；K 大则更难失衡")]
         [Range(0f, 2f)]
         public float resistK = 1f;
+        [InspectorCn("可控摩擦倍率", "可控档 μ′ = μ × 该值；大于 1 刹得更死。自己跳仍用地面 μ")]
+        [Range(1f, 2f)]
+        public float muCtrlScale = 1.2f;
         [InspectorCn("失衡摩擦倍率", "失衡档 μ′ = μ × 该值；小于 1 滑得更远")]
         [Range(0.3f, 1f)]
         public float muSlipScale = 0.8f;
         [HideInInspector] public float rStand = 0.4f;
         [HideInInspector] public float rMax = 0.4f;
         [HideInInspector] public float rChargeScale = 0.5f;
-        [HideInInspector] public float muCtrlScale = 1f;
         [HideInInspector] public int resistSchema;
         [HideInInspector] public int jumpKnobSchema;
 
@@ -203,8 +205,8 @@ namespace DouQuqu
         public float babyRScale = 0.4f;
         [InspectorCn("崽质量", "不吃饲主成长")]
         public float babyMass = 0.5f;
-        [InspectorCn("崽蓄力速度倍率", "崽 A1 = 幼虫蓄力速度 × 该值")]
-        public float babyA1Scale = 0.4f;
+        [InspectorCn("崽蓄力速度倍率", "崽满蓄水平速度 = 玩家满蓄 × 该值 × (崽蓄力时间 / T_max)")]
+        public float babyA1Scale = 0.7f;
         [InspectorCn("崽蓄力时间", "崽自动蓄多久再跳（秒）")]
         public float babyChargeT = 0.8f;
         [InspectorCn("崽攻击间隔", "崽两次起跳最短间隔（秒）；0 = 落地即可再蓄")]
@@ -571,15 +573,19 @@ namespace DouQuqu
 
         public static float SlideMuFor(MatchKnobs knobs, BugState bug, HitTier tier)
         {
-            float mu = GripOf(knobs, bug);
-            if (CanonicalHitTier(tier) == HitTier.Slip) return mu * Mathf.Clamp(knobs.muSlipScale, 0.3f, 1f);
-            return mu;
+            return ScaledSlideMu(knobs, GripOf(knobs, bug), tier);
         }
 
         public static float SlideMuFor(MatchKnobs knobs, HitTier tier)
         {
-            float mu = Mathf.Max(0.0001f, knobs.mu);
-            if (CanonicalHitTier(tier) == HitTier.Slip) return mu * Mathf.Clamp(knobs.muSlipScale, 0.3f, 1f);
+            return ScaledSlideMu(knobs, Mathf.Max(0.0001f, knobs.mu), tier);
+        }
+
+        static float ScaledSlideMu(MatchKnobs knobs, float mu, HitTier tier)
+        {
+            HitTier canonical = CanonicalHitTier(tier);
+            if (canonical == HitTier.Slip) return mu * Mathf.Clamp(knobs.muSlipScale, 0.3f, 1f);
+            if (canonical == HitTier.Control) return mu * Mathf.Clamp(knobs.muCtrlScale, 1f, 2f);
             return mu;
         }
 
@@ -675,11 +681,21 @@ namespace DouQuqu
             return Mathf.Max(0.02f, knobs.babyChargeT);
         }
 
-        /// <summary>根据幼虫蓄力时间计算其冲撞速度。</summary>
+        /// <summary>
+        /// 幼虫出手速度。与玩家同一条链：满蓄水平速度 × babyA1Scale × (babyChargeT / T_max) × 蓄力进度。
+        /// 点跳距离未定时退回 vRate × babyA1Scale × 蓄力时间。
+        /// </summary>
         public static float BabyChargeSpeed(MatchKnobs knobs, BabyState baby)
         {
-            float rate = Mathf.Max(0f, knobs.vRate) * Mathf.Max(0f, knobs.babyA1Scale) * GrowRate(knobs, baby);
-            return rate * Mathf.Clamp(baby == null ? 0f : baby.chargeTime, 0f, BabyChargeTime(knobs));
+            if (knobs == null) knobs = DefaultKnobs();
+            float tMax = BabyChargeTime(knobs);
+            float charge = baby == null ? 0f : baby.chargeTime;
+            float p = tMax < 1e-6f ? 0f : Mathf.Clamp(charge, 0f, tMax) / tMax;
+            float playerT = Mathf.Max(0.000001f, knobs.tChargeMax);
+            float vFull = PanelVMax(knobs);
+            if (vFull < 0.01f)
+                vFull = Mathf.Max(0f, knobs.vRate) * playerT;
+            return vFull * Mathf.Max(0f, knobs.babyA1Scale) * GrowRate(knobs, baby) * (tMax / playerT) * p;
         }
 
         /// <summary>返回幼虫起跳速度；当前规则与蓄力速度相同。</summary>
@@ -703,7 +719,12 @@ namespace DouQuqu
         /// <summary>返回幼虫蓄力速度和蓄力时长，供面板或调试信息展示。</summary>
         public static float[] BabyChargeStats(MatchKnobs knobs, BabyState baby = null)
         {
-            float rate = Mathf.Max(0f, knobs.vRate) * Mathf.Max(0f, knobs.babyA1Scale) * GrowRate(knobs, baby);
+            if (knobs == null) knobs = DefaultKnobs();
+            float playerT = Mathf.Max(0.000001f, knobs.tChargeMax);
+            float vFull = PanelVMax(knobs);
+            if (vFull < 0.01f)
+                vFull = Mathf.Max(0f, knobs.vRate) * playerT;
+            float rate = vFull * Mathf.Max(0f, knobs.babyA1Scale) * GrowRate(knobs, baby) / playerT;
             return new[] { rate, BabyChargeTime(knobs) };
         }
 

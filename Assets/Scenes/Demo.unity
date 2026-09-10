@@ -524,12 +524,12 @@ MonoBehaviour:
     chargeScale: 1.25
     chargeBuffT: 5
     rageBoost: 1.25
-    staminaMax: 1.5
+    staminaMax: 2
     staminaCost: 0.75
     staminaJump: 0.25
-    staminaRegen: 0.5
+    staminaRegen: 0.25
     staminaRegenCharge: 0
-    staminaSlots: 6
+    staminaSlots: 8
     mass: 1
     gravity: 120
     mu: 1.8
@@ -570,8 +570,8 @@ MonoBehaviour:
     heartMinEdge: 1.4
     heartMinBug: 1.3
     heartMinHeart: 1.25
-    nestHP: 4
-    nestMass: 6
+    nestHP: 5
+    nestMass: 60
     nestR: 2.4
     nestEggN: 5
     eggHatchT: 5
@@ -580,10 +580,10 @@ MonoBehaviour:
     eggScatterV: 8
     eggR: 0.55
     eggMass: 0.2
-    babyLifeT: 12
+    babyLifeT: 90
     babyRScale: 0.4
     babyMass: 0.5
-    babyA1Scale: 0.4
+    babyA1Scale: 0.7
     babyChargeT: 0.8
     babyAtkCd: 0.8
     babyCanLoot: 0

@@ -60,6 +60,9 @@ namespace DouQuqu
         public const int EggCap = 99;
         public const int EggShopPrice = 10;
         public const int EggShopCount = 1;
+        public static readonly int[] PointsPlace = { 50, 30, 10, 5 };
+        public static readonly int[] GoldPlace = { 40, 24, 14, 8 };
+        public static readonly int[] EggPlace = { 8, 6, 4, 2 };
         private const string DatabaseFileName = "douququ-player-database.json";
 
         private static PlayerDatabase database;
@@ -156,6 +159,41 @@ namespace DouQuqu
         {
             if (CurrentPlayer == null || amount == 0) return false;
             CurrentPlayer.score = Mathf.Clamp(CurrentPlayer.score + amount, 0, ScoreCap);
+            return CommitEconomy();
+        }
+
+        public static int PointsForPlace(int place)
+        {
+            if (place < 1 || place > PointsPlace.Length) return 0;
+            return PointsPlace[place - 1];
+        }
+
+        public static int GoldForPlace(int place)
+        {
+            if (place < 1 || place > GoldPlace.Length) return 0;
+            return GoldPlace[place - 1];
+        }
+
+        public static int EggsForPlace(int place)
+        {
+            if (place < 1 || place > EggPlace.Length) return 0;
+            return EggPlace[place - 1];
+        }
+
+        /// <summary>随机匹配 / 好友组队按名次发放。调用方保证同一局只调一次。</summary>
+        public static bool AwardPlaceRewards(int place)
+        {
+            if (CurrentPlayer == null || place < 1 || place > 4) return false;
+            int points = PointsForPlace(place);
+            int gold = GoldForPlace(place);
+            int eggs = EggsForPlace(place);
+            if (points == 0 && gold == 0 && eggs == 0) return false;
+            if (points != 0)
+                CurrentPlayer.score = Mathf.Clamp(CurrentPlayer.score + points, 0, ScoreCap);
+            if (gold != 0)
+                CurrentPlayer.gold = Mathf.Clamp(CurrentPlayer.gold + gold, 0, GoldCap);
+            if (eggs != 0)
+                CurrentPlayer.eggs = Mathf.Clamp(CurrentPlayer.eggs + eggs, 0, EggCap);
             return CommitEconomy();
         }
 

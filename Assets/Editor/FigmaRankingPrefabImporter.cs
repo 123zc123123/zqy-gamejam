@@ -52,6 +52,13 @@ public static class FigmaRankingPrefabImporter
     [MenuItem("Tools/Figma2Unity/Rebuild Ranking Nested Prefabs")]
     public static void Rebuild()
     {
+        string existingPage = ResourcesPrefabFolder + "/Ranking.prefab";
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(existingPage) != null)
+        {
+            Debug.LogWarning("Ranking prefabs are already organized under Resources/Ranking. Abort rebuild to avoid overwriting them.");
+            return;
+        }
+
         EnsureFolder(PrefabFolder);
         EnsureFolder(ResourcesPrefabFolder);
 

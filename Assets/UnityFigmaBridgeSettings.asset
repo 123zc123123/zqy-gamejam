@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 119c1bd3601648f28a252a6030e067b6, type: 3}
   m_Name: UnityFigmaBridgeSettings
   m_EditorClassIdentifier: 
-  DocumentUrl: https://www.figma.com/design/5jALrfLrmLV0NIOxaQURCu/dou-ququ?node-id=220-994
+  DocumentUrl: https://www.figma.com/design/5jALrfLrmLV0NIOxaQURCu/dou-ququ?node-id=143-193
   BuildPrototypeFlow: 0
   RunTimeAssetsScenePath: 
   EnableAutoLayout: 0
@@ -27,9 +27,6 @@ MonoBehaviour:
   - Name: Page 1
     NodeId: 0:1
     Selected: 1
-  - Name: Page 2
-    NodeId: 241:2682
-    Selected: 0
   FrameDataList:
   - Name: Group 12
     NodeId: 241:2090
@@ -405,55 +402,55 @@ MonoBehaviour:
     Selected: 0
   - Name: cricket-battle-royale
     NodeId: 55:4
-    PageName: Page 2
-    PageId: 241:2682
+    PageName: Page 1
+    PageId: 0:1
     NodeType: FRAME
     Selected: 0
   - Name: cricket-collection
     NodeId: 10:6
-    PageName: Page 2
-    PageId: 241:2682
+    PageName: Page 1
+    PageId: 0:1
     NodeType: FRAME
     Selected: 0
   - Name: event-face-painting
     NodeId: 10:593
-    PageName: Page 2
-    PageId: 241:2682
+    PageName: Page 1
+    PageId: 0:1
     NodeType: FRAME
     Selected: 0
   - Name: battle-over
     NodeId: 143:193
-    PageName: Page 2
-    PageId: 241:2682
-    NodeType: FRAME
-    Selected: 0
-  - Name: "\u6392\u884C\u699C"
-    NodeId: 220:994
-    PageName: Page 2
-    PageId: 241:2682
+    PageName: Page 1
+    PageId: 0:1
     NodeType: FRAME
     Selected: 1
-  - Name: player-row
-    NodeId: 261:1381
-    PageName: Page 2
-    PageId: 241:2682
-    NodeType: COMPONENT
+  - Name: "\u6392\u884C\u699C"
+    NodeId: 220:994
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: FRAME
     Selected: 0
   - Name: renwu
     NodeId: 217:333
-    PageName: Page 2
-    PageId: 241:2682
+    PageName: Page 1
+    PageId: 0:1
     NodeType: FRAME
     Selected: 0
   - Name: cricket-homepage
     NodeId: 185:123
-    PageName: Page 2
-    PageId: 241:2682
+    PageName: Page 1
+    PageId: 0:1
     NodeType: FRAME
     Selected: 0
   - Name: baixi-market-shop
     NodeId: 225:532
-    PageName: Page 2
-    PageId: 241:2682
+    PageName: Page 1
+    PageId: 0:1
     NodeType: FRAME
+    Selected: 0
+  - Name: player-row
+    NodeId: 261:1381
+    PageName: Page 1
+    PageId: 0:1
+    NodeType: COMPONENT
     Selected: 0

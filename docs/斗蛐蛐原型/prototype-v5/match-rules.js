@@ -61,7 +61,7 @@
       babyLifeT: 8,
       babyRScale: 0.40,
       babyMass: 0.35,
-      babyA1Scale: 0.40,
+      babyA1Scale: 0.70,
       babyChargeT: 0.16,
       babyAtkCd: 0.8,
       babyCanLoot: 0,
@@ -231,7 +231,7 @@
 
   function babyChargeStats(knobs, baby) {
     const g = growRate(knobs, baby && baby.grow);
-    const a1 = Math.max(0, knobs.vRate) * Math.max(0, knobs.babyA1Scale == null ? 0.4 : knobs.babyA1Scale) * g;
+    const a1 = Math.max(0, knobs.vRate) * Math.max(0, knobs.babyA1Scale == null ? 0.7 : knobs.babyA1Scale) * g;
     const tMax = Math.max(0.02, knobs.babyChargeT == null ? 0.16 : knobs.babyChargeT);
     return { vRate: a1, tMax };
   }

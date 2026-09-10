@@ -231,8 +231,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u73A9\u5BB6\u4E8C"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8a89fa14b10d46a99122fd4f73fca9a2, type: 2}
-  m_sharedMaterial: {fileID: 2140474, guid: 8a89fa14b10d46a99122fd4f73fca9a2, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
+  m_sharedMaterial: {fileID: -1070561013298322078, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1468,6 +1468,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1419771691917630459}
     m_Modifications:
+    - target: {fileID: 978719291684300937, guid: 69edb40915ad1c14bacf06b624b3c4a9, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
+    - target: {fileID: 978719291684300937, guid: 69edb40915ad1c14bacf06b624b3c4a9, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: -1070561013298322078, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
     - target: {fileID: 6857976884389331334, guid: 69edb40915ad1c14bacf06b624b3c4a9, type: 3}
       propertyPath: m_Name
       value: ready-badge

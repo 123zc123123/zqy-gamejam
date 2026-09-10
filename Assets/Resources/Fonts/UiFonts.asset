@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 03cf5a2a5746894478e0e1ad7ec1fc49, type: 3}
+  m_Name: UiFonts
+  m_EditorClassIdentifier: 
+  font: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
+  slots:
+  - id: Title
+    font: {fileID: 0}
+    fontStyle: 0
+  - id: Subtitle
+    font: {fileID: 0}
+    fontStyle: 0
+  - id: Name
+    font: {fileID: 0}
+    fontStyle: 0
+  - id: Score
+    font: {fileID: 0}
+    fontStyle: 0
+  - id: Rank
+    font: {fileID: 0}
+    fontStyle: 0
+  - id: Button
+    font: {fileID: 0}
+    fontStyle: 0

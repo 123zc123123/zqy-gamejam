@@ -155,9 +155,8 @@ namespace DouQuqu
         {
             if (runtimeFontAsset != null) return runtimeFontAsset;
 
-            // 主字体是资源圆体 Medium 烘焙的 Chinese SDF。动态图集会按新字补字形。
-            // TMP 默认 LiberationSans 不含中文，先取它会把中文变成方框。
-            runtimeFontAsset = Resources.Load<TMP_FontAsset>("Fonts/Chinese SDF");
+            // 主字体走 UiFonts；未配时回落到 Chinese SDF。
+            runtimeFontAsset = UiFonts.Font;
             if (runtimeFontAsset == null)
                 runtimeFontAsset = TMP_Settings.defaultFontAsset;
 

@@ -9,6 +9,7 @@ namespace DouQuqu
         {
             if (root == null) return;
             BottomNavBar.SuppressEmbedded(root.transform);
+            UiFonts.ApplyTree(root.transform);
         }
     }
 }

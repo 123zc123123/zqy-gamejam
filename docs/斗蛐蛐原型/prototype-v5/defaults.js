@@ -51,7 +51,7 @@ window.DOU_QUQU_SHIPPED = {
     "babyLifeT": 12,
     "babyRScale": 0.4,
     "babyMass": 0.5,
-    "babyA1Scale": 0.4,
+    "babyA1Scale": 0.7,
     "babyChargeT": 0.8,
     "babyAtkCd": 0.8,
     "babyCanLoot": 0,

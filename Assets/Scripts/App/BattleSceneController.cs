@@ -14,6 +14,8 @@ namespace DouQuqu
         private LanSession network;
         private GameObject resultPanel;
         private TMP_Text resultText;
+        private SettlementPage settlementPage;
+        private MatchKind matchKind;
         private bool resultShown;
 
         private void Awake()
@@ -30,16 +32,18 @@ namespace DouQuqu
             if (mergeView != null) mergeView.enabled = false;
 
             network = AppServices.Instance.Network;
+            matchKind = AppServices.TakePendingMatchKind();
             if (network != null && network.IsMatchReady)
             {
                 network.BindMatchController(match);
+                if (matchKind == MatchKind.None) matchKind = MatchKind.Friend;
             }
             else if (match != null)
             {
                 match.Configure(MatchRunMode.Offline, MatchController.MaxPlayers);
-                MatchKind kind = ApplyPendingRosters(match);
+                ApplyPendingRosters(match, matchKind);
                 match.ResetMatch(MatchController.MaxPlayers, System.Environment.TickCount);
-                if (kind == MatchKind.Training)
+                if (matchKind == MatchKind.Training)
                 {
                     match.OverlayRuntimeKnobs(TrainingCamp.WithDuration(match.Knobs));
                     for (int i = 0; i < TrainingCamp.BotCount; i++)
@@ -124,12 +128,11 @@ namespace DouQuqu
             }
 
             resultPanel = overlay.gameObject;
-            resultText = overlay.GetComponentInChildren<TMP_Text>(true);
-            if (resultText == null)
-            {
-                resultText = UiFactory.CreateText(overlay, "ResultTMP", "对局结束", 48f,
-                    new Vector2(0.10f, 0.78f), new Vector2(0.90f, 0.90f), Vector2.zero, Vector2.zero);
-            }
+            settlementPage = page.GetComponent<SettlementPage>();
+            if (settlementPage == null) settlementPage = page.AddComponent<SettlementPage>();
+            Transform title = page.transform.Find("Title");
+            if (title == null) title = page.transform.Find("Banner/Title");
+            resultText = title != null ? title.GetComponent<TMP_Text>() : overlay.GetComponentInChildren<TMP_Text>(true);
 
             BindOrCreateReturnButton(overlay);
             resultPanel.SetActive(false);
@@ -141,12 +144,19 @@ namespace DouQuqu
             if (state == null || !state.over || resultShown) return;
             resultShown = true;
             int localPlayerId = network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
-            if (state.winnerId < 0)
-                resultText.text = "对局结束\n本局没有存活玩家";
-            else
-                resultText.text = state.winnerId == localPlayerId
-                    ? "胜利！\n你是本局赢家"
-                    : "对局结束\n获胜者：玩家 " + (state.winnerId + 1);
+            if (settlementPage != null)
+            {
+                settlementPage.Bind(match, matchKind, localPlayerId);
+            }
+            else if (resultText != null)
+            {
+                if (state.winnerId < 0)
+                    resultText.text = "对局结束\n本局没有存活玩家";
+                else
+                    resultText.text = state.winnerId == localPlayerId
+                        ? "胜利！\n你是本局赢家"
+                        : "对局结束\n获胜者：玩家 " + (state.winnerId + 1);
+            }
             resultPanel.SetActive(true);
         }
 
@@ -184,16 +194,14 @@ namespace DouQuqu
             SceneNames.Load(SceneNames.BattleEntrance);
         }
 
-        private static MatchKind ApplyPendingRosters(MatchController match)
+        private static void ApplyPendingRosters(MatchController match, MatchKind kind)
         {
-            MatchKind kind = AppServices.TakePendingMatchKind();
-            if (match == null) return kind;
+            if (match == null) return;
             CricketPick[] localPicks = AppServices.TakePendingLocalPicks();
             if (localPicks != null) match.SetRoster(0, localPicks);
-            if (kind != MatchKind.Training) return kind;
+            if (kind != MatchKind.Training) return;
             for (int i = 0; i < TrainingCamp.BotCount; i++)
                 match.SetRoster(i + 1, TrainingCamp.PicksForBot(i));
-            return kind;
         }
     }
 }
