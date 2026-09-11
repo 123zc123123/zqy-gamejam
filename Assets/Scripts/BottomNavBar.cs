@@ -7,7 +7,6 @@ namespace DouQuqu
     public sealed class BottomNavBar : MonoBehaviour
     {
         private const string CommonPrefabPath = "Common/Prefabs/BottomEventCarousel";
-        private const string MergePrefabPath = "Merge/Prefabs/Parts/BottomEventCarousel";
 
         private GameObject comingSoonRoot;
         private Text comingSoonLabel;
@@ -38,7 +37,6 @@ namespace DouQuqu
             }
 
             GameObject prefab = Resources.Load<GameObject>(CommonPrefabPath);
-            if (prefab == null) prefab = Resources.Load<GameObject>(MergePrefabPath);
             if (prefab == null)
             {
                 Debug.LogWarning("[DouQuqu] 找不到通用底栏 BottomEventCarousel");

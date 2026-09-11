@@ -15,6 +15,7 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
         const string Root = "Assets/Resources/Merge";
         const string Prefabs = Root + "/Prefabs";
         const string Parts = Prefabs + "/Parts";
+        const string CommonPrefabs = "Assets/Resources/Common/Prefabs";
         const string Scenes = "Assets/Game/UI/BreedingBoard/Scenes";
         const string Textures = Root + "/Textures/Figma";
         const string PagePath = Prefabs + "/育虫盘.prefab";
@@ -86,29 +87,9 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             }
             board = SaveExisting(board, Parts + "/Board.prefab");
 
-            GameObject backIcon = BuildImagePart("返回icon", new Vector2(150,150), Color.white, PrepareSprite(Textures + "/BackCircle.png"));
-            Color arrowColor = new Color(0.384f, 0.380f, 0.20f, 1f);
-            GameObject arrow = BuildEmptyPart("Arrow", new Vector2(110,110), Vector2.zero);
-            GameObject arrowShaft = BuildPanelPart("ArrowShaft", new Vector2(96,18), Vector2.zero, arrowColor, Color.clear, 0, false);
-            GameObject arrowUpper = BuildPanelPart("ArrowUpper", new Vector2(66,18), Vector2.zero, arrowColor, Color.clear, 0, false);
-            GameObject arrowLower = BuildPanelPart("ArrowLower", new Vector2(66,18), Vector2.zero, arrowColor, Color.clear, 0, false);
-            arrowUpper.transform.localRotation = Quaternion.Euler(0,0,45);
-            arrowLower.transform.localRotation = Quaternion.Euler(0,0,-45);
-            AddNested(arrow, arrowShaft, new Vector2(10,0));
-            AddNested(arrow, arrowUpper, new Vector2(-25,23));
-            AddNested(arrow, arrowLower, new Vector2(-25,-23));
-            AddNested(backIcon, arrow, Vector2.zero);
-            Image backImage = backIcon != null ? backIcon.GetComponent<Image>() : null;
-            if (backImage != null) backImage.raycastTarget = true;
-            if (backImage != null) { Button backButton = backIcon.AddComponent<Button>(); backButton.targetGraphic = backImage; Navigation nav = backButton.navigation; nav.mode = Navigation.Mode.None; backButton.navigation = nav; }
-            backIcon = SaveExisting(backIcon, Parts + "/BackIcon.prefab");
-            GameObject tabPrefab = BuildBottomNavTab();
-            GameObject carousel = BuildPanelPart("bottom-event-carousel", new Vector2(1080,200), new Vector2(0,-860), new Color(0.624f,0.604f,0.431f,1), Color.clear, 0, false);
-            AddNested(carousel, backIcon, new Vector2(-441,12));
-            BuildCarouselTabs(carousel, tabPrefab);
-            if (carousel.GetComponent<DouQuqu.BottomNavBar>() == null)
-                carousel.AddComponent<DouQuqu.BottomNavBar>();
-            carousel = SaveExisting(carousel, Parts + "/BottomEventCarousel.prefab");
+            GameObject carousel = AssetDatabase.LoadAssetAtPath<GameObject>(CommonPrefabs + "/BottomEventCarousel.prefab");
+            if (carousel == null)
+                throw new FileNotFoundException("Missing shared bottom bar", CommonPrefabs + "/BottomEventCarousel.prefab");
 
             GameObject goldIcon = BuildImagePart("Coins", new Vector2(38,38), Color.white, coin);
             GameObject amount = BuildTextPart("18,450", "18,450", new Vector2(90,32), 20, Color.white, TextAnchor.MiddleCenter);

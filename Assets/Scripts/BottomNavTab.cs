@@ -19,21 +19,18 @@ namespace DouQuqu
             Academy = 5
         }
 
-        private static readonly Color IdleBg = new Color(0.384f, 0.380f, 0.20f, 1f);
+        private static readonly Color IdleBg = Color.white;
         private static readonly Color IdleText = new Color(0.898f, 0.768f, 0.561f, 1f);
-        private static readonly Color IdleOutline = new Color(0.341f, 0.36f, 0.09f, 1f);
-        private static readonly Color SelectedBg = new Color(0.80f, 0.62f, 0.28f, 1f);
         private static readonly Color SelectedText = new Color(0.22f, 0.13f, 0.07f, 1f);
-        private static readonly Color SelectedOutline = new Color(0.62f, 0.45f, 0.16f, 1f);
 
         [SerializeField] private NavModule module;
         [SerializeField] private string displayName;
         [SerializeField] private string iconPath;
         [SerializeField] private Image icon;
         [SerializeField] private Text label;
+        [SerializeField] private Image selectedBackground;
 
         private Image background;
-        private Outline outline;
         private bool selected;
 
         public NavModule ModuleId => module;
@@ -97,18 +94,36 @@ namespace DouQuqu
             }
 
             if (background == null) background = GetComponent<Image>();
-            if (outline == null) outline = GetComponent<Outline>();
+            if (selectedBackground == null)
+            {
+                Transform found = transform.Find("Selected");
+                if (found != null) selectedBackground = found.GetComponent<Image>();
+            }
         }
 
         private void ApplySelectedColors()
         {
             CacheParts();
+            if (!Application.isPlaying)
+            {
+                if (label != null) label.color = IdleText;
+                return;
+            }
+
             if (background != null)
-                background.color = selected ? SelectedBg : IdleBg;
+            {
+                background.color = selected ? new Color(1f, 1f, 1f, 0f) : IdleBg;
+                background.raycastTarget = true;
+            }
+
+            if (selectedBackground != null)
+            {
+                selectedBackground.gameObject.SetActive(selected);
+                selectedBackground.raycastTarget = false;
+            }
+
             if (label != null)
                 label.color = selected ? SelectedText : IdleText;
-            if (outline != null)
-                outline.effectColor = selected ? SelectedOutline : IdleOutline;
         }
 
         private void ApplyIcon()

@@ -156,7 +156,9 @@ namespace DouQuqu
             if (readyRoot != null) BindButton(readyRoot, GoHeroSelection);
             if (leaveRoot != null) BindButton(leaveRoot, LeaveRoom);
 
-            GameObject rules = FindGo(root, "SideButton_活动介绍");
+            GameObject rules = FindGo(root, "SideButton_玩法说明");
+            if (rules == null) rules = FindGo(root, "SideButton_活动介绍");
+            if (rules == null) rules = FindGo(root, "玩法说明");
             if (rules == null) rules = FindGo(root, "玩法规则");
             if (rules != null) BindButton(rules, ActivityPopup.ShowRules);
 

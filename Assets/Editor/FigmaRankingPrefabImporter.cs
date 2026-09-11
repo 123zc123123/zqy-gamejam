@@ -18,7 +18,6 @@ public static class FigmaRankingPrefabImporter
     static readonly Rect PageBounds = new Rect(13168f, 36f, 1080f, 1920f);
     static readonly Rect BannerBounds = new Rect(13168f, 36f, 1080f, 157f);
     static readonly Rect ListBounds = new Rect(13237f, 369f, 881f, 1279f);
-    static readonly Rect NavBounds = new Rect(13168f, 1756f, 1080f, 200f);
     static readonly Rect RowBounds = new Rect(13363f, 421f, 665f, 254f);
     static readonly Rect BadgeBounds = new Rect(13819f, 511f, 185f, 74f);
 
@@ -44,10 +43,7 @@ public static class FigmaRankingPrefabImporter
 
     static readonly Color PageFill = new Color(0.0392f, 0.0431f, 0.0627f, 1f);
     static readonly Color MenuFill = new Color(0.3059f, 0.3451f, 0.2784f, 1f);
-    static readonly Color TabFill = new Color(0.3761f, 0.4808f, 0.3028f, 1f);
     static readonly Color TitleColor = new Color(1f, 0.95f, 0.80f, 1f);
-    static readonly Color Cream = new Color(0.9608f, 0.9255f, 0.8235f, 1f);
-    static readonly Color GoldLine = new Color(0.7725f, 0.6275f, 0.3490f, 1f);
 
     [MenuItem("Tools/Figma2Unity/Rebuild Ranking Nested Prefabs")]
     public static void Rebuild()
@@ -78,20 +74,15 @@ public static class FigmaRankingPrefabImporter
             string rowPath = SavePrefab(row, "PlayerRow.prefab");
             Object.DestroyImmediate(row);
 
-            GameObject nav = BuildBottomNav(staging.transform);
-            string navPath = SavePrefab(nav, "下方菜单.prefab");
-            Object.DestroyImmediate(nav);
-
             GameObject page = BuildRankingPage(
                 canvas.transform,
-                AssetDatabase.LoadAssetAtPath<GameObject>(rowPath),
-                AssetDatabase.LoadAssetAtPath<GameObject>(navPath));
+                AssetDatabase.LoadAssetAtPath<GameObject>(rowPath));
             string pagePath = ResourcesPrefabFolder + "/Ranking.prefab";
             PrefabUtility.SaveAsPrefabAsset(page, pagePath);
 
             Selection.activeGameObject = page;
             EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<GameObject>(pagePath));
-            Debug.Log("Ranking nested prefabs ready:\n" + badgePath + "\n" + rowPath + "\n" + navPath + "\n" + pagePath);
+            Debug.Log("Ranking nested prefabs ready:\n" + badgePath + "\n" + rowPath + "\n" + pagePath);
         }
         finally
         {
@@ -127,28 +118,7 @@ public static class FigmaRankingPrefabImporter
         return root;
     }
 
-    static GameObject BuildBottomNav(Transform parent)
-    {
-        GameObject root = CreateColorImage("下方菜单", parent, NavBounds, NavBounds, MenuFill, "205:775", "COMPONENT");
-        CreateTab(root.transform, new Rect(13380f, 1781f, 219f, 150f), "斗蛐蛐", "I220:1048;205:773");
-        CreateTab(root.transform, new Rect(13658f, 1781f, 219f, 150f), "育虫室", "I220:1048;205:757");
-        CreateTab(root.transform, new Rect(13936f, 1781f, 219f, 150f), "蛐蛐谱", "I220:1048;205:760");
-
-        GameObject back = CreateBoundObject("返回", root.transform, NavBounds, new Rect(13184f, 1776f, 180f, 172f), "I220:1048;205:774", "INSTANCE");
-        CreateCircle("Ellipse 1", back.transform, new Rect(13184f, 1776f, 180f, 172f), new Rect(13192f, 1781f, 150f, 150f), MenuFill, "17:2");
-        AddOutline(FindNamed(back.transform, "Ellipse 1").gameObject, GoldLine, 3f);
-        CreateText("←", back.transform, new Rect(13184f, 1776f, 180f, 172f), new Rect(13228f, 1818f, 91f, 58f), "←", 48f, Cream, TextAlignmentOptions.Center, "23:23");
-        return root;
-    }
-
-    static void CreateTab(Transform parent, Rect bounds, string label, string nodeId)
-    {
-        GameObject tab = CreateColorImage("tab-0", parent, NavBounds, bounds, TabFill, nodeId, "INSTANCE");
-        AddOutline(tab, GoldLine, 3f);
-        CreateText(label, tab.transform, bounds, new Rect(bounds.x + 38f, bounds.y + 52f, 144f, 58f), label, 48f, Cream, TextAlignmentOptions.Center, nodeId + ";22:2");
-    }
-
-    static GameObject BuildRankingPage(Transform canvas, GameObject rowPrefab, GameObject navPrefab)
+    static GameObject BuildRankingPage(Transform canvas, GameObject rowPrefab)
     {
         Transform existing = canvas.Find("Ranking");
         if (existing != null) Object.DestroyImmediate(existing.gameObject);
@@ -168,7 +138,6 @@ public static class FigmaRankingPrefabImporter
             ApplyRowVariant(row, i);
         }
 
-        InstantiatePrefab(navPrefab, root.transform, PageBounds, NavBounds, "下方菜单", "220:1048", "INSTANCE");
         return root;
     }
 
