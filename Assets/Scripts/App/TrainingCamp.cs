@@ -5,7 +5,7 @@ namespace DouQuqu
     /// <summary>
     /// 训练营另外三人：固定木桩，不蓄力、不跳。
     /// 机器人1 凡品强攻、机器人2 凡品灵巧、机器人3 凡品智谋，各三槽相同。
-    /// 正赛 10 分钟，到点硬截止，不加时。
+    /// 10 分钟，到点硬截止，不进狂暴。
     /// </summary>
     public static class TrainingCamp
     {

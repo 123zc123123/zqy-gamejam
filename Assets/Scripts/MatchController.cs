@@ -53,7 +53,7 @@ namespace DouQuqu
         public bool IsOver => state != null && state.over;
         public int WinnerId => state == null ? -1 : state.winnerId;
         public MatchPhase Phase => state == null ? MatchPhase.Probe : Rules.Phase(ActiveKnobs, state.elapsed);
-        public int ZoneTier => state != null && state.playerCount <= 1 ? 3 : Rules.ZoneTierAt(ActiveKnobs, Elapsed);
+        public int ZoneTier => state != null && state.playerCount <= 1 ? Rules.LastZoneTier : Rules.ZoneTierAt(ActiveKnobs, Elapsed);
         public bool ZoneWarn => state != null && state.playerCount > 1 && Rules.IsZoneWarn(ActiveKnobs, Elapsed);
 
         public event Action<MatchSnapshot> SnapshotReady;
@@ -325,10 +325,10 @@ namespace DouQuqu
             dt = Mathf.Min(dt, 0.1f);
             MatchKnobs active = ActiveKnobs;
             float previousElapsed = state.elapsed;
-            int previousTier = state.playerCount <= 1 ? 3 : Rules.ZoneTierAt(active, previousElapsed);
+            int previousTier = state.playerCount <= 1 ? Rules.LastZoneTier : Rules.ZoneTierAt(active, previousElapsed);
             state.elapsed += dt;
             state.tick++;
-            int tier = state.playerCount <= 1 ? 3 : Rules.ZoneTierAt(active, state.elapsed);
+            int tier = state.playerCount <= 1 ? Rules.LastZoneTier : Rules.ZoneTierAt(active, state.elapsed);
             if (tier != previousTier)
             {
                 Rules.SetArenaScale(Rules.ZoneScaleOf(active, tier));

@@ -167,7 +167,7 @@ namespace DouQuqu
             padding = 0f;
             float scale = 1f;
             if (match != null && match.Knobs != null)
-                scale = Mathf.Max(0.01f, match.Knobs.zoneScale3);
+                scale = Mathf.Max(0.01f, Rules.LastZoneScale(match.Knobs));
             targetHalfW = Rules.DefaultArenaHalfWidth * scale;
             targetHalfD = Rules.DefaultArenaHalfDepth * scale;
             hasFrame = true;

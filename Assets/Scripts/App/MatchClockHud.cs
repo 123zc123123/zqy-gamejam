@@ -4,7 +4,7 @@ using UnityEngine;
 namespace DouQuqu
 {
     /// <summary>
-    /// 把局内 Countdown/Value 接到对局剩余时间。开赛前显示正赛时长，开赛后按秒倒数。
+    /// 把局内 Countdown/Value 接到对局剩余时间。开赛前显示单局总长，开赛后按秒倒数到硬截止。
     /// </summary>
     public sealed class MatchClockHud : MonoBehaviour
     {

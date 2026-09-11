@@ -13,34 +13,34 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void Z1_DefaultSnapsAt40_70_90()
+        public void Z1_DefaultSnapsAt60_90()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
             float[] snaps = Rules.ZoneSnapTimes(knobs);
-            Assert.AreEqual(40f, snaps[0], 1e-4f);
-            Assert.AreEqual(70f, snaps[1], 1e-4f);
-            Assert.AreEqual(90f, snaps[2], 1e-4f);
+            Assert.AreEqual(2, snaps.Length);
+            Assert.AreEqual(60f, snaps[0], 1e-4f);
+            Assert.AreEqual(90f, snaps[1], 1e-4f);
         }
 
         [Test]
         public void Z2_SnapIsInstantNoLerp()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 39.9f));
-            Assert.AreEqual(2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 39.9f)), 1e-4f);
-            Assert.AreEqual(1, Rules.ZoneTierAt(knobs, 40f));
-            Assert.AreEqual(1.5f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 40f)), 1e-4f);
+            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 59.9f));
+            Assert.AreEqual(2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 59.9f)), 1e-4f);
+            Assert.AreEqual(1, Rules.ZoneTierAt(knobs, 60f));
+            Assert.AreEqual(1.2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 60f)), 1e-4f);
         }
 
         [Test]
         public void Z3_WarnKeepsCurrentSdf()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Assert.IsTrue(Rules.IsZoneWarn(knobs, 35f));
-            Assert.IsTrue(Rules.IsZoneWarn(knobs, 39.9f));
-            Assert.IsFalse(Rules.IsZoneWarn(knobs, 34.9f));
-            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 37f));
-            Rules.ApplyZoneAt(knobs, 37f);
+            Assert.IsTrue(Rules.IsZoneWarn(knobs, 55f));
+            Assert.IsTrue(Rules.IsZoneWarn(knobs, 59.9f));
+            Assert.IsFalse(Rules.IsZoneWarn(knobs, 54.9f));
+            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 57f));
+            Rules.ApplyZoneAt(knobs, 57f);
             Vector3 inCurrentOutNext = new Vector3(35f, 0f, 0f);
             Assert.IsTrue(Rules.InsideArena(inCurrentOutNext));
             Rules.SetArenaScale(Rules.ZoneScaleOf(knobs, 1));
@@ -48,13 +48,13 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void Z4_ThirdSnapIsRageAndNoFourth()
+        public void Z4_SecondSnapIsRageAndNoThird()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Assert.AreEqual(3, Rules.ZoneTierAt(knobs, 90f));
+            Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(knobs, 90f));
             Assert.IsTrue(Rules.IsRage(knobs, 90f));
-            Assert.AreEqual(3, Rules.ZoneTierAt(knobs, 90.01f));
-            Assert.AreEqual(3, Rules.ZoneTierAt(knobs, 119f));
+            Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(knobs, 90.01f));
+            Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(knobs, 119f));
             Assert.IsFalse(Rules.IsZoneWarn(knobs, 95f));
         }
 
@@ -99,7 +99,7 @@ namespace DouQuqu.Editor.Tests
         public void Z7_RespawnHomeIfStillInside()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Rules.SetArenaScale(knobs.zoneScale3);
+            Rules.SetArenaScale(Rules.LastZoneScale(knobs));
             Vector3 home = new Vector3(-6f, 0f, 8f);
             Assert.IsTrue(Rules.InsideArena(home, 1.8f));
             Vector3 back = Rules.RespawnPoint(home, 1.8f, knobs.spawnEdge);
@@ -113,7 +113,7 @@ namespace DouQuqu.Editor.Tests
             MatchKnobs knobs = Rules.DefaultKnobs();
             Rules.SetArenaScale(knobs.zoneScale0);
             Vector3 home = Rules.OpeningSpawn(0, knobs.spawnEdge);
-            Rules.SetArenaScale(knobs.zoneScale3);
+            Rules.SetArenaScale(Rules.LastZoneScale(knobs));
             Assert.IsFalse(Rules.InsideArena(home, 1.8f));
             Vector3 spawn = Rules.RespawnPoint(home, 1.8f, knobs.spawnEdge);
             Assert.IsTrue(Rules.InsideArena(spawn, 1.8f));
@@ -128,7 +128,7 @@ namespace DouQuqu.Editor.Tests
         public void Z9_ShieldSaveUsesNewZone()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Rules.SetArenaScale(knobs.zoneScale3);
+            Rules.SetArenaScale(Rules.LastZoneScale(knobs));
             BugState bug = new BugState(0, new Vector3(40f, 0f, 0f), knobs);
             bug.buffShieldT = 10f;
             Assert.IsFalse(Rules.InsideArena(bug.position));
@@ -142,7 +142,7 @@ namespace DouQuqu.Editor.Tests
         public void Z10_NoShieldMeansOut()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Rules.SetArenaScale(knobs.zoneScale3);
+            Rules.SetArenaScale(Rules.LastZoneScale(knobs));
             BugState bug = new BugState(0, new Vector3(40f, 0f, 0f), knobs);
             bug.buffShieldT = 0f;
             Assert.IsFalse(Rules.TryShieldSave(knobs, bug));
@@ -154,9 +154,9 @@ namespace DouQuqu.Editor.Tests
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
             knobs.zoneSchedule = false;
-            Assert.AreEqual(3, Rules.ZoneTierAt(knobs, 0f));
-            Assert.AreEqual(3, Rules.ZoneTierAt(knobs, 40f));
-            Assert.AreEqual(3, Rules.ZoneTierAt(knobs, 90f));
+            Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(knobs, 0f));
+            Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(knobs, 40f));
+            Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(knobs, 90f));
             Assert.IsFalse(Rules.IsZoneWarn(knobs, 37f));
         }
 
@@ -203,6 +203,42 @@ namespace DouQuqu.Editor.Tests
             Vector3 c = Rules.ClampCameraCenter(new Vector3(8f, 50f, 8f), Rules.ArenaHalfWidth, Rules.ArenaHalfDepth);
             Assert.AreEqual(0f, c.x, 1e-4f);
             Assert.AreEqual(0f, c.z, 1e-4f);
+        }
+
+        [Test]
+        public void Z17_ClockCountsFullTwoMinutes()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            Assert.AreEqual(120f, Rules.HardStop(knobs), 1e-4f);
+            Assert.AreEqual(120f, Rules.RemainingClock(knobs, 0f, false), 1e-4f);
+            Assert.AreEqual(120f, Rules.RemainingClock(knobs, 0f, true), 1e-4f);
+            Assert.AreEqual(60f, Rules.RemainingClock(knobs, 60f, true), 1e-4f);
+            Assert.AreEqual(30f, Rules.RemainingClock(knobs, 90f, true), 1e-4f);
+            Assert.AreEqual("2:00", Rules.FormatClock(Rules.RemainingClock(knobs, 0f, true)));
+        }
+
+        [Test]
+        public void Z16_OldFourTierMigratesToTwoSnaps()
+        {
+            MatchKnobs knobs = new MatchKnobs();
+            knobs.zoneScale1 = 1.5f;
+            knobs.zoneScale2 = 1.2f;
+            knobs.zoneScale3 = 1f;
+            knobs.zoneHold0 = 35f;
+            knobs.zoneHold1 = 25f;
+            knobs.zoneHold2 = 15f;
+            knobs.zoneSnapSchema = 0;
+            knobs.OnAfterDeserialize();
+            Assert.AreEqual(2, knobs.zoneSnapSchema);
+            Assert.AreEqual(1.2f, knobs.zoneScale1, 1e-4f);
+            Assert.AreEqual(1f, knobs.zoneScale2, 1e-4f);
+            Assert.AreEqual(55f, knobs.zoneHold0, 1e-4f);
+            Assert.AreEqual(25f, knobs.zoneHold1, 1e-4f);
+            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 40f));
+            float[] snaps = Rules.ZoneSnapTimes(knobs);
+            Assert.AreEqual(2, snaps.Length);
+            Assert.AreEqual(60f, snaps[0], 1e-4f);
+            Assert.AreEqual(90f, snaps[1], 1e-4f);
         }
     }
 }

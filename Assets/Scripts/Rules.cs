@@ -45,7 +45,7 @@ namespace DouQuqu
         public float chargeScale = 1.25f;
         [InspectorCn("蓄力强化持续", "秒；仅拾取，狂暴不读")]
         public float chargeBuffT = 5f;
-        [InspectorCn("狂暴加成", "加时全员蓄力速度、耐力恢复同乘；不变大")]
+        [InspectorCn("狂暴加成", "1:30 起全员蓄力速度、耐力恢复同乘；不变大")]
         public float rageBoost = 1.25f;
 
         [Header("耐力")]
@@ -96,6 +96,17 @@ namespace DouQuqu
                 if (zoneFadeT <= 0f) zoneFadeT = 0.5f;
                 zoneCamSchema = 1;
             }
+            if (zoneSnapSchema < 1)
+            {
+                zoneScale1 = zoneScale2;
+                zoneScale2 = zoneScale3;
+            }
+            if (zoneSnapSchema < 2)
+            {
+                zoneHold0 = 55f;
+                zoneHold1 = 25f;
+                zoneSnapSchema = 2;
+            }
             if (resistSchema >= 1) return;
             resistK = 1f;
             muSlipScale = 0.8f;
@@ -142,9 +153,9 @@ namespace DouQuqu
         public float aiSafeEdgeMargin = 4f;
 
         [Header("对局与投放")]
-        [InspectorCn("正赛时长", "秒；到点未结束则进加时")]
+        [InspectorCn("狂暴开始", "秒；到点全员狂暴，末口同时。倒计时仍从单局总长起算")]
         public float regTime = 90f;
-        [InspectorCn("加时时长", "秒；与正赛相加为硬截止")]
+        [InspectorCn("硬截止余量", "秒；与狂暴开始相加为单局总长，默认 2 分钟")]
         public float otTime = 30f;
         [InspectorCn("开局饲料球", "开局饲料球数量")]
         public int heartStart = 4;
@@ -158,7 +169,7 @@ namespace DouQuqu
         public int itemCap = 3;
         [InspectorCn("饲料球间隔", "正赛补饲料球间隔（秒）")]
         public float heartGap = 7f;
-        [InspectorCn("加时饲料球间隔", "加时补饲料球间隔（秒）")]
+        [InspectorCn("1:30 后饲料球间隔", "狂暴段补饲料球间隔（秒）")]
         public float heartGapOt = 5f;
         [InspectorCn("开始补饲料球", "秒；此前只吃开局那批")]
         public float heartOpenAt = 20f;
@@ -231,17 +242,15 @@ namespace DouQuqu
         [InspectorCn("开局边长倍率", "第 0 档相对最后一档的边长、圆角倍率")]
         public float zoneScale0 = 2f;
         [InspectorCn("第 1 档倍率", "第一次收口后的边长倍率")]
-        public float zoneScale1 = 1.5f;
-        [InspectorCn("第 2 档倍率", "第二次收口后的边长倍率")]
-        public float zoneScale2 = 1.2f;
-        [InspectorCn("第 3 档倍率", "最后一档；1 = 现在的罐")]
-        public float zoneScale3 = 1f;
+        public float zoneScale1 = 1.2f;
+        [InspectorCn("第 2 档倍率", "最后一档；1 = 现在的罐")]
+        public float zoneScale2 = 1f;
+        [HideInInspector] public float zoneScale3 = 1f;
         [InspectorCn("档 0 持稳", "开局后、第一次预告前（秒）")]
-        public float zoneHold0 = 35f;
+        public float zoneHold0 = 55f;
         [InspectorCn("档 1 持稳", "第一次收口后、第二次预告前（秒）")]
         public float zoneHold1 = 25f;
-        [InspectorCn("档 2 持稳", "第二次收口后、第三次预告前（秒）")]
-        public float zoneHold2 = 15f;
+        [HideInInspector] public float zoneHold2 = 15f;
         [InspectorCn("预告时长", "将消失的环带红色脉动；当前档仍算出局边（秒）")]
         public float zoneWarnT = 5f;
         [InspectorCn("出生离边", "开局位距当前档有效区边向内的距离")]
@@ -256,6 +265,7 @@ namespace DouQuqu
         public float zoneFadeT = 0.5f;
         [HideInInspector] public bool zoneSchedule = true;
         [HideInInspector] public int zoneCamSchema;
+        [HideInInspector] public int zoneSnapSchema = 2;
     }
 
     /// <summary>
@@ -311,46 +321,49 @@ namespace DouQuqu
             return CornerSigns[index];
         }
 
+        public const int LastZoneTier = 2;
+
         public static float ZoneScaleOf(MatchKnobs knobs, int tier)
         {
             if (knobs == null) return 1f;
-            switch (Mathf.Clamp(tier, 0, 3))
+            switch (Mathf.Clamp(tier, 0, LastZoneTier))
             {
                 case 0: return Mathf.Max(0.01f, knobs.zoneScale0);
                 case 1: return Mathf.Max(0.01f, knobs.zoneScale1);
-                case 2: return Mathf.Max(0.01f, knobs.zoneScale2);
-                default: return Mathf.Max(0.01f, knobs.zoneScale3);
+                default: return Mathf.Max(0.01f, knobs.zoneScale2);
             }
         }
 
-        /// <summary>三口收口时刻 = 各档持稳 + 预告。改持稳或预告则时刻跟着改。</summary>
+        public static float LastZoneScale(MatchKnobs knobs)
+        {
+            return ZoneScaleOf(knobs, LastZoneTier);
+        }
+
+        /// <summary>两口收口时刻 = 各档持稳 + 预告。改持稳或预告则时刻跟着改。</summary>
         public static float[] ZoneSnapTimes(MatchKnobs knobs)
         {
             float warn = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneWarnT);
             float hold0 = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneHold0);
             float hold1 = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneHold1);
-            float hold2 = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneHold2);
             float first = hold0 + warn;
             float second = first + hold1 + warn;
-            float third = second + hold2 + warn;
-            return new[] { first, second, third };
+            return new[] { first, second };
         }
 
         public static int ZoneTierAt(MatchKnobs knobs, float elapsed)
         {
-            if (knobs == null || !knobs.zoneSchedule) return 3;
+            if (knobs == null || !knobs.zoneSchedule) return LastZoneTier;
             float[] snaps = ZoneSnapTimes(knobs);
             if (elapsed + 1e-9f < snaps[0]) return 0;
             if (elapsed + 1e-9f < snaps[1]) return 1;
-            if (elapsed + 1e-9f < snaps[2]) return 2;
-            return 3;
+            return LastZoneTier;
         }
 
         public static bool IsZoneWarn(MatchKnobs knobs, float elapsed)
         {
             if (knobs == null || !knobs.zoneSchedule) return false;
             int tier = ZoneTierAt(knobs, elapsed);
-            if (tier >= 3) return false;
+            if (tier >= LastZoneTier) return false;
             float snap = ZoneSnapTimes(knobs)[tier];
             float warn = Mathf.Max(0f, knobs.zoneWarnT);
             return elapsed + 1e-9f >= snap - warn;
@@ -415,27 +428,27 @@ namespace DouQuqu
             return DefaultKnobs();
         }
 
-        /// <summary>返回正赛和加时相加后的硬截止时间。</summary>
+        /// <summary>返回单局硬截止时间（狂暴开始 + 余量，默认 2 分钟）。</summary>
         public static float HardStop(MatchKnobs knobs)
         {
             return knobs.regTime + knobs.otTime;
         }
 
-        /// <summary>判断给定时间是否处于加时狂暴阶段。</summary>
+        /// <summary>判断给定时间是否处于狂暴阶段（默认 1:30 起）。</summary>
         public static bool IsRage(MatchKnobs knobs, float time)
         {
             return time >= knobs.regTime && time < HardStop(knobs);
         }
 
         /// <summary>
-        /// HUD 倒计时秒数：正赛显示距加时，狂暴显示距硬截止。未开赛按正赛全长。
+        /// HUD 倒计时秒数：从单局总长起算到硬截止。未开赛按总长。
         /// </summary>
         public static float RemainingClock(MatchKnobs knobs, float time, bool started)
         {
             if (knobs == null) knobs = DefaultKnobs();
-            if (!started) return Mathf.Max(0f, knobs.regTime);
-            if (IsRage(knobs, time)) return Mathf.Max(0f, HardStop(knobs) - time);
-            return Mathf.Max(0f, knobs.regTime - time);
+            float stop = HardStop(knobs);
+            if (!started) return Mathf.Max(0f, stop);
+            return Mathf.Max(0f, stop - time);
         }
 
         /// <summary>与 HTML 原型相同：ceil 到整秒，再格式成 m:ss。</summary>
@@ -974,7 +987,7 @@ namespace DouQuqu
             baby.buffChargeT = Mathf.Max(0f, baby.buffChargeT - dt);
         }
 
-        /// <summary>进入加时狂暴：全员蓄力速度与耐力恢复同乘 rageBoost，体型不变。</summary>
+        /// <summary>进入狂暴：全员蓄力速度与耐力恢复同乘 rageBoost，体型不变。</summary>
         public static void EnterRage(MatchKnobs knobs, BugState[] bugs)
         {
             for (int i = 0; i < bugs.Length; i++)

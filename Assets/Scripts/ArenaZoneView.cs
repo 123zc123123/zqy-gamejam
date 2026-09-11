@@ -46,7 +46,7 @@ namespace DouQuqu
                 fadeStartElapsed = -1f;
             }
 
-            int tier = schedule ? Rules.ZoneTierAt(knobs, elapsed) : 3;
+            int tier = schedule ? Rules.ZoneTierAt(knobs, elapsed) : Rules.LastZoneTier;
             if (lastTier >= 0 && tier > lastTier)
                 BeginFade(knobs, lastTier, tier, elapsed);
             lastTier = tier;
