@@ -525,8 +525,8 @@ MonoBehaviour:
     chargeBuffT: 5
     rageBoost: 1.25
     staminaMax: 2
-    staminaCost: 0.75
-    staminaJump: 0.25
+    staminaCost: 0.5
+    staminaJump: 0.5
     staminaRegen: 0.25
     staminaRegenCharge: 0
     staminaSlots: 8
@@ -534,11 +534,11 @@ MonoBehaviour:
     gravity: 120
     mu: 1.8
     resistK: 1
-    muSlipScale: 0.8
+    muCtrlScale: 1
+    muSlipScale: 0.6
     rStand: 0.4
     rMax: 0.4
     rChargeScale: 0.5
-    muCtrlScale: 1
     resistSchema: 1
     jumpKnobSchema: 1
     growPer: 0.16
@@ -590,6 +590,21 @@ MonoBehaviour:
     nestCap: 1
     nestFirstT: 25
     nestGap: 12
+    zoneScale0: 2
+    zoneScale1: 1.5
+    zoneScale2: 1.2
+    zoneScale3: 1
+    zoneHold0: 35
+    zoneHold1: 25
+    zoneHold2: 15
+    zoneWarnT: 5
+    spawnEdge: 4
+    camDeadzone: 0.15
+    camFollowT: 0.22
+    camSettleT: 0.8
+    zoneFadeT: 0.5
+    zoneSchedule: 1
+    zoneCamSchema: 1
 --- !u!4 &772734990
 Transform:
   m_ObjectHideFlags: 0

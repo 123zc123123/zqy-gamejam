@@ -60,7 +60,7 @@ namespace DouQuqu.Editor
                 rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
                 rect.anchoredPosition = Vector2.zero;
-                rect.sizeDelta = new Vector2(sprite.rect.width, sprite.rect.height);
+                rect.sizeDelta = new Vector2(sprite.rect.width, sprite.rect.height) * 2f;
                 EnsureTable(root.transform, tableSprite);
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             }
@@ -81,7 +81,7 @@ namespace DouQuqu.Editor
             table.pivot = new Vector2(0.5f, 0.5f);
             table.anchoredPosition = Vector2.zero;
             Vector2 size = tableSprite != null ? tableSprite.rect.size : new Vector2(1015f, 1486f);
-            table.sizeDelta = size;
+            table.sizeDelta = size * 2f;
             Image image = go.GetComponent<Image>();
             image.sprite = tableSprite;
             image.preserveAspect = true;

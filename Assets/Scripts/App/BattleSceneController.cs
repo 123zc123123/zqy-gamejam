@@ -40,12 +40,14 @@ namespace DouQuqu
             }
             else if (match != null)
             {
-                match.Configure(MatchRunMode.Offline, MatchController.MaxPlayers);
+                MatchKnobs runtime = matchKind == MatchKind.Training
+                    ? TrainingCamp.WithDuration(match.Knobs)
+                    : null;
+                match.Configure(MatchRunMode.Offline, MatchController.MaxPlayers, runtime);
                 ApplyPendingRosters(match, matchKind);
                 match.ResetMatch(MatchController.MaxPlayers, System.Environment.TickCount);
                 if (matchKind == MatchKind.Training)
                 {
-                    match.OverlayRuntimeKnobs(TrainingCamp.WithDuration(match.Knobs));
                     for (int i = 0; i < TrainingCamp.BotCount; i++)
                         match.SetPlayerIdle(i + 1, true);
                 }

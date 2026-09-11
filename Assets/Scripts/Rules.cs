@@ -89,6 +89,13 @@ namespace DouQuqu
         public void OnAfterDeserialize()
         {
             EnsureJumpKnobs();
+            if (zoneCamSchema < 1)
+            {
+                if (camDeadzone <= 0f) camDeadzone = 0.15f;
+                if (camFollowT <= 0f) camFollowT = 0.22f;
+                if (zoneFadeT <= 0f) zoneFadeT = 0.5f;
+                zoneCamSchema = 1;
+            }
             if (resistSchema >= 1) return;
             resistK = 1f;
             muSlipScale = 0.8f;
@@ -219,6 +226,36 @@ namespace DouQuqu
         public float nestFirstT = 25f;
         [InspectorCn("下一栋间隔", "上一窝彻底结束后，下一栋再等的间隔（秒）")]
         public float nestGap = 12f;
+
+        [Header("场地与缩圈")]
+        [InspectorCn("开局边长倍率", "第 0 档相对最后一档的边长、圆角倍率")]
+        public float zoneScale0 = 2f;
+        [InspectorCn("第 1 档倍率", "第一次收口后的边长倍率")]
+        public float zoneScale1 = 1.5f;
+        [InspectorCn("第 2 档倍率", "第二次收口后的边长倍率")]
+        public float zoneScale2 = 1.2f;
+        [InspectorCn("第 3 档倍率", "最后一档；1 = 现在的罐")]
+        public float zoneScale3 = 1f;
+        [InspectorCn("档 0 持稳", "开局后、第一次预告前（秒）")]
+        public float zoneHold0 = 35f;
+        [InspectorCn("档 1 持稳", "第一次收口后、第二次预告前（秒）")]
+        public float zoneHold1 = 25f;
+        [InspectorCn("档 2 持稳", "第二次收口后、第三次预告前（秒）")]
+        public float zoneHold2 = 15f;
+        [InspectorCn("预告时长", "将消失的环带红色脉动；当前档仍算出局边（秒）")]
+        public float zoneWarnT = 5f;
+        [InspectorCn("出生离边", "开局位距当前档有效区边向内的距离")]
+        public float spawnEdge = 4f;
+        [InspectorCn("跟随死区", "人偏出画面半宽/半深的该比例才开始跟")]
+        public float camDeadzone = 0.15f;
+        [InspectorCn("跟随时长", "镜头追上自己的时长（秒）")]
+        public float camFollowT = 0.22f;
+        [InspectorCn("收口后镜头", "收口后若镜头还在新有效区外，收进新圈的时长；0 = 立刻")]
+        public float camSettleT = 0.8f;
+        [InspectorCn("收口渐隐", "收口时环带一起淡掉的时长；0 = 立刻")]
+        public float zoneFadeT = 0.5f;
+        [HideInInspector] public bool zoneSchedule = true;
+        [HideInInspector] public int zoneCamSchema;
     }
 
     /// <summary>
@@ -235,23 +272,133 @@ namespace DouQuqu
         public static readonly string[] ItemKinds = { "shield", "charge" };
         public const int KillScoreBase = 10;
 
+        public static readonly Vector2[] CornerSigns =
+        {
+            new Vector2(-1f, 1f),
+            new Vector2(1f, 1f),
+            new Vector2(-1f, -1f),
+            new Vector2(1f, -1f)
+        };
+
         public static void ResetArenaSize()
         {
-            ArenaHalfWidth = DefaultArenaHalfWidth;
-            ArenaHalfDepth = DefaultArenaHalfDepth;
-            ArenaCorner = DefaultArenaCorner;
+            SetArenaScale(1f);
         }
 
-        /// <summary>
-        /// HUD 场地窗矩形控制出界：高度保持默认世界尺度，宽度跟矩形宽高比。
-        /// </summary>
+        /// <summary>半宽、半深、圆角相对最后一档基准同乘。</summary>
+        public static void SetArenaScale(float scale)
+        {
+            float s = Mathf.Max(0.01f, scale);
+            ArenaHalfWidth = DefaultArenaHalfWidth * s;
+            ArenaHalfDepth = DefaultArenaHalfDepth * s;
+            ArenaCorner = DefaultArenaCorner * s;
+        }
+
+        /// <summary>按日程把有效区设成该时刻所在档。预告期仍用当前档，不提前换成下一档。</summary>
+        public static void ApplyZoneAt(MatchKnobs knobs, float elapsed)
+        {
+            SetArenaScale(ZoneScaleOf(knobs, ZoneTierAt(knobs, elapsed)));
+        }
+
+        /// <summary>HUD 场地窗只决定镜头窗口，不再改玩法有效区。</summary>
         public static void ApplyArenaFromRect(float width, float height)
         {
-            float w = Mathf.Max(1f, width);
-            float h = Mathf.Max(1f, height);
-            ArenaHalfDepth = DefaultArenaHalfDepth;
-            ArenaHalfWidth = DefaultArenaHalfDepth * (w / h);
-            ArenaCorner = Mathf.Min(DefaultArenaCorner, ArenaHalfWidth * 0.95f, ArenaHalfDepth * 0.95f);
+        }
+
+        public static Vector2 CornerSign(int playerId)
+        {
+            int index = Mathf.Clamp(playerId, 0, CornerSigns.Length - 1);
+            return CornerSigns[index];
+        }
+
+        public static float ZoneScaleOf(MatchKnobs knobs, int tier)
+        {
+            if (knobs == null) return 1f;
+            switch (Mathf.Clamp(tier, 0, 3))
+            {
+                case 0: return Mathf.Max(0.01f, knobs.zoneScale0);
+                case 1: return Mathf.Max(0.01f, knobs.zoneScale1);
+                case 2: return Mathf.Max(0.01f, knobs.zoneScale2);
+                default: return Mathf.Max(0.01f, knobs.zoneScale3);
+            }
+        }
+
+        /// <summary>三口收口时刻 = 各档持稳 + 预告。改持稳或预告则时刻跟着改。</summary>
+        public static float[] ZoneSnapTimes(MatchKnobs knobs)
+        {
+            float warn = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneWarnT);
+            float hold0 = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneHold0);
+            float hold1 = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneHold1);
+            float hold2 = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneHold2);
+            float first = hold0 + warn;
+            float second = first + hold1 + warn;
+            float third = second + hold2 + warn;
+            return new[] { first, second, third };
+        }
+
+        public static int ZoneTierAt(MatchKnobs knobs, float elapsed)
+        {
+            if (knobs == null || !knobs.zoneSchedule) return 3;
+            float[] snaps = ZoneSnapTimes(knobs);
+            if (elapsed + 1e-9f < snaps[0]) return 0;
+            if (elapsed + 1e-9f < snaps[1]) return 1;
+            if (elapsed + 1e-9f < snaps[2]) return 2;
+            return 3;
+        }
+
+        public static bool IsZoneWarn(MatchKnobs knobs, float elapsed)
+        {
+            if (knobs == null || !knobs.zoneSchedule) return false;
+            int tier = ZoneTierAt(knobs, elapsed);
+            if (tier >= 3) return false;
+            float snap = ZoneSnapTimes(knobs)[tier];
+            float warn = Mathf.Max(0f, knobs.zoneWarnT);
+            return elapsed + 1e-9f >= snap - warn;
+        }
+
+        public static int ZoneWarnTier(MatchKnobs knobs, float elapsed)
+        {
+            return IsZoneWarn(knobs, elapsed) ? ZoneTierAt(knobs, elapsed) + 1 : -1;
+        }
+
+        /// <summary>四人开局角：HUD P1 左上、P2 右上、P3 左下、P4 右下，距当前档边 spawnEdge。</summary>
+        public static Vector3 OpeningSpawn(int playerId, float spawnEdge)
+        {
+            Vector2 sign = CornerSign(playerId);
+            float corner = Mathf.Max(0.01f, ArenaCorner);
+            float edge = Mathf.Clamp(spawnEdge, 0.01f, corner * 0.95f);
+            Vector2 arc = new Vector2(sign.x * (ArenaHalfWidth - corner), sign.y * (ArenaHalfDepth - corner));
+            Vector2 outward = sign.normalized;
+            return new Vector3(arc.x + outward.x * (corner - edge), 0f, arc.y + outward.y * (corner - edge));
+        }
+
+        public static Vector3 SoloPullbackPoint()
+        {
+            return new Vector3(0f, 0f, -ArenaHalfDepth * 0.38f);
+        }
+
+        /// <summary>开局位整圆仍在当前有效区内则回开局位；否则沿开局位→中心落到距边 spawnEdge 处。</summary>
+        public static Vector3 RespawnPoint(Vector3 home, float radius, float spawnEdge)
+        {
+            float circlePad = Mathf.Max(0f, radius);
+            if (InsideArena(home, circlePad)) return home;
+            float pad = Mathf.Max(Mathf.Max(0.01f, spawnEdge), circlePad);
+            Vector3 origin = Vector3.zero;
+            float lo = 0f;
+            float hi = 1f;
+            Vector3 best = origin;
+            for (int n = 0; n < 24; n++)
+            {
+                float mid = (lo + hi) * 0.5f;
+                Vector3 point = Vector3.Lerp(home, origin, mid);
+                if (ArenaSdf(point.x, point.z) > -pad) lo = mid;
+                else
+                {
+                    hi = mid;
+                    best = point;
+                }
+            }
+            return ClampInsideArena(best, pad);
         }
 
         /// <summary>返回一份默认规则参数。</summary>
@@ -1070,6 +1217,23 @@ namespace DouQuqu
                 }
             }
             return tie ? -1 : winner;
+        }
+
+        /// <summary>
+        /// 正交镜头：当前有效区已经装得下窗口则钉在中心；否则中心跟人，且中心不越出有效区。
+        /// </summary>
+        public static Vector3 ClampCameraCenter(Vector3 desired, float viewHalfW, float viewHalfD)
+        {
+            float halfW = Mathf.Max(0.01f, viewHalfW);
+            float halfD = Mathf.Max(0.01f, viewHalfD);
+            bool zoneFits = halfW + 0.5f >= ArenaHalfWidth && halfD + 0.5f >= ArenaHalfDepth;
+            if (zoneFits) return new Vector3(0f, desired.y, 0f);
+
+            const float pad = 0.5f;
+            return new Vector3(
+                Mathf.Clamp(desired.x, -ArenaHalfWidth + pad, ArenaHalfWidth - pad),
+                desired.y,
+                Mathf.Clamp(desired.z, -ArenaHalfDepth + pad, ArenaHalfDepth - pad));
         }
 
         public static Vector3 ClampInsideArena(Vector3 p, float pad = 0f)

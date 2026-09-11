@@ -7,16 +7,14 @@ using UnityEngine.UI;
 namespace DouQuqu
 {
     /// <summary>
-    /// 进战镜头：先看到整张大场景，再按像素对齐缩到 1080×1920，
-    /// table 与场景同一比例、同一缩放，停稳后中央 3-2-1 再开赛。
+    /// 进战镜头：先框整张开局棋盘，再落到己方角，停稳后中央 3-2-1 再开赛。
+    /// 2D Board 由 BattleBoardFollow 跟着 3D 相机，这里只改镜头和 HUD 显隐。
     /// </summary>
     public static class BattleIntro
     {
         private const float HoldSeconds = 0.65f;
         private const float ZoomSeconds = 2.4f;
         private const int CountdownSeconds = 3;
-        private const float RefWidth = 1080f;
-        private const float RefHeight = 1920f;
 
         public static void HideChrome(RectTransform hudRoot)
         {
@@ -25,31 +23,29 @@ namespace DouQuqu
             Transform leftover = host.Find("BattleIntroShot");
             if (leftover != null) UnityEngine.Object.Destroy(leftover.gameObject);
             foreach (GameObject node in ChromeOf(host, null, null))
-                if (node != null) node.SetActive(false);
+            {
+                if (node == null) continue;
+                if (node.name == "Board") continue;
+                node.SetActive(false);
+            }
+
+            Transform board = host.Find("Board");
+            if (board != null) board.gameObject.SetActive(true);
         }
 
-        public static IEnumerator Play(RectTransform hudRoot, RectTransform pit)
+        public static IEnumerator Play(RectTransform hudRoot, RectTransform pit, BattleCamera cam = null, int localPlayerId = 0, bool dropToCorner = false)
         {
             if (hudRoot == null) yield break;
 
             RectTransform host = HostOf(hudRoot);
             if (host == null) host = hudRoot;
             HideChrome(hudRoot);
+            Transform board = FindNamed(host, "Board");
+            if (board != null) board.gameObject.SetActive(true);
+            if (cam != null) cam.FrameOpeningPanorama();
 
             RectTransform shot = FindNamed(host, "ArenaBackgroundScenery") as RectTransform;
-            if (shot == null)
-            {
-                yield return Countdown(host);
-                ShowChrome(host, pit, null);
-                yield break;
-            }
-
-            shot.gameObject.SetActive(true);
-            float texW = Mathf.Max(1f, shot.rect.width);
-            float texH = Mathf.Max(1f, shot.rect.height);
-            float startScale = Mathf.Min(RefWidth / texW, RefHeight / texH);
-            float endScale = 1f;
-            SetScale(shot, pit, startScale);
+            if (shot != null) shot.gameObject.SetActive(true);
 
             float hold = 0f;
             while (hold < HoldSeconds)
@@ -58,40 +54,18 @@ namespace DouQuqu
                 yield return null;
             }
 
+            if (dropToCorner && cam != null) cam.FrameCorner(localPlayerId, ZoomSeconds);
+
             float elapsed = 0f;
             while (elapsed < ZoomSeconds)
             {
                 elapsed += Time.unscaledDeltaTime;
-                float t = EaseInShortOutLong(Mathf.Clamp01(elapsed / ZoomSeconds));
-                SetScale(shot, pit, Mathf.Lerp(startScale, endScale, t));
                 yield return null;
             }
 
-            SetScale(shot, pit, endScale);
+            if (dropToCorner && cam != null) cam.FrameCorner(localPlayerId, 0f);
             yield return Countdown(host);
             ShowChrome(host, pit, shot);
-        }
-
-        private static void SetScale(RectTransform shot, RectTransform pit, float scale)
-        {
-            Vector3 value = Vector3.one * scale;
-            if (shot != null) shot.localScale = value;
-            if (pit != null && (shot == null || pit.parent != shot && !pit.IsChildOf(shot)))
-                pit.localScale = value;
-        }
-
-        private static float EaseInShortOutLong(float t)
-        {
-            const float split = 0.18f;
-            if (t < split)
-            {
-                float u = t / split;
-                return split * u * u * u;
-            }
-
-            float v = (t - split) / (1f - split);
-            float w = 1f - v;
-            return split + (1f - split) * (1f - w * w * w * w);
         }
 
         private static IEnumerator Countdown(RectTransform hudRoot)

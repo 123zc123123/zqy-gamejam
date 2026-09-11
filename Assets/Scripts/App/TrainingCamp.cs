@@ -21,6 +21,7 @@ namespace DouQuqu
                 : Rules.DefaultKnobs();
             knobs.regTime = RegTime;
             knobs.otTime = OtTime;
+            knobs.zoneSchedule = false;
             return knobs;
         }
 

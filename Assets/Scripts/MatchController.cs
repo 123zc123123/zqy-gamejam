@@ -53,6 +53,8 @@ namespace DouQuqu
         public bool IsOver => state != null && state.over;
         public int WinnerId => state == null ? -1 : state.winnerId;
         public MatchPhase Phase => state == null ? MatchPhase.Probe : Rules.Phase(ActiveKnobs, state.elapsed);
+        public int ZoneTier => state != null && state.playerCount <= 1 ? 3 : Rules.ZoneTierAt(ActiveKnobs, Elapsed);
+        public bool ZoneWarn => state != null && state.playerCount > 1 && Rules.IsZoneWarn(ActiveKnobs, Elapsed);
 
         public event Action<MatchSnapshot> SnapshotReady;
         public event Action<MatchState> StateChanged;
@@ -60,6 +62,7 @@ namespace DouQuqu
         public event Action<int, int> CricketIn;
         public event Action<int> PlayerEliminated;
         public event Action<string, Vector3> GameplayEvent;
+        public event Action<int> ZoneSnapped;
 
         private void Awake()
         {
@@ -105,6 +108,7 @@ namespace DouQuqu
         {
             if (runtime == null || state == null) return;
             state.knobs = runtime;
+            Rules.ApplyZoneAt(runtime, state.elapsed);
         }
 
         private MatchKnobs ActiveKnobs
@@ -224,13 +228,13 @@ namespace DouQuqu
             accumulator = 0f;
             inputSequence = 0;
             for (int i = 0; i < inputs.Length; i++) inputs[i] = new InputFrame(i, Vector2.up, false, false);
-            Vector3[] spawns =
-            {
-                new Vector3(0f, 0f, -Rules.ArenaHalfDepth * 0.38f),
-                new Vector3(0f, 0f, Rules.ArenaHalfDepth * 0.38f),
-                new Vector3(-Rules.ArenaHalfWidth * 0.38f, 0f, 0f),
-                new Vector3(Rules.ArenaHalfWidth * 0.38f, 0f, 0f)
-            };
+            if (configuredPlayers <= 1) Rules.SetArenaScale(Rules.ZoneScaleOf(knobs, 3));
+            else Rules.ApplyZoneAt(knobs, 0f);
+            state.homeSpawn = new Vector3[configuredPlayers];
+            for (int i = 0; i < configuredPlayers; i++)
+                state.homeSpawn[i] = configuredPlayers <= 1
+                    ? Rules.SoloPullbackPoint()
+                    : Rules.OpeningSpawn(i, knobs.spawnEdge);
             state.bugs = new BugState[configuredPlayers];
             state.humanPlayers = new bool[configuredPlayers];
             state.idlePlayers = new bool[configuredPlayers];
@@ -239,8 +243,10 @@ namespace DouQuqu
             EnsureRoster(configuredPlayers);
             for (int i = 0; i < state.bugs.Length; i++)
             {
-                state.bugs[i] = new BugState(i, spawns[i], knobs);
-                state.bugs[i].chargeDirection = (new Vector2(-spawns[i].x, -spawns[i].z)).normalized;
+                Vector3 spawn = state.homeSpawn[i];
+                state.bugs[i] = new BugState(i, spawn, knobs);
+                state.bugs[i].chargeDirection = (new Vector2(-spawn.x, -spawn.z)).normalized;
+                if (state.bugs[i].chargeDirection.sqrMagnitude < 0.01f) state.bugs[i].chargeDirection = Vector2.up;
                 state.bugs[i].slideMu = Rules.GripOf(knobs, state.bugs[i]);
                 ApplyPickToBug(state.bugs[i], i, 0);
                 // 客户端不推进本地模拟；主机和离线模式只保留本地真人槽位，其余交给确定性 AI。
@@ -317,14 +323,17 @@ namespace DouQuqu
         {
             if (state == null || !state.started || state.over || dt <= 0f) return;
             dt = Mathf.Min(dt, 0.1f);
+            MatchKnobs active = ActiveKnobs;
+            float previousElapsed = state.elapsed;
+            int previousTier = state.playerCount <= 1 ? 3 : Rules.ZoneTierAt(active, previousElapsed);
             state.elapsed += dt;
             state.tick++;
-            MatchKnobs active = ActiveKnobs;
-            MatchPhase phase = Rules.Phase(active, state.elapsed);
-            if (phase == MatchPhase.Rage && state.elapsed - dt < active.regTime)
+            int tier = state.playerCount <= 1 ? 3 : Rules.ZoneTierAt(active, state.elapsed);
+            if (tier != previousTier)
             {
-                Rules.EnterRage(active, state.bugs);
-                GameplayEvent?.Invoke("rage-start", Vector3.zero);
+                Rules.SetArenaScale(Rules.ZoneScaleOf(active, tier));
+                ZoneSnapped?.Invoke(tier);
+                GameplayEvent?.Invoke("zone-snap", Vector3.zero);
             }
 
             ai.Tick(state, inputs, dt);
@@ -346,6 +355,12 @@ namespace DouQuqu
             nestSystem.TickBeforeCollision(state, dt, Emit);
             nestSystem.TickAfterCollision(state, Emit);
             movement.TickCharge(state, inputs, dt);
+            MatchPhase phase = Rules.Phase(active, state.elapsed);
+            if (phase == MatchPhase.Rage && previousElapsed < active.regTime)
+            {
+                Rules.EnterRage(active, state.bugs);
+                GameplayEvent?.Invoke("rage-start", Vector3.zero);
+            }
             CheckEnd(phase);
             if (runMode == MatchRunMode.Host) SnapshotReady?.Invoke(CaptureSnapshot());
             StateChanged?.Invoke(state);
@@ -444,6 +459,8 @@ namespace DouQuqu
             state.started = snapshot.started;
             state.over = snapshot.over;
             state.winnerId = snapshot.winnerId;
+            if (state.playerCount <= 1) Rules.SetArenaScale(Rules.ZoneScaleOf(knobs, 3));
+            else Rules.ApplyZoneAt(knobs, state.elapsed);
             if (snapshot.version >= 4)
             {
                 state.lastHeartAt = snapshot.lastHeartAt;
@@ -548,7 +565,7 @@ namespace DouQuqu
             }
             if (state.playerCount == 1)
             {
-                bug.position = new Vector3(0f, 0f, -Rules.ArenaHalfDepth * 0.38f);
+                bug.position = Rules.SoloPullbackPoint();
                 bug.previousPosition = bug.position;
                 bug.velocity = Vector3.zero;
                 bug.height = 0f;
@@ -749,14 +766,14 @@ namespace DouQuqu
 
         private Vector3 SpawnPoint(int playerId)
         {
-            Vector3[] spawns =
-            {
-                new Vector3(0f, 0f, -Rules.ArenaHalfDepth * 0.38f),
-                new Vector3(0f, 0f, Rules.ArenaHalfDepth * 0.38f),
-                new Vector3(-Rules.ArenaHalfWidth * 0.38f, 0f, 0f),
-                new Vector3(Rules.ArenaHalfWidth * 0.38f, 0f, 0f)
-            };
-            return spawns[Mathf.Clamp(playerId, 0, spawns.Length - 1)];
+            if (state != null && state.playerCount <= 1) return Rules.SoloPullbackPoint();
+            Vector3 home = state != null && state.homeSpawn != null && playerId >= 0 && playerId < state.homeSpawn.Length
+                ? state.homeSpawn[playerId]
+                : Rules.OpeningSpawn(playerId, ActiveKnobs.spawnEdge);
+            float radius = 0f;
+            if (state != null && state.bugs != null && playerId >= 0 && playerId < state.bugs.Length && state.bugs[playerId] != null)
+                radius = state.bugs[playerId].radius;
+            return Rules.RespawnPoint(home, radius, ActiveKnobs.spawnEdge);
         }
 
         private void EnsureRoster(int playerCount)

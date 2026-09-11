@@ -119,6 +119,12 @@ namespace DouQuqu
                 match.ResetMatch(playerCount, randomSeed);
                 match.StartMatch();
             }
+            if (FindObjectOfType<BattleHudBinder>() == null)
+            {
+                Camera main = Camera.main;
+                BattleCamera cam = main != null ? main.GetComponent<BattleCamera>() : null;
+                if (cam != null) cam.FollowLocalPlayer(match, 0);
+            }
             RefreshView();
         }
 
@@ -192,6 +198,15 @@ namespace DouQuqu
             RefreshChargeArrows(state);
             RefreshGroundMarkers(state);
             RefreshStaminaOverlays(state);
+            RefreshZoneView(state);
+        }
+
+        private static void RefreshZoneView(MatchState state)
+        {
+            ArenaZoneView view = ArenaZoneView.Ensure();
+            if (view == null || state == null) return;
+            bool schedule = state.playerCount > 1 && state.knobs != null && state.knobs.zoneSchedule;
+            view.Refresh(state.knobs, state.elapsed, schedule);
         }
 
         private void RefreshBugs(MatchState state)

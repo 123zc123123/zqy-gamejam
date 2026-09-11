@@ -253,6 +253,7 @@ namespace DouQuqu
         public int[] place = new int[0];
         public int[] matchScore = new int[0];
         public int[] killStreak = new int[0];
+        public Vector3[] homeSpawn = new Vector3[0];
         public readonly List<PickupState> pickups = new List<PickupState>();
         public readonly List<EggState> eggs = new List<EggState>();
         public readonly List<BabyState> babies = new List<BabyState>();

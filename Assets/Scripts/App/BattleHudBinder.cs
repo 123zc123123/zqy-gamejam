@@ -19,6 +19,9 @@ namespace DouQuqu
         private BattleCamera fitter;
         private RenderTexture target;
         private Vector2Int lastPixels;
+        private MatchController boundMatch;
+        private int localPlayerId;
+        private RectTransform boardRoot;
 
         private IEnumerator Start()
         {
@@ -29,7 +32,10 @@ namespace DouQuqu
                 yield break;
             }
 
+            boardRoot = FindNamed(transform, "Board") as RectTransform;
+            if (boardRoot != null) boardRoot.gameObject.SetActive(true);
             BattleIntro.HideChrome(transform as RectTransform);
+            if (boardRoot != null) boardRoot.gameObject.SetActive(true);
 
             Canvas hud = GetComponent<Canvas>();
             if (hud != null)
@@ -38,6 +44,10 @@ namespace DouQuqu
                 hud.sortingOrder = 100;
                 hud.enabled = true;
             }
+
+            RectMask2D clip = GetComponent<RectMask2D>();
+            if (clip == null) clip = gameObject.AddComponent<RectMask2D>();
+            clip.enabled = true;
 
             // 必须先摘掉 HUD 的 MainCamera，否则 Demo 会把顶视组件挂到平视相机上，
             // 场地在 XZ 平面会被拍成一条细线。
@@ -57,16 +67,26 @@ namespace DouQuqu
             yield return null;
             Canvas.ForceUpdateCanvases();
             yield return LoadDemoIfNeeded();
+            BindZoneCamera();
             BindBattleCamera();
+            BindBoardFollow();
             RefreshTarget(true);
-            ApplyArenaFromPit();
             SilenceHudRaycasts();
             BindMatchClock();
             BindScoreHud();
             GroundMarker.SyncFromHud(transform);
-            yield return BattleIntro.Play(transform as RectTransform, pit);
+            bool dropToCorner = boundMatch != null
+                && boundMatch.ConfiguredPlayers > 1
+                && boundMatch.Knobs != null
+                && boundMatch.Knobs.zoneSchedule;
+            if (fitter != null)
+            {
+                if (dropToCorner) fitter.FrameOpeningPanorama();
+                else fitter.FrameCurrentZone(0f);
+            }
+            yield return BattleIntro.Play(transform as RectTransform, pit, fitter, localPlayerId, dropToCorner);
+            if (fitter != null) fitter.FollowLocalPlayer(boundMatch, localPlayerId);
             RefreshTarget(true);
-            ApplyArenaFromPit();
             BindStick();
             BindMatchClock();
             BindScoreHud();
@@ -76,23 +96,58 @@ namespace DouQuqu
 
         private void LateUpdate()
         {
+            if (boardRoot == null)
+                boardRoot = FindNamed(transform, "Board") as RectTransform;
+            if (boardRoot != null && !boardRoot.gameObject.activeSelf)
+                boardRoot.gameObject.SetActive(true);
             if (pit == null || battleCam == null || view == null) return;
             RefreshTarget(false);
         }
 
         private void OnDestroy()
         {
+            if (boundMatch != null) boundMatch.ZoneSnapped -= OnZoneSnapped;
             ReleaseTarget();
             Rules.ResetArenaSize();
         }
 
-        private void ApplyArenaFromPit()
+        private void BindZoneCamera()
         {
-            if (pit == null) return;
-            Canvas.ForceUpdateCanvases();
-            Rect rect = pit.rect;
-            Rules.ApplyArenaFromRect(rect.width, rect.height);
-            if (fitter != null) fitter.Fit();
+            boundMatch = UnityEngine.Object.FindObjectOfType<MatchController>();
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            localPlayerId = network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
+            if (boundMatch != null) boundMatch.ZoneSnapped += OnZoneSnapped;
+        }
+
+        private void BindBoardFollow()
+        {
+            RectTransform board = FindNamed(transform, "Board") as RectTransform;
+            if (board == null || pit == null) return;
+            boardRoot = board;
+            board.gameObject.SetActive(true);
+            if (pit.parent == board && board.parent != null)
+            {
+                int index = board.GetSiblingIndex();
+                pit.SetParent(board.parent, true);
+                pit.SetSiblingIndex(index + 1);
+                pit.localScale = Vector3.one;
+            }
+
+            BattleBoardFollow.Bind(board, pit, fitter, OpeningArtScale());
+        }
+
+        private float OpeningArtScale()
+        {
+            if (boundMatch != null && boundMatch.Knobs != null)
+                return Mathf.Max(0.01f, boundMatch.Knobs.zoneScale0);
+            return 2f;
+        }
+
+        private void OnZoneSnapped(int tier)
+        {
+            if (fitter == null || boundMatch == null) return;
+            float settle = boundMatch.Knobs != null ? boundMatch.Knobs.camSettleT : 0.8f;
+            fitter.PullIntoZone(settle);
         }
 
         private void PreparePitView()
@@ -193,21 +248,22 @@ private void FitPitToHud()
             battleCam.enabled = true;
             battleCam.orthographic = true;
             battleCam.clearFlags = CameraClearFlags.SolidColor;
-            battleCam.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            Color clearSand = BattleBoard.Sand;
+            clearSand.a = 0f;
+            battleCam.backgroundColor = clearSand;
             battleCam.depth = -1;
-            BattleBoard.Install();
             BattleBoard.HideSurface();
 
             AudioListener keep = battleCam.GetComponent<AudioListener>();
             if (keep == null) keep = battleCam.gameObject.AddComponent<AudioListener>();
             keep.enabled = true;
-            AudioListener[] listeners = Object.FindObjectsOfType<AudioListener>();
+            AudioListener[] listeners = UnityEngine.Object.FindObjectsOfType<AudioListener>();
             for (int i = 0; i < listeners.Length; i++)
                 if (listeners[i] != null && listeners[i] != keep) listeners[i].enabled = false;
 
-            UIDocument stickHud = Object.FindObjectOfType<UIDocument>();
+            UIDocument stickHud = UnityEngine.Object.FindObjectOfType<UIDocument>();
             if (stickHud != null) stickHud.enabled = false;
-            TouchInput touch = Object.FindObjectOfType<TouchInput>();
+            TouchInput touch = UnityEngine.Object.FindObjectOfType<TouchInput>();
             if (touch != null) touch.enabled = false;
         }
 
@@ -228,7 +284,7 @@ private void FitPitToHud()
 
         private static void StartMatchIfNeeded()
         {
-            MatchController match = Object.FindObjectOfType<MatchController>();
+            MatchController match = UnityEngine.Object.FindObjectOfType<MatchController>();
             if (match != null && !match.IsStarted)
                 match.StartMatch();
         }
@@ -239,21 +295,21 @@ private void FitPitToHud()
             if (clock == null) return;
             MatchClockHud hud = clock.GetComponent<MatchClockHud>();
             if (hud == null) hud = clock.gameObject.AddComponent<MatchClockHud>();
-            hud.Bind(Object.FindObjectOfType<MatchController>());
+            hud.Bind(UnityEngine.Object.FindObjectOfType<MatchController>());
         }
 
         private void BindScoreHud()
         {
             BattleScoreHud hud = GetComponent<BattleScoreHud>();
             if (hud == null) hud = gameObject.AddComponent<BattleScoreHud>();
-            hud.Bind(Object.FindObjectOfType<MatchController>());
+            hud.Bind(UnityEngine.Object.FindObjectOfType<MatchController>());
         }
 
         private void BindStick()
         {
             Canvas canvas = GetComponent<Canvas>();
             if (pit == null || canvas == null || canvas.transform.Find("HudStick") != null) return;
-            MatchController match = Object.FindObjectOfType<MatchController>();
+            MatchController match = UnityEngine.Object.FindObjectOfType<MatchController>();
             LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
             int localId = network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
             HudStick.Create(pit, canvas, match, localId);
@@ -297,7 +353,7 @@ private void FitPitToHud()
             target = new RenderTexture(pixels.x, pixels.y, 16, RenderTextureFormat.ARGB32)
             {
                 name = "Battlefield",
-                antiAliasing = 2,
+                antiAliasing = 1,
                 filterMode = FilterMode.Bilinear,
                 wrapMode = TextureWrapMode.Clamp
             };

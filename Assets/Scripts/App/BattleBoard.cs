@@ -16,15 +16,28 @@ namespace DouQuqu
 
         public static void Install()
         {
-            HideLegacyArena();
-            EnsureBoard();
+            InstallOpening(1f);
         }
 
-        /// <summary>HUD 用 2D 战斗盘时关掉 3D 板，避免盖住 table 贴图。</summary>
+        /// <summary>3D 底板按开局档铺，收口只改有效区，不把桌子收小。</summary>
+        public static void InstallOpening(float openingScale)
+        {
+            HideLegacyArena();
+            EnsureBoard(Mathf.Max(0.01f, openingScale));
+        }
+
+        /// <summary>关掉旧 Ground / 围栏和 3D 底板，只留 2D HUD 棋盘。</summary>
         public static void HideSurface()
         {
-            GameObject board = GameObject.Find(SlotName);
-            if (board != null) board.SetActive(false);
+            HideLegacyArena();
+            MeshFilter[] filters = UnityEngine.Object.FindObjectsOfType<MeshFilter>();
+            for (int i = 0; i < filters.Length; i++)
+            {
+                MeshFilter filter = filters[i];
+                if (filter == null || filter.gameObject.name != SlotName) continue;
+                if (filter.GetComponent<RectTransform>() != null) continue;
+                filter.gameObject.SetActive(false);
+            }
         }
 
         private static void HideLegacyArena()
@@ -60,26 +73,29 @@ namespace DouQuqu
             if (go != null) go.SetActive(false);
         }
 
-        private static void EnsureBoard()
+        private static void EnsureBoard(float openingScale)
         {
             GameObject board = GameObject.Find(SlotName);
             if (board == null)
             {
                 board = GameObject.CreatePrimitive(PrimitiveType.Plane);
                 board.name = SlotName;
+                board.transform.SetParent(null);
                 board.transform.position = Vector3.zero;
                 board.transform.rotation = Quaternion.identity;
-                float planeSize = 10f;
-                board.transform.localScale = new Vector3(
-                    Rules.ArenaHalfWidth * 2f / planeSize,
-                    1f,
-                    Rules.ArenaHalfDepth * 2f / planeSize);
                 Collider hit = board.GetComponent<Collider>();
                 if (hit != null) Object.Destroy(hit);
-                Scene demo = SceneManager.GetSceneByName(SceneNames.BattleDemo);
-                if (demo.IsValid() && demo.isLoaded)
-                    SceneManager.MoveGameObjectToScene(board, demo);
             }
+
+            board.SetActive(true);
+
+            const float planeSize = 10f;
+            float halfW = Rules.DefaultArenaHalfWidth * openingScale;
+            float halfD = Rules.DefaultArenaHalfDepth * openingScale;
+            board.transform.localScale = new Vector3(
+                halfW * 2f / planeSize,
+                1f,
+                halfD * 2f / planeSize);
 
             Renderer renderer = board.GetComponent<Renderer>();
             if (renderer == null) return;
