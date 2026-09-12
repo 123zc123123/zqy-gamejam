@@ -75,7 +75,7 @@ namespace DouQuqu
         public static int Eggs => CurrentPlayer == null ? 0 : CurrentPlayer.eggs;
         public static event Action PlayerDataChanged;
 
-        /// <summary>本机所有登过的名字，按账号积分从高到低；同分先登录的在前。</summary>
+        /// <summary>本机积分大于 0 的玩家，按账号积分从高到低；同分先登录的在前。</summary>
         public static List<PlayerProfile> GetRankingSnapshot()
         {
             EnsureLoaded();
@@ -84,7 +84,10 @@ namespace DouQuqu
             List<int> order = new List<int>();
             for (int i = 0; i < database.players.Count; i++)
             {
-                if (database.players[i] == null || string.IsNullOrEmpty(database.players[i].playerName)) continue;
+                if (database.players[i] == null
+                    || string.IsNullOrEmpty(database.players[i].playerName)
+                    || database.players[i].score <= 0)
+                    continue;
                 order.Add(i);
             }
             order.Sort((a, b) =>

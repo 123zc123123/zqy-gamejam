@@ -18,7 +18,7 @@ namespace DouQuqu
         private static readonly Color AccentColor = new Color(0.30f, 0.76f, 0.95f, 1f);
         private static readonly Color TextColor = new Color(0.92f, 0.97f, 1f, 1f);
 
-        /// <summary>创建适配横屏手机的根 Canvas，并补齐触摸事件系统。</summary>
+        /// <summary>创建适配手机竖屏的根 Canvas，并补齐触摸事件系统。</summary>
         public static TMP_FontAsset Font => GetRuntimeFontAsset();
 
         public static RectTransform CreateOverlay(string name, int sortingOrder)
@@ -44,8 +44,10 @@ namespace DouQuqu
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+            // 所有运行时创建的整屏 UI 统一以 1080×1920 竖屏为设计基准。
+            // 以高度为主进行缩放，窄屏设备会自然裁切/留出左右边距，不会把布局压成横屏。
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.matchWidthOrHeight = 1f;
 
             RectTransform root = canvasObject.GetComponent<RectTransform>();
             Stretch(root);

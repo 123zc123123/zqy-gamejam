@@ -50,6 +50,8 @@ namespace DouQuqu
             if (legacy != null)
             {
                 CopyRect(legacy, rect);
+                // 旧页面底栏可能保留横屏锚点；公共底栏统一重新锁到竖屏底部。
+                LockToBottom(rect);
                 legacy.gameObject.SetActive(false);
             }
             else
@@ -333,15 +335,25 @@ namespace DouQuqu
             dest.localScale = Vector3.one;
         }
 
-        private static void PlaceAtBottom(RectTransform rect)
+        private const float BottomNavHorizontalOffset = 40f;
+
+        /// <summary>把公共底栏固定在竖屏底部，并保留一点右移作为安全边距。</summary>
+        private static void LockToBottom(RectTransform rect)
         {
             if (rect == null) return;
             rect.anchorMin = new Vector2(0.5f, 0f);
             rect.anchorMax = new Vector2(0.5f, 0f);
             rect.pivot = new Vector2(0.5f, 0f);
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = new Vector2(1080f, 200f);
+            rect.anchoredPosition = new Vector2(BottomNavHorizontalOffset, 0f);
+            rect.localRotation = Quaternion.identity;
             rect.localScale = Vector3.one;
+        }
+
+        private static void PlaceAtBottom(RectTransform rect)
+        {
+            if (rect == null) return;
+            rect.sizeDelta = new Vector2(1080f, 200f);
+            LockToBottom(rect);
         }
     }
 }
