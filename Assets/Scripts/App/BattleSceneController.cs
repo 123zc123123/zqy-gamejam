@@ -33,10 +33,16 @@ namespace DouQuqu
 
             network = AppServices.Instance.Network;
             matchKind = AppServices.TakePendingMatchKind();
-            if (network != null && network.IsMatchReady)
+            bool lanBattle = network != null && network.IsRunning
+                && (network.IsMatchReady || network.IsHost || network.LocalPlayerId >= 0);
+            if (lanBattle)
             {
+                if (!network.IsMatchReady) network.PrepareBattle();
                 network.BindMatchController(match);
                 if (matchKind == MatchKind.None) matchKind = MatchKind.Friend;
+                CricketPick[] lanPicks = AppServices.TakePendingLocalPicks();
+                int localId = network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
+                if (lanPicks != null && match != null) match.SetRoster(localId, lanPicks);
             }
             else if (match != null)
             {

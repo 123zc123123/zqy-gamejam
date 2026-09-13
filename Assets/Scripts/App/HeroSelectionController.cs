@@ -334,6 +334,12 @@ namespace DouQuqu
             if (expanded) ApplyCollapsed();
             RefreshAll();
             AppServices.PendingLocalPicks = CopyPicks();
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network != null && network.IsRunning)
+            {
+                network.SetReady(true);
+                network.PrepareBattle();
+            }
             SceneNames.Load(SceneNames.Battle);
         }
 

@@ -380,6 +380,23 @@ namespace DouQuqu
             pendingWelcomePlayerCount = 0;
         }
 
+        /// <summary>选虫锁定后进战斗：好友房也打上开战，避免掉成单机。</summary>
+        public void PrepareBattle()
+        {
+            if (!running) return;
+            if (matchSeed == 0) matchSeed = Environment.TickCount;
+            matchReady = true;
+            if (IsHost)
+            {
+                startBroadcastRemaining = 1.2f;
+                startBroadcastTick = 0f;
+                BroadcastLobby();
+                foreach (IPEndPoint endpoint in clients.Values)
+                    SendEnvelope(sessionSocket, endpoint, "MATCH_START", matchSeed.ToString(), 0);
+            }
+            RaiseMatchReady();
+        }
+
         /// <summary>所有已连接客户端准备后，由主机启动对局。</summary>
         public void StartMatchAsHost()
         {
@@ -406,11 +423,11 @@ namespace DouQuqu
         /// <summary>把本地输入发送给主机；如果自身是主机则立即应用。</summary>
         public void SendInput(Vector2 direction, bool held, bool released)
         {
-            if (LocalPlayerId < 0 || match == null) return;
+            if (LocalPlayerId < 0) return;
             InputFrame frame = new InputFrame(LocalPlayerId, direction, held, released);
             if (IsHost)
             {
-                match.SetInput(frame);
+                if (match != null) match.SetInput(frame);
             }
             else if (hostEndpoint != null)
             {

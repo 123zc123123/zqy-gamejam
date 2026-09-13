@@ -312,7 +312,7 @@ private void FitPitToHud()
             MatchController match = UnityEngine.Object.FindObjectOfType<MatchController>();
             LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
             int localId = network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
-            HudStick.Create(pit, canvas, match, localId);
+            HudStick.Create(pit, canvas, match, localId, network);
         }
 
         private static Camera FindDemoCamera()
