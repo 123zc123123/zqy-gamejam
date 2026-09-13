@@ -16,8 +16,14 @@ namespace DouQuqu
         private GameObject playersRoot;
         private GameObject leaveRoot;
         private GameObject readyRoot;
+        private GameObject matchmakingStatusRoot;
+        private TMP_Text matchmakingTimerText;
+        private readonly Dictionary<Button, bool> lockedButtonStates = new Dictionary<Button, bool>();
         private bool bound;
         private bool friendRoom;
+        private bool matching;
+
+        private const float RandomMatchTimeout = 10f;
 
         public bool InRoom { get; private set; }
 
@@ -28,6 +34,7 @@ namespace DouQuqu
             CacheRoots();
             EnsureTeamRoomUi();
             EnsureReadyButton();
+            EnsureMatchmakingUi();
             RelabelMatchButton();
             BindButtons();
             HookLobby();
@@ -43,6 +50,7 @@ namespace DouQuqu
         {
             if (AppServices.Instance == null || AppServices.Instance.Network == null) return;
             AppServices.Instance.Network.LobbyChanged -= OnLobbyChanged;
+            AppServices.Instance.Network.MatchReady -= OnMatchReady;
         }
 
         private void HookLobby()
@@ -50,11 +58,28 @@ namespace DouQuqu
             if (AppServices.Instance == null || AppServices.Instance.Network == null) return;
             AppServices.Instance.Network.LobbyChanged -= OnLobbyChanged;
             AppServices.Instance.Network.LobbyChanged += OnLobbyChanged;
+            AppServices.Instance.Network.MatchReady -= OnMatchReady;
+            AppServices.Instance.Network.MatchReady += OnMatchReady;
         }
 
         private void OnLobbyChanged(LanLobbySnapshot snapshot)
         {
             RefreshLobbyNames();
+            RefreshMatchmakingTimer();
+        }
+
+        private void Update()
+        {
+            if (!matching) return;
+            RefreshMatchmakingTimer();
+
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null || !network.IsRunning)
+            {
+                // Socket 意外停止时解除界面锁，避免玩家被卡在不可点击的匹配页。
+                matching = false;
+                ApplyVisual();
+            }
         }
 
         private void Start()
@@ -67,15 +92,48 @@ namespace DouQuqu
 
         public void EnterRandomMatch()
         {
+            if (matching) return;
+
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null)
+            {
+                Debug.LogWarning("[DouQuqu] 没有局域网会话，无法开始随机匹配");
+                return;
+            }
+
+            string playerName = PlayerDataService.IsLoggedIn ? PlayerDataService.CurrentPlayerName : "玩家";
             AppServices.PendingMatchKind = MatchKind.Random;
             InRoom = true;
             friendRoom = false;
+            matching = true;
+            network.StartAutomaticMatchmaking(playerName, RandomMatchTimeout);
+            if (!network.IsRunning)
+            {
+                matching = false;
+                InRoom = false;
+                ApplyVisual();
+                return;
+            }
+
             ApplyVisual();
-            Lobby.Show(Lobby.Page.HeroSelection);
+            RefreshLobbyNames();
+            RefreshMatchmakingTimer();
+        }
+
+        /// <summary>局域网匹配完成后再进入选虫页，确保战斗场景能拿到同一局房间状态。</summary>
+        private void OnMatchReady()
+        {
+            if (!matching) return;
+            matching = false;
+            ApplyVisual();
+            if (Lobby.Instance != null && Lobby.Instance.CurrentPage == Lobby.Page.BattleEnter)
+                Lobby.Show(Lobby.Page.HeroSelection);
         }
 
         public void EnterFriendRoom()
         {
+            if (matching) return;
+
             string code = ReadRoomCode();
             if (string.IsNullOrEmpty(code))
             {
@@ -99,7 +157,7 @@ namespace DouQuqu
 
         public void GoHeroSelection()
         {
-            if (!InRoom) return;
+            if (!InRoom || matching) return;
             Lobby.Show(Lobby.Page.HeroSelection);
         }
 
@@ -113,6 +171,7 @@ namespace DouQuqu
         {
             InRoom = false;
             friendRoom = false;
+            matching = false;
             if (AppServices.Instance != null && AppServices.Instance.Network != null)
                 AppServices.Instance.Network.Stop();
             ApplyVisual();
@@ -132,6 +191,56 @@ namespace DouQuqu
             leaveRoot = FindGo(root, "Group 11");
             if (leaveRoot == null) leaveRoot = FindGo(root, "离开房间");
             readyRoot = FindGo(root, "准备");
+        }
+
+        /// <summary>匹配页没有专用预制体时，运行时补一个适配竖屏的倒计时文本。</summary>
+        private void EnsureMatchmakingUi()
+        {
+            if (pageRoot == null) return;
+
+            matchmakingTimerText = FindTmp(pageRoot.transform, "MatchmakingTimerTMP");
+            if (matchmakingTimerText == null)
+                matchmakingTimerText = FindTmp(pageRoot.transform, "MatchTimerTMP");
+
+            if (matchmakingTimerText == null)
+            {
+                GameObject go = new GameObject("MatchmakingTimerTMP", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                go.transform.SetParent(pageRoot.transform, false);
+                RectTransform rect = go.GetComponent<RectTransform>();
+                rect.anchorMin = new Vector2(0.5f, 0.5f);
+                rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.sizeDelta = new Vector2(620f, 82f);
+                rect.anchoredPosition = new Vector2(0f, -250f);
+
+                TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
+                text.font = UiFactory.Font;
+                text.fontSize = 38f;
+                text.color = TitleColor;
+                text.alignment = TextAlignmentOptions.Center;
+                text.enableWordWrapping = false;
+                text.raycastTarget = false;
+                matchmakingTimerText = text;
+            }
+
+            matchmakingStatusRoot = matchmakingTimerText != null ? matchmakingTimerText.gameObject : null;
+            if (matchmakingStatusRoot != null) matchmakingStatusRoot.SetActive(false);
+        }
+
+        /// <summary>刷新“已匹配时间 / 10 秒”的显示；匹配完成后隐藏。</summary>
+        private void RefreshMatchmakingTimer()
+        {
+            if (matchmakingTimerText == null) return;
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (!matching || network == null)
+            {
+                if (matchmakingStatusRoot != null) matchmakingStatusRoot.SetActive(false);
+                return;
+            }
+
+            if (matchmakingStatusRoot != null) matchmakingStatusRoot.SetActive(true);
+            int elapsed = Mathf.Clamp(Mathf.FloorToInt(network.MatchmakingElapsed), 0, Mathf.CeilToInt(RandomMatchTimeout));
+            matchmakingTimerText.text = string.Format("匹配中  {0:00} / {1:00} 秒", elapsed, Mathf.CeilToInt(RandomMatchTimeout));
         }
 
         private void BindButtons()
@@ -402,8 +511,37 @@ namespace DouQuqu
             if (playersRoot != null) playersRoot.SetActive(InRoom);
             if (leaveRoot != null) leaveRoot.SetActive(InRoom);
             if (readyRoot != null) readyRoot.SetActive(InRoom && friendRoom);
+            SetPageButtonsLocked(matching);
+            RefreshMatchmakingTimer();
             if (Lobby.Instance == null) return;
             Lobby.Instance.RefreshNavVisibility();
+        }
+
+        /// <summary>匹配期间锁住其它入口，保留“离开房间”按钮用于取消匹配。</summary>
+        private void SetPageButtonsLocked(bool locked)
+        {
+            if (pageRoot == null) return;
+            if (locked)
+            {
+                Button[] buttons = pageRoot.GetComponentsInChildren<Button>(true);
+                for (int i = 0; i < buttons.Length; i++)
+                {
+                    Button button = buttons[i];
+                    if (button == null) continue;
+                    if (leaveRoot != null && (button.gameObject == leaveRoot || button.transform.IsChildOf(leaveRoot.transform)))
+                        continue;
+                    if (!lockedButtonStates.ContainsKey(button))
+                        lockedButtonStates.Add(button, button.interactable);
+                    button.interactable = false;
+                }
+                return;
+            }
+
+            foreach (KeyValuePair<Button, bool> pair in lockedButtonStates)
+            {
+                if (pair.Key != null) pair.Key.interactable = pair.Value;
+            }
+            lockedButtonStates.Clear();
         }
 
         private static void BindButton(GameObject go, UnityEngine.Events.UnityAction clicked)
@@ -431,6 +569,12 @@ namespace DouQuqu
         {
             Transform found = FindNamed(root, objectName);
             return found != null ? found.gameObject : null;
+        }
+
+        private static TMP_Text FindTmp(Transform root, string objectName)
+        {
+            Transform found = FindNamed(root, objectName);
+            return found != null ? found.GetComponent<TMP_Text>() : null;
         }
 
         private static Transform FindDirect(Transform root, string name)
