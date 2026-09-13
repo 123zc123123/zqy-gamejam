@@ -47,6 +47,14 @@ namespace DouQuqu
             "蓄得快、抓地稳，适合走位抢先。",
             "蓄得久，适合算准时机。"
         };
+        public static readonly string[] SkillBlurbs =
+        {
+            "",
+            "出局后立即召唤鬼神形态再次入场",
+            "耐力值超过上限百分之70时，可获得三秒的蓄力不被打断增益",
+            "满蓄状态撞击敌方目标可以获得对方一段耐力值",
+            "场上的道具增益获得大幅提升"
+        };
 
         public static readonly Color[] QualityColors =
         {
@@ -64,6 +72,15 @@ namespace DouQuqu
             new Color(0.95f, 0.48f, 0.78f, 1f),
             new Color(0.28f, 0.72f, 0.58f, 1f),
             new Color(0.22f, 0.55f, 0.32f, 1f)
+        };
+        /// <summary>极品技能备注色：关羽绿、吕布金、貂蝉粉、诸葛亮蓝。</summary>
+        public static readonly Color[] SkillBlurbColors =
+        {
+            Color.white,
+            new Color(0.28f, 0.82f, 0.40f, 1f),
+            new Color(1.00f, 0.78f, 0.22f, 1f),
+            new Color(1.00f, 0.48f, 0.74f, 1f),
+            new Color(0.32f, 0.62f, 1.00f, 1f)
         };
 
         public static string QualityName(int quality)
@@ -135,8 +152,24 @@ namespace DouQuqu
 
         public static string Blurb(int temperament)
         {
+            return Blurb(1, temperament);
+        }
+
+        /// <summary>详情备注行。极品写技能人话，其余写性格倾向。</summary>
+        public static string Blurb(int quality, int temperament)
+        {
             temperament = Mathf.Clamp(temperament, 1, 4);
+            if (quality >= 4) return SkillBlurbs[temperament];
             return TemperamentBlurbs[temperament];
+        }
+
+        public static bool TrySkillBlurbColor(int quality, int temperament, out Color color)
+        {
+            color = Color.white;
+            if (quality < 4) return false;
+            temperament = Mathf.Clamp(temperament, 1, 4);
+            color = SkillBlurbColors[temperament];
+            return true;
         }
 
         /// <summary>棋盘格短名：名字 + 性格。</summary>

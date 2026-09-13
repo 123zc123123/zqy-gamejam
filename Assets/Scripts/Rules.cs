@@ -149,6 +149,8 @@ namespace DouQuqu
         [Header("极品技能")]
         [InspectorCn("关羽额外命", "极品关羽第一次出圈立刻拉回的次数")]
         public int guanYuRevives = 1;
+        [InspectorCn("关羽鬼神加成", "鬼神形态六维同乘")]
+        public float guanYuGhostMul = 1.1f;
         [InspectorCn("吕布霸体时长", "耐力过半开蓄后头上那条走完的秒数")]
         public float luBuArmorT = 3f;
         [InspectorCn("吕布开蓄耐力门槛", "开始蓄力时耐力 / 上限，达到才有霸体")]
@@ -621,7 +623,25 @@ namespace DouQuqu
             bug.diaochanStealArmed = false;
             bug.hitTier = HitTier.None;
             bug.lastHitId = -1;
+            EnterGuanYuGhost(knobs, bug);
             return true;
+        }
+
+        /// <summary>鬼神形态：六维各加一成，再刷新体型。</summary>
+        public static void EnterGuanYuGhost(MatchKnobs knobs, BugState bug)
+        {
+            if (bug == null) return;
+            float mul = knobs != null ? Mathf.Max(1f, knobs.guanYuGhostMul) : 1.1f;
+            bug.guanYuGhost = true;
+            bug.massMul *= mul;
+            bug.gripMul *= mul;
+            bug.chargeSpeedMul *= mul;
+            bug.chargeTimeMul *= mul;
+            bug.staminaRegenMul *= mul;
+            bug.staminaMaxMul *= mul;
+            bug.dMinMul *= mul;
+            RefreshBody(knobs, bug);
+            bug.slideMu = GripOf(knobs, bug);
         }
 
         /// <summary>成长层倍率。半径、质量各乘一次；玩家跳跃乘在点跳距离 dMin 上。</summary>
@@ -1485,6 +1505,7 @@ namespace DouQuqu
         public int quality;
         public int temperament;
         public int guanYuReviveLeft;
+        public bool guanYuGhost;
         public float luBuArmorT;
         public bool diaochanStealArmed;
         public float dMinMul = 1f;

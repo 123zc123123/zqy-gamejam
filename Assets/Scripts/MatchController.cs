@@ -432,7 +432,7 @@ namespace DouQuqu
                     buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
                     charging = b.charging, airborne = b.airborne, hitTier = (int)b.hitTier,
                     launchVelocity = b.launchVelocity,
-                    guanYuReviveLeft = b.guanYuReviveLeft, luBuArmorT = b.luBuArmorT,
+                    guanYuReviveLeft = b.guanYuReviveLeft, guanYuGhost = b.guanYuGhost, luBuArmorT = b.luBuArmorT,
                     diaochanStealArmed = b.diaochanStealArmed
                 };
             }
@@ -563,6 +563,8 @@ namespace DouQuqu
                     state.bugs[i].guanYuReviveLeft = snapshot.bugs[i].guanYuReviveLeft;
                     state.bugs[i].luBuArmorT = snapshot.bugs[i].luBuArmorT;
                     state.bugs[i].diaochanStealArmed = snapshot.bugs[i].diaochanStealArmed;
+                    if (snapshot.bugs[i].guanYuGhost)
+                        Rules.EnterGuanYuGhost(knobs, state.bugs[i]);
                 }
             }
             state.nest = snapshot.nest == null ? null : new NestState { position = snapshot.nest.position, hp = snapshot.nest.hp, alive = snapshot.nest.alive };
@@ -840,6 +842,7 @@ namespace DouQuqu
             CricketCatalog.ApplyCombatBias(bug, quality, temperament);
             Rules.RefreshBody(knobs, bug);
             bug.slideMu = Rules.GripOf(knobs, bug);
+            bug.guanYuGhost = false;
             if (refillStamina)
             {
                 bug.stamina = Rules.StaminaMaxOf(knobs, bug);

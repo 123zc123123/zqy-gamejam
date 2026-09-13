@@ -166,7 +166,7 @@ namespace DouQuqu
         }
 
         /// <summary>全员黑描边，不染色贴图。队伍色走脚下圈。吕布霸体改金描边和金光。</summary>
-        public void ApplyTeam(bool ally, bool charging, bool armorGlowOn = false)
+        public void ApplyTeam(bool ally, bool charging, bool armorGlowOn = false, bool ghostOn = false)
         {
             if (parts == null || parts.Length == 0) BindHierarchy();
             if (parts == null || parts.Length == 0) return;
@@ -175,9 +175,9 @@ namespace DouQuqu
             _ = charging;
             if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
 
-            Color outline = armorGlowOn ? ArmorGold : outlineColor;
-            Color tint = armorGlowOn ? ArmorTint : Color.white;
-            float width = armorGlowOn ? outlineWidth * 1.7f : outlineWidth;
+            Color outline = armorGlowOn ? ArmorGold : (ghostOn ? new Color(0.55f, 0.85f, 1f, 1f) : outlineColor);
+            Color tint = armorGlowOn ? ArmorTint : (ghostOn ? new Color(0.78f, 0.9f, 1f, 1f) : Color.white);
+            float width = armorGlowOn ? outlineWidth * 1.7f : (ghostOn ? outlineWidth * 1.45f : outlineWidth);
             for (int i = 0; i < parts.Length; i++)
             {
                 SpriteRenderer renderer = parts[i];

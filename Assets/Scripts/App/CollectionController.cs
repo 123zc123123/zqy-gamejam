@@ -113,14 +113,19 @@ namespace DouQuqu
         {
             if (!EnsureDetailView()) return;
             detailView.SetCatalogMode();
+            Color? descColor = null;
+            Color skillColor;
+            if (CricketCatalog.TrySkillBlurbColor(quality, temperament, out skillColor))
+                descColor = skillColor;
             detailView.Show(
                 CricketCatalog.QualityName(quality),
                 CricketCatalog.CricketName(quality, temperament),
-                CricketCatalog.Blurb(temperament),
+                CricketCatalog.Blurb(quality, temperament),
                 SpriteFor(quality, temperament),
                 CricketCatalog.TemperamentName(temperament),
                 CricketCatalog.PanelStatDisplays(quality, temperament),
-                CricketCatalog.PanelStatStrongFlags(temperament));
+                CricketCatalog.PanelStatStrongFlags(temperament),
+                descColor);
         }
 
         private bool EnsureDetailView()

@@ -38,8 +38,11 @@ namespace DouQuqu.Editor.Tests
             bug.guanYuReviveLeft = 1;
             bug.position = new Vector3(80f, 0f, 0f);
             Assert.IsFalse(Rules.InsideArena(bug.position));
+            float massBefore = bug.massMul;
             Assert.IsTrue(Rules.TryGuanYuRevive(knobs, bug));
             Assert.AreEqual(0, bug.guanYuReviveLeft);
+            Assert.IsTrue(bug.guanYuGhost);
+            Assert.AreEqual(massBefore * knobs.guanYuGhostMul, bug.massMul, 1e-4f);
             Assert.IsTrue(Rules.InsideArena(bug.position));
             Assert.IsFalse(Rules.TryGuanYuRevive(knobs, bug));
         }

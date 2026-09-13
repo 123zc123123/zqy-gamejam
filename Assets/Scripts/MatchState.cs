@@ -135,6 +135,7 @@ namespace DouQuqu
         public int hitTier;
         public Vector3 launchVelocity;
         public int guanYuReviveLeft;
+        public bool guanYuGhost;
         public float luBuArmorT;
         public bool diaochanStealArmed;
     }

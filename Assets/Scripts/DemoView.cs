@@ -278,7 +278,7 @@ namespace DouQuqu
                 if (unit != null) unit.AlignMarkerToBody();
                 if (cricket != null)
                 {
-                    cricket.ApplyTeam(bug.id == 0, bug.charging, Rules.ChargeLocked(bug));
+                    cricket.ApplyTeam(bug.id == 0, bug.charging, Rules.ChargeLocked(bug), bug.guanYuGhost);
                     CricketAnim anim = body.GetComponent<CricketAnim>();
                     if (anim == null) anim = body.GetComponentInChildren<CricketAnim>(true);
                     if (anim == null) anim = body.AddComponent<CricketAnim>();

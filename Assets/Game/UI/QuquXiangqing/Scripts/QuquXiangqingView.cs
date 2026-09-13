@@ -143,8 +143,10 @@ namespace ZqyGameJam.UI.QuquXiangqing
 
         static readonly Color StatNormal = new Color(0.176471f, 0.352941f, 0.152941f, 1f);
         static readonly Color StatStrong = new Color(0.619608f, 0.164706f, 0.168627f, 1f);
+        private Color descriptionHome = Color.white;
+        private bool descriptionHomeCaptured;
 
-        public void Show(string rank, string displayName, string description, Sprite sprite, string subtitle = null, string[] stats = null, bool[] strongStats = null)
+        public void Show(string rank, string displayName, string description, Sprite sprite, string subtitle = null, string[] stats = null, bool[] strongStats = null, Color? descriptionColor = null)
         {
             EnsureDimmer();
             CacheButtons();
@@ -155,6 +157,15 @@ namespace ZqyGameJam.UI.QuquXiangqing
             Write(nameText, string.IsNullOrEmpty(subtitle) ? (displayName ?? "") : subtitle);
             Write(rankText, rank ?? "");
             Write(descriptionText, description ?? "");
+            if (descriptionText != null)
+            {
+                if (!descriptionHomeCaptured)
+                {
+                    descriptionHome = descriptionText.color;
+                    descriptionHomeCaptured = true;
+                }
+                descriptionText.color = descriptionColor ?? descriptionHome;
+            }
             if (portrait != null)
             {
                 portrait.sprite = sprite;
