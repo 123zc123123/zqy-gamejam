@@ -11,6 +11,15 @@ namespace DouQuqu
         private TMP_Text statusText;
         private Button loginButton;
 
+        private void Awake()
+        {
+            Screen.orientation = ScreenOrientation.Portrait;
+            Screen.autorotateToPortrait = true;
+            Screen.autorotateToPortraitUpsideDown = false;
+            Screen.autorotateToLandscapeLeft = false;
+            Screen.autorotateToLandscapeRight = false;
+        }
+
         private void Start()
         {
             VenueClient.Ensure();

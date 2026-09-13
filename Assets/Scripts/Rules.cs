@@ -146,6 +146,21 @@ namespace DouQuqu
         [InspectorCn("护盾拉回余量", "护盾拉回区内后再往里留的余量")]
         public float shieldPad = 0.08f;
 
+        [Header("极品技能")]
+        [InspectorCn("关羽额外命", "极品关羽第一次出圈立刻拉回的次数")]
+        public int guanYuRevives = 1;
+        [InspectorCn("吕布霸体时长", "耐力过半开蓄后头上那条走完的秒数")]
+        public float luBuArmorT = 3f;
+        [InspectorCn("吕布开蓄耐力门槛", "开始蓄力时耐力 / 上限，达到才有霸体")]
+        [Range(0.2f, 1f)]
+        public float luBuArmorStamina = 0.7f;
+        [InspectorCn("诸葛亮道具增益", "成长与限时道具增益倍率；狂暴不乘")]
+        public float jiItemPower = 1.7f;
+        [InspectorCn("无穷质量", "吕布霸体碰撞用的质量")]
+        public float unstoppableMass = 1000000f;
+        [InspectorCn("貂蝉偷耐力", "满蓄撞到第一个人时扣对方、加给自己的量")]
+        public float diaochanStealStamina = 1.5f;
+
         [Header("人机")]
         [InspectorCn("人机攻击距离", "人机主动起跳的攻击距离")]
         public float aiAttackRange = 14f;
@@ -486,11 +501,134 @@ namespace DouQuqu
             return bug.buffShieldT > 0f;
         }
 
+        public static bool IsJiPin(BugState bug)
+        {
+            return bug != null && bug.quality >= 4;
+        }
+
+        public static bool IsGuanYu(BugState bug)
+        {
+            return IsJiPin(bug) && bug.temperament == (int)CricketTemperament.ChenWen;
+        }
+
+        public static bool IsLuBu(BugState bug)
+        {
+            return IsJiPin(bug) && bug.temperament == (int)CricketTemperament.MengGong;
+        }
+
+        public static bool IsDiaoChan(BugState bug)
+        {
+            return IsJiPin(bug) && bug.temperament == (int)CricketTemperament.LingQiao;
+        }
+
+        public static bool IsZhuGe(BugState bug)
+        {
+            return IsJiPin(bug) && bug.temperament == (int)CricketTemperament.ZhiMou;
+        }
+
+        /// <summary>诸葛亮吃道具 / 成长时的增益倍率；别人是 1。</summary>
+        public static float ItemPowerMul(MatchKnobs knobs, BugState bug)
+        {
+            if (!IsZhuGe(bug) || knobs == null) return 1f;
+            return Mathf.Max(1f, knobs.jiItemPower);
+        }
+
+        /// <summary>限时道具倍率：超出 1 的部分乘诸葛亮增益。</summary>
+        public static float ItemScale(MatchKnobs knobs, float scale, BugState bug)
+        {
+            float power = ItemPowerMul(knobs, bug);
+            return 1f + (Mathf.Max(0.01f, scale) - 1f) * power;
+        }
+
+        public static float PickupChargeScale(MatchKnobs knobs, BugState bug)
+        {
+            return Mathf.Max(0.01f, ItemScale(knobs, knobs.chargeScale, bug));
+        }
+
+        /// <summary>吕布头上那条还在、且仍在蓄力。</summary>
+        public static bool ChargeLocked(BugState bug)
+        {
+            return bug != null && bug.charging && bug.luBuArmorT > 0f;
+        }
+
+        public static bool Unstoppable(BugState bug)
+        {
+            return ChargeLocked(bug);
+        }
+
+        public static bool IsFullCharge(MatchKnobs knobs, BugState bug)
+        {
+            if (bug == null || knobs == null) return false;
+            return bug.chargeTime + 1e-4f >= EffectiveChargeTime(knobs, bug);
+        }
+
+        /// <summary>满蓄跳出去撞到的第一个人：对方扣到 0 为止，貂蝉加配置值到自己上限。</summary>
+        public static bool TryDiaoChanSteal(MatchKnobs knobs, BugState diao, BugState victim)
+        {
+            if (!IsDiaoChan(diao) || diao == null || !diao.diaochanStealArmed || victim == null || diao == victim)
+                return false;
+            if (!victim.alive) return false;
+            diao.diaochanStealArmed = false;
+            float amount = knobs != null ? Mathf.Max(0f, knobs.diaochanStealStamina) : 1.5f;
+            victim.stamina = Mathf.Max(0f, victim.stamina - amount);
+            float max = StaminaMaxOf(knobs, diao);
+            diao.stamina = Mathf.Min(max, diao.stamina + amount);
+            BreakLuBuArmorIfBelowGate(knobs, victim);
+            return true;
+        }
+
+        /// <summary>被偷到开蓄门槛以下：霸体立刻结束，这一下可打断。</summary>
+        public static void BreakLuBuArmorIfBelowGate(MatchKnobs knobs, BugState bug)
+        {
+            if (!ChargeLocked(bug) || knobs == null) return;
+            float max = Mathf.Max(0.01f, StaminaMaxOf(knobs, bug));
+            if (bug.stamina + 1e-6f < max * Mathf.Clamp01(knobs.luBuArmorStamina))
+                bug.luBuArmorT = 0f;
+        }
+
+        public static float CollisionMass(MatchKnobs knobs, BugState bug)
+        {
+            if (bug == null) return 1f;
+            if (Unstoppable(bug)) return Mathf.Max(1000f, knobs != null ? knobs.unstoppableMass : 1000000f);
+            return Mathf.Max(0.01f, bug.mass);
+        }
+
+        public static bool TryStartLuBuArmor(MatchKnobs knobs, BugState bug)
+        {
+            if (!IsLuBu(bug) || knobs == null) return false;
+            float max = Mathf.Max(0.01f, StaminaMaxOf(knobs, bug));
+            return bug.stamina + 1e-6f >= max * Mathf.Clamp01(knobs.luBuArmorStamina);
+        }
+
+        /// <summary>关羽第一次出圈立刻拉回。护盾已经处理过才走到这里。</summary>
+        public static bool TryGuanYuRevive(MatchKnobs knobs, BugState bug)
+        {
+            if (bug == null || bug.guanYuReviveLeft <= 0) return false;
+            bug.guanYuReviveLeft--;
+            float pad = bug.radius + (knobs != null ? Mathf.Max(0f, knobs.shieldPad) : 0.08f);
+            bug.position = ClampInsideArena(bug.position, pad);
+            bug.previousPosition = bug.position;
+            bug.velocity = Vector3.zero;
+            ClearLaunch(bug);
+            bug.height = 0f;
+            bug.verticalVelocity = 0f;
+            bug.airborne = false;
+            bug.charging = false;
+            bug.holding = false;
+            bug.pendingCharge = false;
+            bug.chargeTime = 0f;
+            bug.luBuArmorT = 0f;
+            bug.diaochanStealArmed = false;
+            bug.hitTier = HitTier.None;
+            bug.lastHitId = -1;
+            return true;
+        }
+
         /// <summary>成长层倍率。半径、质量各乘一次；玩家跳跃乘在点跳距离 dMin 上。</summary>
         public static float GrowRate(MatchKnobs knobs, BugState bug)
         {
             if (bug == null) return 1f;
-            return 1f + bug.grow * Mathf.Max(0f, knobs.growPer);
+            return 1f + bug.grow * Mathf.Max(0f, knobs.growPer) * ItemPowerMul(knobs, bug);
         }
 
         /// <summary>计算幼虫自身成长层对体型、质量和蓄力速度产生的倍率。</summary>
@@ -504,7 +642,13 @@ namespace DouQuqu
         public static void RefreshBody(MatchKnobs knobs, BugState bug)
         {
             float g = GrowRate(knobs, bug);
-            float size = SizeActive(bug) ? knobs.sizeScale : 1f;
+            float size = 1f;
+            if (SizeActive(bug))
+            {
+                size = knobs.sizeScale;
+                if (bug.buffSizeT > 0f && !bug.rageSize)
+                    size = ItemScale(knobs, knobs.sizeScale, bug);
+            }
             float massMul = Mathf.Max(0.01f, bug.massMul);
             float sizeMul = Mathf.Sqrt(massMul);
             bug.radius = knobs.bugR * sizeMul * g * size;
@@ -531,7 +675,7 @@ namespace DouQuqu
         {
             float mul = bug == null ? 1f : StatMul(bug.chargeSpeedMul);
             float rate = knobs.vRate * mul * GrowRate(knobs, bug);
-            if (ChargeActive(bug)) rate *= knobs.chargeScale;
+            if (ChargeActive(bug)) rate *= PickupChargeScale(knobs, bug);
             if (bug != null && bug.rageCharge) rate *= Mathf.Max(0.01f, knobs.rageBoost);
             return rate;
         }
@@ -539,7 +683,7 @@ namespace DouQuqu
         /// <summary>返回当前增益下蓄力条的最大持续时间。</summary>
         public static float EffectiveChargeTime(MatchKnobs knobs, BugState bug)
         {
-            float scale = ChargeActive(bug) ? knobs.chargeScale : 1f;
+            float scale = ChargeActive(bug) ? PickupChargeScale(knobs, bug) : 1f;
             float mul = bug == null ? 1f : StatMul(bug.chargeTimeMul);
             return knobs.tChargeMax * mul / Mathf.Max(0.01f, scale);
         }
@@ -813,7 +957,7 @@ namespace DouQuqu
         /// <summary>点跳水平速度。蓄力强化把点跳距离乘 s²，速度乘 s。</summary>
         public static float JumpSpeedMin(MatchKnobs knobs, BugState bug = null)
         {
-            float s = ChargeActive(bug) ? Mathf.Max(0.01f, knobs.chargeScale) : 1f;
+            float s = ChargeActive(bug) ? PickupChargeScale(knobs, bug) : 1f;
             return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug)) * s;
         }
 
@@ -822,7 +966,7 @@ namespace DouQuqu
         {
             float tMax = Mathf.Max(0.000001f, EffectiveChargeTime(knobs, bug));
             float p = Mathf.Clamp(chargeTime, 0f, tMax) / tMax;
-            float s = ChargeActive(bug) ? Mathf.Max(0.01f, knobs.chargeScale) : 1f;
+            float s = ChargeActive(bug) ? PickupChargeScale(knobs, bug) : 1f;
             float r = JumpDistRatio(knobs);
             float rEff = Mathf.Max(1f, r / (s * s));
             float v0 = JumpSpeedFromDistance(knobs, DMinOf(knobs, bug));
@@ -926,18 +1070,19 @@ namespace DouQuqu
         /// <summary>将一种道具效果应用到蟋蟀，并刷新受影响的体型。</summary>
         public static void ApplyItem(MatchKnobs knobs, BugState bug, string kind)
         {
+            float power = ItemPowerMul(knobs, bug);
             if (kind == "size")
             {
-                if (!bug.rageSize) bug.buffSizeT = knobs.sizeT;
+                if (!bug.rageSize) bug.buffSizeT = knobs.sizeT * power;
                 RefreshBody(knobs, bug);
             }
             else if (kind == "shield")
             {
-                bug.buffShieldT = knobs.shieldT;
+                bug.buffShieldT = knobs.shieldT * power;
             }
             else if (kind == "charge" && !bug.rageCharge)
             {
-                bug.buffChargeT = knobs.chargeBuffT;
+                bug.buffChargeT = knobs.chargeBuffT * power;
             }
         }
 
@@ -971,6 +1116,10 @@ namespace DouQuqu
                 bug.buffShieldT = Mathf.Max(0f, bug.buffShieldT - dt);
             if (!bug.rageCharge && bug.buffChargeT > 0f)
                 bug.buffChargeT = Mathf.Max(0f, bug.buffChargeT - dt);
+            if (bug.charging && bug.luBuArmorT > 0f)
+                bug.luBuArmorT = Mathf.Max(0f, bug.luBuArmorT - dt);
+            else if (!bug.charging)
+                bug.luBuArmorT = 0f;
             if (refresh) RefreshBody(knobs, bug);
         }
 
@@ -1335,6 +1484,9 @@ namespace DouQuqu
         public float tFloorMul = 1f;
         public int quality;
         public int temperament;
+        public int guanYuReviveLeft;
+        public float luBuArmorT;
+        public bool diaochanStealArmed;
         public float dMinMul = 1f;
         public int grow;
         public int lastHitId = -1;

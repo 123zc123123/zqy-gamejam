@@ -167,7 +167,24 @@ namespace DouQuqu
             if (state.playerIn != null && playerId < state.playerIn.Length && !state.playerIn[playerId]) return 0;
             int unused = LivesPerPlayer - CricketIndex(playerId) - 1;
             int current = state.bugs[playerId] != null && state.bugs[playerId].alive ? 1 : 0;
-            return current + Mathf.Max(0, unused);
+            return current + Mathf.Max(0, unused) + ExtraLives(playerId);
+        }
+
+        private int ExtraLives(int playerId)
+        {
+            int extra = 0;
+            BugState bug = state != null && state.bugs != null && playerId >= 0 && playerId < state.bugs.Length
+                ? state.bugs[playerId] : null;
+            if (bug != null && bug.alive) extra += Mathf.Max(0, bug.guanYuReviveLeft);
+            int currentSlot = CricketIndex(playerId);
+            int revive = knobs != null ? Mathf.Max(0, knobs.guanYuRevives) : 1;
+            for (int slot = currentSlot + 1; slot < LivesPerPlayer; slot++)
+            {
+                CricketPick pick = GetPick(playerId, slot);
+                if (pick != null && pick.quality >= 4 && pick.temperament == (int)CricketTemperament.ChenWen)
+                    extra += revive;
+            }
+            return extra;
         }
 
         public bool PlayerStillIn(int playerId)
@@ -414,7 +431,9 @@ namespace DouQuqu
                     chargeTime = b.chargeTime, stamina = b.stamina, grow = b.grow, score = b.score, lastHitId = b.lastHitId,
                     buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
                     charging = b.charging, airborne = b.airborne, hitTier = (int)b.hitTier,
-                    launchVelocity = b.launchVelocity
+                    launchVelocity = b.launchVelocity,
+                    guanYuReviveLeft = b.guanYuReviveLeft, luBuArmorT = b.luBuArmorT,
+                    diaochanStealArmed = b.diaochanStealArmed
                 };
             }
             for (int i = 0; i < state.pickups.Count; i++)
@@ -485,6 +504,9 @@ namespace DouQuqu
                 b.hitTier = Rules.CanonicalHitTier((HitTier)Mathf.Clamp(s.hitTier, 0, (int)HitTier.Slip));
                 b.launchVelocity = snapshot.version >= 8 ? s.launchVelocity : Rules.Planar(s.velocity);
                 b.initialSpeed = new Vector2(b.launchVelocity.x, b.launchVelocity.z).magnitude;
+                b.guanYuReviveLeft = s.guanYuReviveLeft;
+                b.luBuArmorT = s.luBuArmorT;
+                b.diaochanStealArmed = s.diaochanStealArmed;
             }
             state.pickups.Clear();
             if (snapshot.pickups != null)
@@ -535,7 +557,13 @@ namespace DouQuqu
             if (state.bugs != null)
             {
                 for (int i = 0; i < state.bugs.Length; i++)
+                {
                     ApplyPickToBug(state.bugs[i], i, CricketIndex(i), false);
+                    if (snapshot.bugs == null || i >= snapshot.bugs.Length) continue;
+                    state.bugs[i].guanYuReviveLeft = snapshot.bugs[i].guanYuReviveLeft;
+                    state.bugs[i].luBuArmorT = snapshot.bugs[i].luBuArmorT;
+                    state.bugs[i].diaochanStealArmed = snapshot.bugs[i].diaochanStealArmed;
+                }
             }
             state.nest = snapshot.nest == null ? null : new NestState { position = snapshot.nest.position, hp = snapshot.nest.hp, alive = snapshot.nest.alive };
             if (snapshot.version < 4)
@@ -575,6 +603,12 @@ namespace DouQuqu
                 bug.chargeDirection = Vector2.up;
                 bug.slideMu = Rules.GripOf(knobs, bug);
                 Emit("solo-pullback", bug.position);
+                return;
+            }
+            if (Rules.TryGuanYuRevive(knobs, bug))
+            {
+                bug.slideMu = Rules.GripOf(knobs, bug);
+                Emit("revive", bug.position);
                 return;
             }
             bug.alive = false;
@@ -746,6 +780,7 @@ namespace DouQuqu
             bug.holding = false;
             bug.pendingCharge = false;
             bug.chargeTime = 0f;
+            bug.diaochanStealArmed = false;
             Rules.ClearLaunch(bug);
             bug.chargeDirection = new Vector2(-spawn.x, -spawn.z);
             if (bug.chargeDirection.sqrMagnitude < 0.01f) bug.chargeDirection = Vector2.up;
@@ -805,7 +840,13 @@ namespace DouQuqu
             CricketCatalog.ApplyCombatBias(bug, quality, temperament);
             Rules.RefreshBody(knobs, bug);
             bug.slideMu = Rules.GripOf(knobs, bug);
-            if (refillStamina) bug.stamina = Rules.StaminaMaxOf(knobs, bug);
+            if (refillStamina)
+            {
+                bug.stamina = Rules.StaminaMaxOf(knobs, bug);
+                bug.guanYuReviveLeft = Rules.IsGuanYu(bug) ? Mathf.Max(0, knobs.guanYuRevives) : 0;
+                bug.luBuArmorT = 0f;
+                bug.diaochanStealArmed = false;
+            }
         }
 
         private CricketPick GetPick(int playerId, int slot)

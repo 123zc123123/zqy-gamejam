@@ -61,6 +61,7 @@ namespace DouQuqu
         private readonly Dictionary<int, StaminaRing> staminaRings = new Dictionary<int, StaminaRing>();
         private readonly Dictionary<int, StaminaBar> staminaBars = new Dictionary<int, StaminaBar>();
         private readonly Dictionary<int, GroundMarker> groundMarkers = new Dictionary<int, GroundMarker>();
+        private readonly Dictionary<int, SkillBar> skillBars = new Dictionary<int, SkillBar>();
         private readonly Dictionary<int, int> assignedBugProfiles = new Dictionary<int, int>();
         private Sprite[] premiumBugSprites;
         private MatchState assignedProfileState;
@@ -198,6 +199,7 @@ namespace DouQuqu
             RefreshChargeArrows(state);
             RefreshGroundMarkers(state);
             RefreshStaminaOverlays(state);
+            RefreshSkillBars(state);
             RefreshZoneView(state);
         }
 
@@ -276,7 +278,7 @@ namespace DouQuqu
                 if (unit != null) unit.AlignMarkerToBody();
                 if (cricket != null)
                 {
-                    cricket.ApplyTeam(bug.id == 0, bug.charging);
+                    cricket.ApplyTeam(bug.id == 0, bug.charging, Rules.ChargeLocked(bug));
                     CricketAnim anim = body.GetComponent<CricketAnim>();
                     if (anim == null) anim = body.GetComponentInChildren<CricketAnim>(true);
                     if (anim == null) anim = body.AddComponent<CricketAnim>();
@@ -593,6 +595,24 @@ namespace DouQuqu
                 if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
         }
 
+        private void RefreshSkillBars(MatchState state)
+        {
+            seenIds.Clear();
+            if (state.bugs == null || state.knobs == null) return;
+            float max = Mathf.Max(0.01f, state.knobs.luBuArmorT);
+            for (int i = 0; i < state.bugs.Length; i++)
+            {
+                BugState bug = state.bugs[i];
+                if (bug == null || !bug.alive || !Rules.ChargeLocked(bug)) continue;
+                seenIds.Add(bug.id);
+                SkillBar bar = GetSkillBar(bug.id);
+                if (bar == null) continue;
+                bar.Apply(bug.luBuArmorT / max, bug.position, bug.radius, bug.height);
+            }
+            foreach (KeyValuePair<int, SkillBar> pair in skillBars)
+                if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
+        }
+
         private void PlaceStaminaBar(BugState bug, MatchKnobs knobs)
         {
             StaminaBar bar = GetStaminaBar(bug.id);
@@ -647,6 +667,18 @@ namespace DouQuqu
             }
             groundMarkers[id] = marker;
             return marker;
+        }
+
+        private SkillBar GetSkillBar(int id)
+        {
+            SkillBar bar;
+            if (skillBars.TryGetValue(id, out bar) && bar != null) return bar;
+            Transform parent = barsRoot != null ? barsRoot : transform;
+            GameObject view = new GameObject("SkillBar_" + id);
+            view.transform.SetParent(parent, false);
+            bar = view.AddComponent<SkillBar>();
+            skillBars[id] = bar;
+            return bar;
         }
 
         private StaminaBar GetStaminaBar(int id)

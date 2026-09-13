@@ -38,7 +38,7 @@ namespace DouQuqu
                     if (!b.alive) continue;
                     Vector3 normal;
                     if (!MoveToContact(a, b, a.radius + b.radius, out normal)) continue;
-                    Separate(a, b, normal);
+                    Separate(state.knobs, a, b, normal);
                     BouncePair(state.knobs, a, b, normal, emit);
                 }
             }
@@ -75,7 +75,7 @@ namespace DouQuqu
                     if (!MoveToContact(baby.position, baby.previousPosition, bug.position, bug.previousPosition, baby.radius + bug.radius, out normal, out babyPos, out bugPos)) continue;
                     baby.position = babyPos;
                     bug.position = bugPos;
-                    Separate(baby, bug, normal);
+                    Separate(state.knobs, baby, bug, normal);
                     BounceBabyBug(state.knobs, baby, bug, normal, emit);
                 }
             }
@@ -138,24 +138,27 @@ namespace DouQuqu
                     if (!MoveToContact(bug.position, bug.previousPosition, egg.position, egg.previousPosition, bug.radius + state.knobs.eggR, out normal, out bugPosition, out eggPosition)) continue;
                     bug.position = bugPosition;
                     egg.position = eggPosition;
-                    Separate(bug, ref egg.position, state.knobs.eggR, normal, state.knobs.eggMass);
+                    Separate(state.knobs, bug, ref egg.position, state.knobs.eggR, normal, state.knobs.eggMass);
                     Rules.UseCurrentAsLaunchIfHitSliding(bug);
                     Vector3 bugLaunch = Rules.LaunchOf(bug);
                     Vector3 eggLaunch = Rules.Planar(egg.velocity);
                     float normalSpeed = Vector3.Dot(eggLaunch - bugLaunch, normal);
+                    float bugMass = Rules.CollisionMass(state.knobs, bug);
                     HitTier bugTier = normalSpeed < -0.0001f
-                        ? Rules.HitTierFor(state.knobs, bug.hitTier, bug.mass, bugLaunch, state.knobs.eggMass, eggLaunch, normal)
+                        ? Rules.HitTierFor(state.knobs, bug.hitTier, bugMass, bugLaunch, state.knobs.eggMass, eggLaunch, normal)
                         : HitTier.None;
-                    BounceMasses(ref bugLaunch, ref eggLaunch, bug.mass, state.knobs.eggMass, normal);
+                    BounceMasses(ref bugLaunch, ref eggLaunch, bugMass, state.knobs.eggMass, normal);
                     if (normalSpeed < -0.0001f)
                     {
-                        bug.velocity = bugLaunch;
+                        if (!Rules.Unstoppable(bug))
+                        {
+                            bug.velocity = bugLaunch;
+                            Rules.SetLaunch(bug, bugLaunch);
+                            FaceVelocity(bug);
+                            ApplyHitSlide(state.knobs, bug, bugTier);
+                        }
                         egg.velocity = eggLaunch;
-                        Rules.SetLaunch(bug, bugLaunch);
-                        FaceVelocity(bug);
-                        // 蛋没有玩家归属，不能作为淘汰时的击杀者。
                         bug.lastHitId = -1;
-                        ApplyHitSlide(state.knobs, bug, bugTier);
                         emit?.Invoke("egg-hit", egg.position);
                     }
                 }
@@ -216,19 +219,37 @@ namespace DouQuqu
             Vector3 launchB = Rules.LaunchOf(b);
             float normalSpeed = Vector3.Dot(launchB - launchA, normal);
             if (normalSpeed >= -0.0001f) return;
-            HitTier tierA = Rules.HitTierFor(knobs, a.hitTier, a.mass, launchA, b.mass, launchB, normal);
-            HitTier tierB = Rules.HitTierFor(knobs, b.hitTier, b.mass, launchB, a.mass, launchA, -normal);
-            BounceMasses(ref launchA, ref launchB, a.mass, b.mass, normal);
-            a.velocity = launchA;
-            b.velocity = launchB;
-            Rules.SetLaunch(a, launchA);
-            Rules.SetLaunch(b, launchB);
-            FaceVelocity(a);
-            FaceVelocity(b);
+            if (Rules.TryDiaoChanSteal(knobs, a, b)) emit?.Invoke("steal", a.position);
+            if (Rules.TryDiaoChanSteal(knobs, b, a)) emit?.Invoke("steal", b.position);
+            bool lockA = Rules.Unstoppable(a);
+            bool lockB = Rules.Unstoppable(b);
             a.lastHitId = b.id;
             b.lastHitId = a.id;
-            ApplyHitSlide(knobs, a, tierA);
-            ApplyHitSlide(knobs, b, tierB);
+            if (lockA && lockB)
+            {
+                emit?.Invoke("hit", (a.position + b.position) * 0.5f);
+                return;
+            }
+
+            float massA = Rules.CollisionMass(knobs, a);
+            float massB = Rules.CollisionMass(knobs, b);
+            HitTier tierA = Rules.HitTierFor(knobs, a.hitTier, massA, launchA, massB, launchB, normal);
+            HitTier tierB = Rules.HitTierFor(knobs, b.hitTier, massB, launchB, massA, launchA, -normal);
+            BounceMasses(ref launchA, ref launchB, massA, massB, normal);
+            if (!lockA)
+            {
+                a.velocity = launchA;
+                Rules.SetLaunch(a, launchA);
+                FaceVelocity(a);
+                ApplyHitSlide(knobs, a, tierA);
+            }
+            if (!lockB)
+            {
+                b.velocity = launchB;
+                Rules.SetLaunch(b, launchB);
+                FaceVelocity(b);
+                ApplyHitSlide(knobs, b, tierB);
+            }
             emit?.Invoke("hit", (a.position + b.position) * 0.5f);
         }
 
@@ -256,22 +277,18 @@ namespace DouQuqu
             float speed = Vector3.Dot(bugLaunch - babyLaunch, normal);
             HitTier bugTier = HitTier.None;
             HitTier babyTier = HitTier.None;
+            float bugMass = Rules.CollisionMass(knobs, bug);
             if (speed < -0.0001f)
             {
-                bugTier = Rules.HitTierFor(knobs, bug.hitTier, bug.mass, bugLaunch, baby.mass, babyLaunch, normal);
-                babyTier = Rules.HitTierFor(knobs, baby.hitTier, baby.mass, babyLaunch, bug.mass, bugLaunch, -normal);
+                bugTier = Rules.HitTierFor(knobs, bug.hitTier, bugMass, bugLaunch, baby.mass, babyLaunch, normal);
+                babyTier = Rules.HitTierFor(knobs, baby.hitTier, baby.mass, babyLaunch, bugMass, bugLaunch, -normal);
             }
-            BounceMasses(ref babyLaunch, ref bugLaunch, baby.mass, bug.mass, normal);
+            BounceMasses(ref babyLaunch, ref bugLaunch, baby.mass, bugMass, normal);
             if (speed < -0.0001f)
             {
                 baby.velocity = babyLaunch;
-                bug.velocity = bugLaunch;
                 Rules.SetLaunch(baby, babyLaunch);
-                Rules.SetLaunch(bug, bugLaunch);
                 FaceVelocity(baby);
-                FaceVelocity(bug);
-                bug.lastHitId = Rules.HitCreditId(baby);
-                ApplyHitSlide(knobs, bug, bugTier);
                 baby.hitTier = babyTier;
                 baby.slideMu = Rules.SlideMuFor(knobs, babyTier);
                 baby.charging = false;
@@ -280,6 +297,14 @@ namespace DouQuqu
                 baby.airborne = false;
                 baby.height = 0f;
                 baby.verticalVelocity = 0f;
+                bug.lastHitId = Rules.HitCreditId(baby);
+                if (!Rules.Unstoppable(bug))
+                {
+                    bug.velocity = bugLaunch;
+                    Rules.SetLaunch(bug, bugLaunch);
+                    FaceVelocity(bug);
+                    ApplyHitSlide(knobs, bug, bugTier);
+                }
                 emit?.Invoke("baby-hit", bug.position);
             }
         }
@@ -305,13 +330,13 @@ namespace DouQuqu
             bug.position -= normal * (overlap + 0.001f);
         }
 
-        private void Separate(BugState a, BugState b, Vector3 normal)
+        private void Separate(MatchKnobs knobs, BugState a, BugState b, Vector3 normal)
         {
             Vector3 delta = b.position - a.position;
             float distance = new Vector2(delta.x, delta.z).magnitude;
             float overlap = Mathf.Max(0f, a.radius + b.radius - distance);
-            float inverseA = 1f / Mathf.Max(0.01f, a.mass);
-            float inverseB = 1f / Mathf.Max(0.01f, b.mass);
+            float inverseA = 1f / Rules.CollisionMass(knobs, a);
+            float inverseB = 1f / Rules.CollisionMass(knobs, b);
             float inverse = inverseA + inverseB;
             a.position -= normal * overlap * inverseA / inverse;
             b.position += normal * overlap * inverseB / inverse;
@@ -329,24 +354,24 @@ namespace DouQuqu
             b.position += normal * overlap * inverseB / inverse;
         }
 
-        private void Separate(BabyState baby, BugState bug, Vector3 normal)
+        private void Separate(MatchKnobs knobs, BabyState baby, BugState bug, Vector3 normal)
         {
             Vector3 delta = bug.position - baby.position;
             float distance = new Vector2(delta.x, delta.z).magnitude;
             float overlap = Mathf.Max(0f, baby.radius + bug.radius - distance);
             float inverseA = 1f / Mathf.Max(0.01f, baby.mass);
-            float inverseB = 1f / Mathf.Max(0.01f, bug.mass);
+            float inverseB = 1f / Rules.CollisionMass(knobs, bug);
             float inverse = inverseA + inverseB;
             baby.position -= normal * overlap * inverseA / inverse;
             bug.position += normal * overlap * inverseB / inverse;
         }
 
-        private void Separate(BugState bug, ref Vector3 eggPosition, float eggRadius, Vector3 normal, float eggMass)
+        private void Separate(MatchKnobs knobs, BugState bug, ref Vector3 eggPosition, float eggRadius, Vector3 normal, float eggMass)
         {
             Vector3 delta = eggPosition - bug.position;
             float distance = new Vector2(delta.x, delta.z).magnitude;
             float overlap = Mathf.Max(0f, bug.radius + eggRadius - distance);
-            float inverseA = 1f / Mathf.Max(0.01f, bug.mass);
+            float inverseA = 1f / Rules.CollisionMass(knobs, bug);
             float inverseB = 1f / Mathf.Max(0.01f, eggMass);
             float inverse = inverseA + inverseB;
             bug.position -= normal * overlap * inverseA / inverse;
@@ -360,14 +385,18 @@ namespace DouQuqu
             Vector3 launch = Rules.LaunchOf(bug);
             float normalSpeed = Vector3.Dot(-launch, normal);
             if (normalSpeed >= -0.0001f) return;
-            HitTier tier = Rules.HitTierFor(knobs, bug.hitTier, bug.mass, launch, staticMass, Vector3.zero, normal);
+            float bugMass = Rules.CollisionMass(knobs, bug);
+            HitTier tier = Rules.HitTierFor(knobs, bug.hitTier, bugMass, launch, staticMass, Vector3.zero, normal);
             Vector3 staticLaunch = Vector3.zero;
-            BounceMasses(ref launch, ref staticLaunch, bug.mass, staticMass, normal);
-            bug.velocity = launch;
-            Rules.SetLaunch(bug, launch);
-            FaceVelocity(bug);
+            BounceMasses(ref launch, ref staticLaunch, bugMass, staticMass, normal);
             bug.lastHitId = -1;
-            ApplyHitSlide(knobs, bug, tier);
+            if (!Rules.Unstoppable(bug))
+            {
+                bug.velocity = launch;
+                Rules.SetLaunch(bug, launch);
+                FaceVelocity(bug);
+                ApplyHitSlide(knobs, bug, tier);
+            }
             emit?.Invoke("hit", bug.position);
         }
 
@@ -381,6 +410,8 @@ namespace DouQuqu
             bug.slideMu = Rules.SlideMuFor(knobs, bug, bug.hitTier);
             bug.charging = false;
             bug.chargeTime = 0f;
+            bug.luBuArmorT = 0f;
+            bug.diaochanStealArmed = false;
             bug.pendingCharge = bug.holding;
         }
 
