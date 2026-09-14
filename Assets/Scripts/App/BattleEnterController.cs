@@ -65,6 +65,7 @@ namespace DouQuqu
         private void OnLobbyChanged(LanLobbySnapshot snapshot)
         {
             RefreshLobbyNames();
+            RefreshFriendRoomAction();
             RefreshMatchmakingTimer();
         }
 
@@ -123,7 +124,7 @@ namespace DouQuqu
         /// <summary>局域网匹配完成后再进入选虫页，确保战斗场景能拿到同一局房间状态。</summary>
         private void OnMatchReady()
         {
-            if (!matching) return;
+            if (!matching && (!friendRoom || !InRoom)) return;
             matching = false;
             ApplyVisual();
             if (Lobby.Instance != null && Lobby.Instance.CurrentPage == Lobby.Page.BattleEnter)
@@ -153,12 +154,27 @@ namespace DouQuqu
             friendRoom = true;
             ApplyVisual();
             RefreshLobbyNames();
+            RefreshFriendRoomAction();
         }
 
-        public void GoHeroSelection()
+        /// <summary>好友房客户端提交准备；只有房主在其他玩家全部准备后才能锁定开局。</summary>
+        public void OnFriendRoomAction()
         {
-            if (!InRoom || matching) return;
-            Lobby.Show(Lobby.Page.HeroSelection);
+            if (!InRoom || !friendRoom || matching) return;
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null || network.IsMatchReady) return;
+
+            if (network.IsHost)
+            {
+                if (!network.CanStart) return;
+                network.StartMatchAsHost();
+            }
+            else if (network.LocalPlayerId >= 0 && !network.LocalPlayerReady)
+            {
+                network.SetReady(true);
+            }
+
+            RefreshFriendRoomAction();
         }
 
         public void LeaveRoom()
@@ -262,7 +278,7 @@ namespace DouQuqu
                 if (confirm != null) BindButton(confirm.gameObject, EnterFriendRoom);
             }
 
-            if (readyRoot != null) BindButton(readyRoot, GoHeroSelection);
+            if (readyRoot != null) BindButton(readyRoot, OnFriendRoomAction);
             if (leaveRoot != null) BindButton(leaveRoot, LeaveRoom);
 
             GameObject rules = FindGo(root, "SideButton_玩法说明");
@@ -512,9 +528,45 @@ namespace DouQuqu
             if (leaveRoot != null) leaveRoot.SetActive(InRoom);
             if (readyRoot != null) readyRoot.SetActive(InRoom && friendRoom);
             SetPageButtonsLocked(matching);
+            RefreshFriendRoomAction();
             RefreshMatchmakingTimer();
             if (Lobby.Instance == null) return;
             Lobby.Instance.RefreshNavVisibility();
+        }
+
+        /// <summary>根据本机身份刷新好友房按钮：房主为“开始”，其他玩家为“准备”。</summary>
+        private void RefreshFriendRoomAction()
+        {
+            if (readyRoot == null || !InRoom || !friendRoom) return;
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            Button button = readyRoot.GetComponent<Button>();
+            TMP_Text[] labels = readyRoot.GetComponentsInChildren<TMP_Text>(true);
+            string label;
+            bool interactable;
+
+            if (network == null || !network.IsRunning || network.IsMatchReady)
+            {
+                label = "连接中";
+                interactable = false;
+            }
+            else if (network.IsHost)
+            {
+                label = "开始";
+                interactable = network.CanStart;
+            }
+            else if (network.LocalPlayerId < 0)
+            {
+                label = "连接中";
+                interactable = false;
+            }
+            else
+            {
+                label = network.LocalPlayerReady ? "已准备" : "准备";
+                interactable = !network.LocalPlayerReady;
+            }
+
+            for (int i = 0; i < labels.Length; i++) labels[i].text = label;
+            if (button != null) button.interactable = interactable;
         }
 
         /// <summary>匹配期间锁住其它入口，保留“离开房间”按钮用于取消匹配。</summary>

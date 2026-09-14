@@ -94,6 +94,13 @@ namespace DouQuqu
         private bool battlePrepared;
         private float startBroadcastRemaining;
         private float startBroadcastTick;
+        private string finalSnapshotBody;
+        private float finalSnapshotBroadcastRemaining;
+        private float finalSnapshotBroadcastTick;
+        private bool pendingReadyRequest;
+        private bool pendingReadyValue;
+        private float readyRequestRemaining;
+        private float readyRequestTick;
         private MatchSnapshot pendingSnapshot;
         private int pendingWelcomePlayerCount;
         private string roomCode = string.Empty;
@@ -111,6 +118,17 @@ namespace DouQuqu
         public float MatchmakingTimeRemaining => Mathf.Max(0f, automaticTimeout - automaticElapsed);
         public string HostAddress => hostEndpoint == null ? string.Empty : hostEndpoint.Address.ToString();
         public IReadOnlyList<LanPlayerSlot> Slots => slots;
+        public bool LocalPlayerReady
+        {
+            get
+            {
+                if (!IsHost && pendingReadyRequest) return pendingReadyValue;
+                return LocalPlayerId >= 0
+                    && LocalPlayerId < slots.Length
+                    && slots[LocalPlayerId] != null
+                    && slots[LocalPlayerId].ready;
+            }
+        }
         public bool CanStart
         {
             get
@@ -123,7 +141,8 @@ namespace DouQuqu
                     connected++;
                     if (i != 0 && !slots[i].ready) return false;
                 }
-                return connected >= 1;
+                // 好友房至少需要房主之外的一名玩家，并且所有已连接客户端都已准备。
+                return connected >= 2;
             }
         }
 
@@ -204,8 +223,14 @@ namespace DouQuqu
         /// </summary>
         public void BindMatchController(MatchController matchController)
         {
+            if (match != null) match.SnapshotReady -= OnSnapshotReady;
             match = matchController;
             if (match == null || !matchReady) return;
+            match.SnapshotReady -= OnSnapshotReady;
+            match.SnapshotReady += OnSnapshotReady;
+            finalSnapshotBody = null;
+            finalSnapshotBroadcastRemaining = 0f;
+            finalSnapshotBroadcastTick = 0f;
             if (IsHost)
             {
                 if (battlePrepared) return;
@@ -251,6 +276,7 @@ namespace DouQuqu
             }
             TickAutomaticMatchmaking();
             TickRoomSearch();
+            TickReadyRequest();
             if (IsHost && match != null && match.IsStarted)
             {
                 snapshotTimer -= Time.unscaledDeltaTime;
@@ -261,6 +287,7 @@ namespace DouQuqu
                 }
             }
             TickStartBroadcast();
+            TickFinalSnapshotBroadcast();
         }
 
         private void OnDestroy()
@@ -351,6 +378,8 @@ namespace DouQuqu
         public void Stop()
         {
             if (match != null && match.IsStarted) match.StopMatch();
+            if (match != null) match.SnapshotReady -= OnSnapshotReady;
+            match = null;
             running = false;
             hostEndpoint = null;
             clients.Clear();
@@ -376,16 +405,21 @@ namespace DouQuqu
             battlePrepared = false;
             startBroadcastRemaining = 0f;
             startBroadcastTick = 0f;
+            finalSnapshotBody = null;
+            finalSnapshotBroadcastRemaining = 0f;
+            finalSnapshotBroadcastTick = 0f;
+            pendingReadyRequest = false;
+            readyRequestRemaining = 0f;
+            readyRequestTick = 0f;
             pendingSnapshot = null;
             pendingWelcomePlayerCount = 0;
         }
 
-        /// <summary>所有已连接客户端准备后，由主机启动对局。</summary>
+        /// <summary>好友房中仅房主可锁定对局；至少两人且其余已连接玩家全部准备后才成功。</summary>
         public void StartMatchAsHost()
         {
-            if (!IsHost || match == null || !CanStart) return;
-            match.StartMatch();
-            BroadcastSnapshot();
+            if (!IsHost || matchReady || !CanStart) return;
+            MarkMatchReady();
         }
 
         /// <summary>设置本地准备标记；客户端模式下会发送给主机。</summary>
@@ -399,7 +433,13 @@ namespace DouQuqu
             }
             else if (hostEndpoint != null)
             {
-                SendEnvelope(sessionSocket, hostEndpoint, "READY", ready ? "1" : "0", LocalPlayerId);
+                // 本机先更新显示，并短时间重发直到主机大厅快照确认，降低 UDP 单包丢失影响。
+                pendingReadyRequest = true;
+                pendingReadyValue = ready;
+                readyRequestRemaining = 2f;
+                readyRequestTick = 0f;
+                NotifyLobbyChanged();
+                SendReadyRequest();
             }
         }
 
@@ -508,8 +548,15 @@ namespace DouQuqu
                     slots[i].playerName = "机器人 " + (i + 1);
                 }
             }
+            MarkMatchReady();
+        }
+
+        /// <summary>统一锁定房间并通知所有设备进入选虫页。</summary>
+        private void MarkMatchReady()
+        {
             matchSeed = Environment.TickCount;
             matchReady = true;
+            searchingRoom = false;
             startBroadcastRemaining = 1.2f;
             startBroadcastTick = 0f;
             BroadcastLobby();
@@ -534,6 +581,58 @@ namespace DouQuqu
             startBroadcastTick = 0.18f;
             foreach (IPEndPoint endpoint in clients.Values)
                 SendEnvelope(sessionSocket, endpoint, "MATCH_START", matchSeed.ToString(), 0);
+        }
+
+        /// <summary>客户端重复发送准备状态，直到主机广播的大厅状态确认或超时。</summary>
+        private void TickReadyRequest()
+        {
+            if (IsHost || !pendingReadyRequest || hostEndpoint == null) return;
+            if (LocalPlayerId >= 0 && LocalPlayerId < slots.Length && slots[LocalPlayerId].ready == pendingReadyValue)
+            {
+                pendingReadyRequest = false;
+                NotifyLobbyChanged();
+                return;
+            }
+
+            readyRequestRemaining -= Time.unscaledDeltaTime;
+            if (readyRequestRemaining <= 0f)
+            {
+                pendingReadyRequest = false;
+                NotifyLobbyChanged();
+                return;
+            }
+
+            readyRequestTick -= Time.unscaledDeltaTime;
+            if (readyRequestTick > 0f) return;
+            SendReadyRequest();
+        }
+
+        private void SendReadyRequest()
+        {
+            if (sessionSocket == null || hostEndpoint == null || LocalPlayerId < 0) return;
+            readyRequestTick = 0.2f;
+            SendEnvelope(sessionSocket, hostEndpoint, "READY", pendingReadyValue ? "1" : "0", LocalPlayerId);
+        }
+
+        /// <summary>捕获主机的结束帧；该帧需要冗余发送，不能依赖普通周期快照。</summary>
+        private void OnSnapshotReady(MatchSnapshot snapshot)
+        {
+            if (!IsHost || snapshot == null || !snapshot.over) return;
+            finalSnapshotBody = JsonUtility.ToJson(snapshot);
+            finalSnapshotBroadcastRemaining = 2f;
+            finalSnapshotBroadcastTick = 0f;
+        }
+
+        /// <summary>重复发送最终状态，避免某个客户端因 UDP 丢掉最后一包而无法进入结算。</summary>
+        private void TickFinalSnapshotBroadcast()
+        {
+            if (!IsHost || finalSnapshotBroadcastRemaining <= 0f || string.IsNullOrEmpty(finalSnapshotBody)) return;
+            finalSnapshotBroadcastRemaining -= Time.unscaledDeltaTime;
+            finalSnapshotBroadcastTick -= Time.unscaledDeltaTime;
+            if (finalSnapshotBroadcastTick > 0f) return;
+            finalSnapshotBroadcastTick = 0.12f;
+            foreach (IPEndPoint endpoint in clients.Values)
+                SendEnvelope(sessionSocket, endpoint, "SNAPSHOT", finalSnapshotBody, 0);
         }
 
         private void RaiseMatchReady()
@@ -691,6 +790,9 @@ namespace DouQuqu
                 {
                     roomCapacity = lobby.capacity;
                     slots = lobby.slots;
+                    if (pendingReadyRequest && LocalPlayerId >= 0 && LocalPlayerId < slots.Length
+                        && slots[LocalPlayerId] != null && slots[LocalPlayerId].ready == pendingReadyValue)
+                        pendingReadyRequest = false;
                     if (lobby.matchStarting)
                     {
                         matchSeed = lobby.matchSeed;
