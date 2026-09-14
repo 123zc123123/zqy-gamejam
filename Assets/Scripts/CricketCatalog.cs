@@ -144,6 +144,35 @@ namespace DouQuqu
             return portraits[index];
         }
 
+        static Sprite[] packBackgrounds;
+
+        /// <summary>背包卡地盘：PackCricketBg-{品级}-{性格}，与 1-1.psb 命名一致。</summary>
+        public static Sprite PackBackground(int quality, int temperament)
+        {
+            if (packBackgrounds == null)
+            {
+                packBackgrounds = new Sprite[16];
+                for (int q = 1; q <= 4; q++)
+                {
+                    for (int t = 1; t <= 4; t++)
+                    {
+                        string path = "HeroSelection/Textures/PackCricketBg-" + q + "-" + t;
+                        Sprite sprite = Resources.Load<Sprite>(path);
+                        if (sprite == null)
+                        {
+                            Texture2D texture = Resources.Load<Texture2D>(path);
+                            if (texture != null)
+                                sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+                        }
+                        packBackgrounds[(q - 1) * 4 + (t - 1)] = sprite;
+                    }
+                }
+            }
+
+            int index = (Mathf.Clamp(quality, 1, 4) - 1) * 4 + (Mathf.Clamp(temperament, 1, 4) - 1);
+            return packBackgrounds[index];
+        }
+
         public static string Idiom(int temperament)
         {
             temperament = Mathf.Clamp(temperament, 1, 4);

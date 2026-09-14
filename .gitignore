@@ -10,6 +10,14 @@ CLAUDE.md
 
 venue-server/players.json
 
+# Local FX preview packs — used VFX live in Assets/Art/FX
+Assets/Epic Toon FX/
+Assets/Epic Toon FX.meta
+Assets/Epic Toon FX_Local/
+Assets/Epic Toon FX_Local.meta
+Assets/**/*_Local/
+Assets/**/*_Local.meta
+
 # Local Unity editor / generated files
 Library/
 Temp/

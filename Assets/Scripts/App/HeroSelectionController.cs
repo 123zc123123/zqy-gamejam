@@ -5,11 +5,34 @@ using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>选虫页己方三槽：背包、绿框、点卡入槽、准备锁定。匹配在进战页。</summary>
+    /// <summary>选虫页己方三槽：背包、绿框、点卡入槽、确定 / 取消选择。匹配在进战页。</summary>
     public sealed class HeroSelectionController : MonoBehaviour
     {
         public const int SelectSeconds = 59;
         private const int SlotCount = 3;
+        private const string StatusSelecting = "选择中";
+        private const string StatusConfirmed = "已确定";
+        private const string LabelConfirm = "确定";
+        private const string LabelCancel = "取消选择";
+        private const float OwnRowWidth = 983f;
+        private const float OwnRowHeight = 258f;
+        private const float PlayerFrameNative = 260f;
+        private const float PlayerFrameVisual = 182f;
+        private const float PackCricketNative = 288f;
+        private const float PackCricketVisual = 208f;
+        private const float SelectionFrameWidth = 225f;
+        private const float SelectionFrameHeight = 258f;
+        private static readonly Vector2 PlayerFramePsd = new Vector2(37f, 31f);
+        private static readonly Vector2[] SlotPsd =
+        {
+            new Vector2(267f, 18f),
+            new Vector2(501f, 19f),
+            new Vector2(736f, 19f)
+        };
+        private static readonly string[] OwnRowLegacy =
+        {
+            "Ellipse", "Rectangle 10", "Rectangle 13", "Frame 6", "Component 4", "玩家二"
+        };
         private static readonly Color GreenFill = new Color(0.28f, 0.92f, 0.34f, 0.22f);
         private static readonly Color GreenLine = new Color(0.22f, 0.86f, 0.30f, 1f);
         private static readonly Color TabOn = new Color(0.96f, 0.90f, 0.62f, 1f);
@@ -20,6 +43,7 @@ namespace DouQuqu
         private TMP_Text timerText;
         private Button matchButton;
         private TMP_Text matchButtonText;
+        private Image matchButtonImage;
         private TMP_Text expandLabel;
         private Transform ownZone;
         private Transform backpackRoot;
@@ -27,8 +51,14 @@ namespace DouQuqu
         private Transform[] otherZones;
         private OtherZoneView[] otherZoneViews;
         private Transform readyBadge;
+        private TMP_Text ownStatusText;
+        private TMP_Text ownPlayerName;
         private RectTransform greenBox;
         private Sprite[] qualitySprites;
+        private Sprite confirmSprite;
+        private Sprite cancelSprite;
+        private Sprite emptyPackBackground;
+        private Sprite selectionFrameSprite;
 
         private readonly SlotView[] slots = new SlotView[SlotCount];
         private readonly CricketBackpackEntry[] slotEntries = new CricketBackpackEntry[SlotCount];
@@ -42,7 +72,7 @@ namespace DouQuqu
         private bool bound;
         private bool sessionActive;
         private bool ready;
-        private bool waitingForLanBattle;
+        private bool selectionClosed;
         private bool expanded;
         private int selectedSlot;
         private int filterTemperament;
@@ -59,6 +89,7 @@ namespace DouQuqu
                 BuildOverlay(root.transform);
             CaptureHomes();
             LoadQualitySprites();
+            LoadButtonSprites();
         }
 
         public void BeginSession()
@@ -66,24 +97,33 @@ namespace DouQuqu
             if (!bound) return;
             sessionActive = true;
             ready = false;
-            waitingForLanBattle = false;
+            selectionClosed = false;
             expanded = false;
             selectedSlot = 0;
             filterTemperament = 0;
             for (int i = 0; i < SlotCount; i++) slotEntries[i] = null;
             deadlineUnscaled = Time.unscaledTime + SelectSeconds;
+            ApplyBattleDefer();
             ApplyCollapsed();
             ApplyOtherZones();
             HookBattleReady();
+            HookLobby();
             RefreshAll();
         }
 
         public void CancelSelection()
         {
             sessionActive = false;
-            waitingForLanBattle = false;
             UnhookBattleReady();
+            UnhookLobby();
+            ClearBattleDefer();
             ApplyCollapsed();
+        }
+
+        private void OnDestroy()
+        {
+            UnhookBattleReady();
+            UnhookLobby();
         }
 
         private void Update()
@@ -91,19 +131,23 @@ namespace DouQuqu
             if (!sessionActive || timerText == null) return;
             int remain = Mathf.Max(0, Mathf.CeilToInt(deadlineUnscaled - Time.unscaledTime));
             timerText.text = remain.ToString();
-            if (remain > 0 || ready) return;
-            AutoFillAndReady();
+            if (remain > 0 || selectionClosed) return;
+            selectionClosed = true;
+            if (!ready) AutoFillAndReady();
+            TryEnterBattle();
         }
 
         private bool TryBindArt(Transform root)
         {
             timerText = FindTmp(root, "59") ?? FindTmp(root, "MatchTimerTMP");
-            matchButton = FindButton(root, "MatchButton") ?? FindButton(root, "btn-ready");
-            if (matchButton != null)
+            Transform readyGo = FindNamed(root, "MatchButton") ?? FindNamed(root, "btn-ready");
+            if (readyGo != null)
             {
-                BindClick(matchButton.gameObject, OnReadyClicked);
-                matchButtonText = matchButton.GetComponentInChildren<TMP_Text>(true);
-                if (matchButtonText != null) matchButtonText.text = "准备就绪";
+                BindClick(readyGo.gameObject, OnReadyClicked);
+                matchButton = readyGo.GetComponent<Button>();
+                matchButtonText = readyGo.GetComponentInChildren<TMP_Text>(true);
+                matchButtonImage = readyGo.GetComponent<Image>();
+                if (matchButtonText != null) matchButtonText.text = LabelConfirm;
             }
 
             BindAllNamed(root, "BackButton", Back);
@@ -138,27 +182,121 @@ namespace DouQuqu
         private void BindOwnZone(Transform zone)
         {
             readyBadge = FindNamed(zone, "ready-badge");
-            if (readyBadge != null) readyBadge.gameObject.SetActive(false);
+            ownStatusText = ReadStatusText(zone);
+            if (readyBadge != null) readyBadge.gameObject.SetActive(true);
 
-            Transform name = FindNamed(zone, "玩家二") ?? FindNamed(zone, "PlayerName");
-            if (name != null)
+            LayoutOwnRow(zone);
+
+            Transform playerFrame = FindNamed(zone, "PlayerFrame");
+            Transform name = playerFrame != null
+                ? FindNamed(playerFrame, "玩家二")
+                : FindNamed(zone, "玩家二") ?? FindNamed(zone, "PlayerName");
+            ownPlayerName = name != null ? name.GetComponent<TMP_Text>() : null;
+            if (ownPlayerName != null && PlayerDataService.IsLoggedIn)
+                ownPlayerName.text = PlayerDataService.CurrentPlayerName;
+        }
+
+        private void LayoutOwnRow(Transform zone)
+        {
+            SizeOwnRow(zone as RectTransform);
+            HideOwnRowLegacy(zone);
+
+            float frameScale = PlayerFrameVisual / PlayerFrameNative;
+            float packScale = PackCricketVisual / PackCricketNative;
+            Vector2 framePos = PsdToLocal(PlayerFramePsd, PlayerFrameVisual);
+
+            Transform playerFrame = EnsureChildPrefab(zone, "PlayerFrame", "Common/Prefabs/PlayerFrame");
+            PlaceScaled(playerFrame as RectTransform, framePos, frameScale);
+
+            GameObject packPrefab = Resources.Load<GameObject>("HeroSelection/Prefabs/Parts/PackCricket");
+            for (int i = 0; i < SlotCount; i++)
             {
-                TMP_Text label = name.GetComponent<TMP_Text>();
-                if (label != null && PlayerDataService.IsLoggedIn)
-                    label.text = PlayerDataService.CurrentPlayerName;
+                string slotName = "PackCricket_" + i;
+                Transform slotRoot = zone.Find(slotName);
+                if (slotRoot == null && packPrefab != null)
+                {
+                    GameObject go = Object.Instantiate(packPrefab, zone, false);
+                    go.name = slotName;
+                    slotRoot = go.transform;
+                }
+                if (slotRoot == null) continue;
+                PlaceScaled(slotRoot as RectTransform, PsdToLocal(SlotPsd[i], PackCricketVisual), packScale);
+                slots[i] = ReadSlot(slotRoot);
+                int captured = i;
+                BindClick(slotRoot.gameObject, () => OnSlotClicked(captured));
             }
 
-            Transform frame = FindNamed(zone, "Frame 6");
-            if (frame == null) return;
-            int index = 0;
-            for (int i = 0; i < frame.childCount && index < SlotCount; i++)
+            if (readyBadge is RectTransform badge)
+                PlaceScaled(badge, new Vector2(framePos.x, framePos.y - 70f), 1f);
+
+            RefreshSlots();
+        }
+
+        private static void SizeOwnRow(RectTransform zone)
+        {
+            if (zone == null) return;
+            float oldW = zone.rect.width;
+            float oldH = zone.rect.height;
+            if (oldW <= 1f) oldW = zone.sizeDelta.x;
+            if (oldH <= 1f) oldH = zone.sizeDelta.y;
+            Vector2 pos = zone.anchoredPosition;
+            pos.x += (OwnRowWidth - oldW) * zone.pivot.x;
+            pos.y += (OwnRowHeight - oldH) * zone.pivot.y;
+            zone.anchoredPosition = pos;
+            zone.sizeDelta = new Vector2(OwnRowWidth, OwnRowHeight);
+            LayoutElement[] layouts = zone.GetComponents<LayoutElement>();
+            for (int i = 0; i < layouts.Length; i++)
             {
-                Transform child = frame.GetChild(i);
-                slots[index] = ReadSlot(child);
-                int captured = index;
-                BindClick(child.gameObject, () => OnSlotClicked(captured));
-                index++;
+                layouts[i].minWidth = OwnRowWidth;
+                layouts[i].minHeight = OwnRowHeight;
+                layouts[i].preferredWidth = OwnRowWidth;
+                layouts[i].preferredHeight = OwnRowHeight;
             }
+        }
+
+        private static void HideOwnRowLegacy(Transform zone)
+        {
+            for (int i = 0; i < zone.childCount; i++)
+            {
+                Transform child = zone.GetChild(i);
+                for (int j = 0; j < OwnRowLegacy.Length; j++)
+                {
+                    if (child.name != OwnRowLegacy[j]) continue;
+                    child.gameObject.SetActive(false);
+                    break;
+                }
+            }
+        }
+
+        private static Transform EnsureChildPrefab(Transform parent, string childName, string resourcePath)
+        {
+            Transform existing = parent.Find(childName);
+            if (existing != null) return existing;
+            GameObject prefab = Resources.Load<GameObject>(resourcePath);
+            if (prefab == null) return null;
+            GameObject go = Object.Instantiate(prefab, parent, false);
+            go.name = childName;
+            return go.transform;
+        }
+
+        private static void PlaceScaled(RectTransform rect, Vector2 pos, float scale)
+        {
+            if (rect == null) return;
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = pos;
+            rect.localScale = new Vector3(scale, scale, 1f);
+            rect.localRotation = Quaternion.identity;
+            LayoutElement layout = rect.GetComponent<LayoutElement>();
+            if (layout != null) layout.ignoreLayout = true;
+        }
+
+        private static Vector2 PsdToLocal(Vector2 psdTopLeft, float size)
+        {
+            float cx = psdTopLeft.x + size * 0.5f - OwnRowWidth * 0.5f;
+            float cy = OwnRowHeight * 0.5f - (psdTopLeft.y + size * 0.5f);
+            return new Vector2(cx, cy);
         }
 
         private void BindBackpack(Transform backpack)
@@ -191,7 +329,8 @@ namespace DouQuqu
             for (int i = 0; i < group.childCount; i++)
             {
                 Transform child = group.GetChild(i);
-                if (child.name.StartsWith("Frame")) frames.Add(child);
+                if (child.name.StartsWith("Frame") || child.name.IndexOf("PackPersonalitySwitchTab") >= 0)
+                    frames.Add(child);
             }
             frames.Sort((a, b) =>
             {
@@ -211,6 +350,7 @@ namespace DouQuqu
                 {
                     root = frame,
                     label = label,
+                    line = FindNamed(frame, "选择线"),
                     temperament = i
                 };
                 filterTabs.Add(tab);
@@ -253,7 +393,7 @@ namespace DouQuqu
                 new Vector2(0.08f, 0.70f), new Vector2(0.92f, 0.82f), Vector2.zero, Vector2.zero);
             UiFactory.CreateText(panel, "Hint", "选虫页美术未绑上，无法选虫。", 26f,
                 new Vector2(0.08f, 0.40f), new Vector2(0.92f, 0.68f), Vector2.zero, Vector2.zero);
-            matchButton = UiFactory.CreateButton(panel, "MatchButton", "准备就绪", OnReadyClicked,
+            matchButton = UiFactory.CreateButton(panel, "MatchButton", LabelConfirm, OnReadyClicked,
                 new Vector2(0.10f, 0.14f), new Vector2(0.48f, 0.26f), Vector2.zero, Vector2.zero);
             matchButtonText = matchButton.GetComponentInChildren<TMP_Text>();
             UiFactory.CreateButton(panel, "BackButton", "返回", Back,
@@ -313,7 +453,14 @@ namespace DouQuqu
 
         private void OnReadyClicked()
         {
-            if (!sessionActive || ready) return;
+            if (!sessionActive || selectionClosed) return;
+            LanSession network = ActiveLanBattle();
+            if (network != null && network.IsBattleStarting) return;
+            if (ready)
+            {
+                UnlockReady();
+                return;
+            }
             if (!AllSlotsFilled()) return;
             LockReady();
         }
@@ -336,16 +483,48 @@ namespace DouQuqu
         private void LockReady()
         {
             ready = true;
-            waitingForLanBattle = false;
             if (expanded) ApplyCollapsed();
-            RefreshAll();
             AppServices.PendingLocalPicks = CopyPicks();
-            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
-            if (network != null && network.IsRunning)
+            LanSession network = ActiveLanBattle();
+            if (network != null)
             {
-                waitingForLanBattle = true;
                 HookBattleReady();
                 network.SetSelectionReady(true);
+            }
+            RefreshAll();
+            if (network != null && network.IsBattleStarting)
+                OnBattleReady();
+        }
+
+        private void UnlockReady()
+        {
+            if (!ready || selectionClosed) return;
+            LanSession network = ActiveLanBattle();
+            if (network != null && network.IsBattleStarting) return;
+            ready = false;
+            if (network != null)
+                network.SetSelectionReady(false);
+            RefreshAll();
+        }
+
+        private static LanSession ActiveLanBattle()
+        {
+            if (AppServices.PendingMatchKind == MatchKind.Training) return null;
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null || !network.IsRunning) return null;
+            return network;
+        }
+
+        private void TryEnterBattle()
+        {
+            if (!sessionActive || !ready) return;
+            AppServices.PendingLocalPicks = CopyPicks();
+            LanSession network = ActiveLanBattle();
+            if (network != null)
+            {
+                HookBattleReady();
+                network.SetSelectionReady(true);
+                if (network.IsHost) network.StartBattleAfterSelectionTimeout();
                 RefreshChrome();
                 if (network.IsBattleStarting) OnBattleReady();
                 return;
@@ -368,10 +547,50 @@ namespace DouQuqu
             network.BattleReady -= OnBattleReady;
         }
 
+        private void HookLobby()
+        {
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null) return;
+            network.LobbyChanged -= OnLobbyChanged;
+            network.LobbyChanged += OnLobbyChanged;
+        }
+
+        private void UnhookLobby()
+        {
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null) return;
+            network.LobbyChanged -= OnLobbyChanged;
+        }
+
+        private void OnLobbyChanged(LanLobbySnapshot snapshot)
+        {
+            if (!sessionActive) return;
+            ApplyOtherZones();
+        }
+
+        private void ApplyBattleDefer()
+        {
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null) return;
+            network.DeferBattleUntilSelectionTimeout = AppServices.PendingMatchKind != MatchKind.Friend;
+        }
+
+        private void ClearBattleDefer()
+        {
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null) return;
+            network.DeferBattleUntilSelectionTimeout = false;
+        }
+
+        private void LoadButtonSprites()
+        {
+            confirmSprite = LoadSprite("HeroSelection/Textures/绿色准备");
+            cancelSprite = LoadSprite("HeroSelection/Textures/红色取消");
+        }
+
         private void OnBattleReady()
         {
             if (!sessionActive || !ready) return;
-            waitingForLanBattle = false;
             UnhookBattleReady();
             SceneNames.Load(SceneNames.Battle);
         }
@@ -422,21 +641,23 @@ namespace DouQuqu
         private void RefreshChrome()
         {
             if (expandLabel != null) expandLabel.text = expanded ? "收起" : "展开背包";
-            if (readyBadge != null) readyBadge.gameObject.SetActive(ready);
-            if (matchButtonText != null)
-                matchButtonText.text = ready ? (waitingForLanBattle ? "等待对手" : "已准备") : "准备就绪";
-            if (matchButton != null) matchButton.interactable = sessionActive && !ready;
-            if (ownZone != null)
+            if (readyBadge != null) readyBadge.gameObject.SetActive(true);
+            if (ownStatusText != null) ownStatusText.text = ready ? StatusConfirmed : StatusSelecting;
+            if (matchButtonText != null) matchButtonText.text = ready ? LabelCancel : LabelConfirm;
+            if (matchButtonImage != null)
             {
-                Transform name = FindNamed(ownZone, "玩家二");
-                TMP_Text label = name != null ? name.GetComponent<TMP_Text>() : null;
-                if (label != null && PlayerDataService.IsLoggedIn)
-                    label.text = PlayerDataService.CurrentPlayerName;
+                Sprite sprite = ready ? cancelSprite : confirmSprite;
+                if (sprite != null) matchButtonImage.sprite = sprite;
             }
+            if (matchButton != null) matchButton.interactable = sessionActive && !selectionClosed;
+            if (ownPlayerName != null && PlayerDataService.IsLoggedIn)
+                ownPlayerName.text = PlayerDataService.CurrentPlayerName;
         }
 
         private void RefreshSlots()
         {
+            if (emptyPackBackground == null)
+                emptyPackBackground = LoadSprite("HeroSelection/Textures/PackCricketBg-unSelected");
             for (int i = 0; i < SlotCount; i++)
             {
                 SlotView slot = slots[i];
@@ -447,21 +668,28 @@ namespace DouQuqu
                 if (slot.quality != null)
                     slot.quality.text = filled ? CricketCatalog.QualityName(entry.quality) : string.Empty;
                 if (slot.name != null)
+                {
+                    slot.name.gameObject.SetActive(filled);
                     slot.name.text = filled ? CricketCatalog.CricketName(entry.quality, entry.temperament) : string.Empty;
+                }
+                if (slot.background != null)
+                {
+                    slot.background.enabled = true;
+                    slot.background.preserveAspect = true;
+                    slot.background.color = Color.white;
+                    slot.background.sprite = filled
+                        ? CricketCatalog.PackBackground(entry.quality, entry.temperament)
+                        : emptyPackBackground;
+                }
                 if (slot.portrait != null)
                 {
-                    slot.portrait.enabled = true;
-                    slot.portrait.preserveAspect = true;
+                    slot.portrait.gameObject.SetActive(filled);
                     if (filled)
                     {
-                        Sprite sprite = SpriteFor(entry.quality, entry.temperament);
-                        slot.portrait.sprite = sprite;
+                        slot.portrait.enabled = true;
+                        slot.portrait.preserveAspect = true;
+                        slot.portrait.sprite = CricketCatalog.Portrait(entry.quality, entry.temperament);
                         slot.portrait.color = Color.white;
-                    }
-                    else
-                    {
-                        slot.portrait.sprite = null;
-                        slot.portrait.color = new Color(0.55f, 0.55f, 0.48f, 0.45f);
                     }
                 }
             }
@@ -483,6 +711,7 @@ namespace DouQuqu
             {
                 FilterTab tab = filterTabs[i];
                 bool on = tab.temperament == filterTemperament;
+                if (tab.line != null) tab.line.gameObject.SetActive(on);
                 if (tab.label != null)
                 {
                     tab.label.color = on ? TabOn : TabOff;
@@ -512,6 +741,13 @@ namespace DouQuqu
                 PlaceCard(card.root.transform as RectTransform, i);
                 if (card.quality != null) card.quality.text = CricketCatalog.QualityName(entry.quality);
                 if (card.name != null) card.name.text = CricketCatalog.CricketName(entry.quality, entry.temperament);
+                if (card.background != null)
+                {
+                    card.background.sprite = CricketCatalog.PackBackground(entry.quality, entry.temperament);
+                    card.background.enabled = card.background.sprite != null;
+                    card.background.preserveAspect = true;
+                    card.background.color = Color.white;
+                }
                 if (card.portrait != null)
                 {
                     card.portrait.sprite = SpriteFor(entry.quality, entry.temperament);
@@ -600,123 +836,126 @@ namespace DouQuqu
         private OtherZoneView ReadOtherZone(Transform zone)
         {
             if (zone == null) return null;
-            OtherZoneView view = new OtherZoneView { root = zone, slots = new SlotView[SlotCount] };
+            HideCricketSlots(zone);
+            OtherZoneView view = new OtherZoneView { root = zone };
             Transform name = FindNamed(zone, "玩家二") ?? FindNamed(zone, "PlayerName");
             view.playerName = name != null ? name.GetComponent<TMP_Text>() : null;
             view.homeName = view.playerName != null ? view.playerName.text : string.Empty;
-            view.homeQualities = new string[SlotCount];
-            view.homeNames = new string[SlotCount];
-            view.homeSprites = new Sprite[SlotCount];
-            view.homeColors = new Color[SlotCount];
-            view.homeBadge = new bool[SlotCount];
-
-            Transform frame = FindNamed(zone, "Frame 6");
-            if (frame == null) return view;
-            int index = 0;
-            for (int c = 0; c < frame.childCount && index < SlotCount; c++)
-            {
-                SlotView slot = ReadSlot(frame.GetChild(c));
-                view.slots[index] = slot;
-                view.homeQualities[index] = slot.quality != null ? slot.quality.text : string.Empty;
-                view.homeNames[index] = slot.name != null ? slot.name.text : string.Empty;
-                view.homeSprites[index] = slot.portrait != null ? slot.portrait.sprite : null;
-                view.homeColors[index] = slot.portrait != null ? slot.portrait.color : Color.white;
-                view.homeBadge[index] = slot.badgeRoot != null && slot.badgeRoot.activeSelf;
-                index++;
-            }
-
+            view.status = ReadStatusText(zone);
             return view;
         }
 
         private void ApplyOtherZones()
         {
             if (otherZoneViews == null) return;
-            bool training = AppServices.PendingMatchKind == MatchKind.Training;
+            if (AppServices.PendingMatchKind == MatchKind.Training)
+            {
+                for (int i = 0; i < otherZoneViews.Length; i++)
+                    PaintOtherZone(otherZoneViews[i], TrainingCamp.BotName(i), true);
+                return;
+            }
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network != null && network.IsRunning)
+            {
+                PaintLanOtherZones(network);
+                return;
+            }
             for (int i = 0; i < otherZoneViews.Length; i++)
             {
-                OtherZoneView zone = otherZoneViews[i];
-                if (zone == null) continue;
-                if (training) PaintTrainingZone(zone, i);
-                else RestoreOtherZone(zone);
+                OtherZoneView view = otherZoneViews[i];
+                PaintOtherZone(view, view != null ? view.homeName : string.Empty, false);
             }
         }
 
-        private void PaintTrainingZone(OtherZoneView zone, int botIndex)
+        private void PaintLanOtherZones(LanSession network)
         {
-            if (zone.playerName != null)
-                zone.playerName.text = TrainingCamp.BotName(botIndex);
-            CricketPick[] picks = TrainingCamp.PicksForBot(botIndex);
-            for (int i = 0; i < SlotCount; i++)
-                PaintSlot(zone.slots[i], i < picks.Length ? picks[i] : null);
-        }
-
-        private void RestoreOtherZone(OtherZoneView zone)
-        {
-            if (zone.playerName != null) zone.playerName.text = zone.homeName;
-            for (int i = 0; i < SlotCount; i++)
+            IReadOnlyList<LanPlayerSlot> slots = network.Slots;
+            int localId = network.LocalPlayerId;
+            int zone = 0;
+            if (slots != null)
             {
-                SlotView slot = zone.slots[i];
-                if (slot == null) continue;
-                if (slot.quality != null) slot.quality.text = zone.homeQualities[i];
-                if (slot.name != null) slot.name.text = zone.homeNames[i];
-                if (slot.portrait != null)
+                for (int i = 0; i < slots.Count && zone < otherZoneViews.Length; i++)
                 {
-                    slot.portrait.enabled = true;
-                    slot.portrait.preserveAspect = true;
-                    slot.portrait.sprite = zone.homeSprites[i];
-                    slot.portrait.color = zone.homeColors[i];
+                    if (i == localId) continue;
+                    LanPlayerSlot slot = slots[i];
+                    string playerName = slot != null && !string.IsNullOrEmpty(slot.playerName)
+                        ? slot.playerName
+                        : "玩家" + (i + 1);
+                    bool confirmed = slot != null && (slot.selectionReady || slot.isBot);
+                    PaintOtherZone(otherZoneViews[zone], playerName, confirmed);
+                    zone++;
                 }
-                if (slot.badgeRoot != null) slot.badgeRoot.SetActive(zone.homeBadge[i]);
+            }
+            for (; zone < otherZoneViews.Length; zone++)
+            {
+                OtherZoneView view = otherZoneViews[zone];
+                PaintOtherZone(view, view != null ? view.homeName : string.Empty, false);
             }
         }
 
-        private void PaintSlot(SlotView slot, CricketPick pick)
+        private static void PaintOtherZone(OtherZoneView zone, string playerName, bool confirmed)
         {
-            if (slot == null) return;
-            bool filled = pick != null && pick.catalogId != 0;
-            if (slot.badgeRoot != null) slot.badgeRoot.SetActive(filled);
-            if (slot.quality != null)
-                slot.quality.text = filled ? CricketCatalog.QualityName(pick.quality) : string.Empty;
-            if (slot.name != null)
-                slot.name.text = filled ? CricketCatalog.CricketName(pick.quality, pick.temperament) : string.Empty;
-            if (slot.portrait == null) return;
-            slot.portrait.enabled = true;
-            slot.portrait.preserveAspect = true;
-            if (filled)
-            {
-                slot.portrait.sprite = SpriteFor(pick.quality, pick.temperament);
-                slot.portrait.color = Color.white;
-            }
-            else
-            {
-                slot.portrait.sprite = null;
-                slot.portrait.color = new Color(0.55f, 0.55f, 0.48f, 0.45f);
-            }
+            if (zone == null) return;
+            if (zone.playerName != null && !string.IsNullOrEmpty(playerName))
+                zone.playerName.text = playerName;
+            if (zone.status != null)
+                zone.status.text = confirmed ? StatusConfirmed : StatusSelecting;
+        }
+
+        private static void HideCricketSlots(Transform zone)
+        {
+            Transform frame = FindNamed(zone, "Frame 6");
+            if (frame != null) frame.gameObject.SetActive(false);
+        }
+
+        private static TMP_Text ReadStatusText(Transform zone)
+        {
+            if (zone == null) return null;
+            Transform badge = FindNamed(zone, "ready-badge");
+            if (badge == null) return null;
+            badge.gameObject.SetActive(true);
+            Transform label = FindNamed(badge, "已准备");
+            return label != null ? label.GetComponent<TMP_Text>() : badge.GetComponentInChildren<TMP_Text>(true);
         }
 
         private void EnsureGreenBox()
         {
             if (greenBox != null) return;
+            if (selectionFrameSprite == null)
+                selectionFrameSprite = LoadSprite("HeroSelection/Textures/选择框");
             GameObject go = new GameObject("GreenBox", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             greenBox = go.GetComponent<RectTransform>();
             Image image = go.GetComponent<Image>();
-            image.sprite = WhiteSprite();
-            image.color = GreenFill;
             image.raycastTarget = false;
-            Outline outline = go.AddComponent<Outline>();
-            outline.effectColor = GreenLine;
-            outline.effectDistance = new Vector2(5f, -5f);
+            if (selectionFrameSprite != null)
+            {
+                image.sprite = selectionFrameSprite;
+                image.color = Color.white;
+                image.preserveAspect = true;
+            }
+            else
+            {
+                image.sprite = WhiteSprite();
+                image.color = GreenFill;
+                Outline outline = go.AddComponent<Outline>();
+                outline.effectColor = GreenLine;
+                outline.effectDistance = new Vector2(5f, -5f);
+            }
             go.SetActive(false);
         }
 
         private void PlaceGreenBox(Transform slot)
         {
-            greenBox.SetParent(slot, false);
-            greenBox.anchorMin = Vector2.zero;
-            greenBox.anchorMax = Vector2.one;
-            greenBox.offsetMin = new Vector2(-6f, -6f);
-            greenBox.offsetMax = new Vector2(6f, 6f);
+            RectTransform slotRect = slot as RectTransform;
+            Transform parent = ownZone != null ? ownZone : slot;
+            greenBox.SetParent(parent, false);
+            greenBox.anchorMin = new Vector2(0.5f, 0.5f);
+            greenBox.anchorMax = new Vector2(0.5f, 0.5f);
+            greenBox.pivot = new Vector2(0.5f, 0.5f);
+            greenBox.sizeDelta = new Vector2(SelectionFrameWidth, SelectionFrameHeight);
             greenBox.localScale = Vector3.one;
+            float x = slotRect != null ? slotRect.anchoredPosition.x : 0f;
+            greenBox.anchoredPosition = new Vector2(x, 0f);
             greenBox.SetAsLastSibling();
         }
 
@@ -754,14 +993,16 @@ namespace DouQuqu
         private static SlotView ReadSlot(Transform root)
         {
             SlotView slot = new SlotView { root = root };
-            Transform badge = FindNamed(root, "Frame");
-            slot.badgeRoot = badge != null ? badge.gameObject : null;
-            Transform quality = FindNamed(root, "四品");
-            slot.quality = quality != null ? quality.GetComponent<TMP_Text>() : null;
-            Transform name = FindNamed(root, "青牙王");
-            slot.name = name != null ? name.GetComponent<TMP_Text>() : root.GetComponentInChildren<TMP_Text>(true);
-            Transform portrait = FindNamed(root, "Rectangle");
+            Transform bg = FindNamed(root, "背景");
+            slot.background = bg != null ? bg.GetComponent<Image>() : null;
+            Transform portrait = FindNamed(root, "头像") ?? FindNamed(root, "Rectangle");
             slot.portrait = portrait != null ? portrait.GetComponent<Image>() : root.GetComponent<Image>();
+            Transform name = FindNamed(root, "白头狮") ?? FindNamed(root, "青牙王");
+            slot.name = name != null ? name.GetComponent<TMP_Text>() : null;
+            Transform badge = FindNamed(root, "品级") ?? FindNamed(root, "Frame");
+            slot.badgeRoot = badge != null ? badge.gameObject : null;
+            Transform quality = FindNamed(root, "极品") ?? FindNamed(root, "四品");
+            slot.quality = quality != null ? quality.GetComponent<TMP_Text>() : null;
             return slot;
         }
 
@@ -774,6 +1015,8 @@ namespace DouQuqu
             card.name = name != null ? name.GetComponent<TMP_Text>() : null;
             Transform portrait = FindNamed(root.transform, "头像");
             card.portrait = portrait != null ? portrait.GetComponent<Image>() : null;
+            Transform bg = FindNamed(root.transform, "背景") ?? FindNamed(root.transform, "Rectangle 11");
+            card.background = bg != null ? bg.GetComponent<Image>() : null;
             card.group = root.GetComponent<CanvasGroup>();
             if (card.group == null) card.group = root.AddComponent<CanvasGroup>();
             return card;
@@ -782,13 +1025,20 @@ namespace DouQuqu
         private static void PlaceCard(RectTransform rect, int index)
         {
             if (rect == null) return;
-            const float originX = 117.63f;
-            const float originY = -127.5f;
-            const float stepX = 250.25f;
-            const float stepY = -270f;
-            int col = index % 4;
-            int row = index / 4;
-            rect.anchoredPosition = new Vector2(originX + col * stepX, originY + row * stepY);
+            const int cols = 3;
+            const float card = 288f;
+            const float topPad = 66f;
+            const float vGap = 21f;
+            int col = index % cols;
+            int row = index / cols;
+            float left = col == 0 ? 67f : col == 1 ? 396f : 705f;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(card, card);
+            float x = left + card * 0.5f;
+            float y = -(topPad + card * 0.5f + row * (card + vGap));
+            rect.anchoredPosition = new Vector2(x, y);
         }
 
         private static void BindClick(GameObject go, UnityEngine.Events.UnityAction clicked)
@@ -873,12 +1123,6 @@ namespace DouQuqu
             return found != null ? found.GetComponent<TMP_Text>() : null;
         }
 
-        private static Button FindButton(Transform root, string objectName)
-        {
-            Transform found = FindNamed(root, objectName);
-            return found != null ? found.GetComponent<Button>() : null;
-        }
-
         private static Transform FindNamed(Transform root, string objectName)
         {
             if (root == null) return null;
@@ -900,6 +1144,7 @@ namespace DouQuqu
         private sealed class SlotView
         {
             public Transform root;
+            public Image background;
             public Image portrait;
             public TMP_Text quality;
             public TMP_Text name;
@@ -910,18 +1155,14 @@ namespace DouQuqu
         {
             public Transform root;
             public TMP_Text playerName;
-            public SlotView[] slots;
+            public TMP_Text status;
             public string homeName;
-            public string[] homeQualities;
-            public string[] homeNames;
-            public Sprite[] homeSprites;
-            public Color[] homeColors;
-            public bool[] homeBadge;
         }
 
         private sealed class CardView
         {
             public GameObject root;
+            public Image background;
             public Image portrait;
             public TMP_Text quality;
             public TMP_Text name;
@@ -933,6 +1174,7 @@ namespace DouQuqu
         {
             public Transform root;
             public TMP_Text label;
+            public Transform line;
             public int temperament;
         }
     }

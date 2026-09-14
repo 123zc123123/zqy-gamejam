@@ -124,7 +124,7 @@ namespace DouQuqu
                 element.style.borderRightWidth = 0;
                 element.style.borderTopWidth = 0;
                 element.style.borderBottomWidth = 0;
-                element.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit;
+                element.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Contain);
             }
             else
             {

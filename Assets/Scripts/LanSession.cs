@@ -81,7 +81,6 @@ namespace DouQuqu
         private readonly Dictionary<string, int> clientIds = new Dictionary<string, int>();
         private float snapshotTimer;
         private float discoveryTimer;
-        private int nextPlayerId = 1;
         private int lastSnapshotTick = -1;
         private int roomCapacity = MatchController.MaxPlayers;
         private LanPlayerSlot[] slots = new LanPlayerSlot[MatchController.MaxPlayers];
@@ -157,6 +156,9 @@ namespace DouQuqu
                 return ConnectedHumanCount() >= roomCapacity;
             }
         }
+        /// <summary>随机匹配等到选虫倒计时结束再开战；好友组队四人都确定后可提前开战。</summary>
+        public bool DeferBattleUntilSelectionTimeout { get; set; }
+
         public bool CanPrepareBattle
         {
             get
@@ -361,7 +363,6 @@ namespace DouQuqu
                 slots[0].selectionReady = false;
                 slots[0].isBot = false;
                 slots[0].playerName = string.IsNullOrWhiteSpace(localPlayerName) ? "Host" : localPlayerName;
-                nextPlayerId = 1;
                 lastSnapshotTick = -1;
                 discoveryTimer = 0f;
                 NotifyLobbyChanged();
@@ -461,6 +462,7 @@ namespace DouQuqu
             pendingSelectionReadyRequest = false;
             selectionReadyRequestRemaining = 0f;
             selectionReadyRequestTick = 0f;
+            DeferBattleUntilSelectionTimeout = false;
             pendingSnapshot = null;
             pendingWelcomePlayerCount = 0;
         }
@@ -775,6 +777,15 @@ namespace DouQuqu
 
         private void TryPrepareBattleFromSelectionReady()
         {
+            if (DeferBattleUntilSelectionTimeout) return;
+            if (CanPrepareBattle) PrepareBattle();
+        }
+
+        /// <summary>选虫倒计时到 0 后由房主开战；此前随机匹配即使全员已确定也不进场。</summary>
+        public void StartBattleAfterSelectionTimeout()
+        {
+            DeferBattleUntilSelectionTimeout = false;
+            if (!IsHost) return;
             if (CanPrepareBattle) PrepareBattle();
         }
 

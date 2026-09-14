@@ -10,6 +10,12 @@ namespace DouQuqu.Editor
     public sealed class QualitySpriteImporter : AssetPostprocessor
     {
         private const string Folder = "Assets/Resources/Merge/MergeQualities";
+        private const string PackBgPrefix = "Assets/Resources/HeroSelection/Textures/PackCricketBg-";
+        private const string PackTabPrefix = "Assets/Resources/HeroSelection/Textures/tab";
+        private const string PackSelectLine = "Assets/Resources/HeroSelection/Textures/选择线.png";
+        private const string PackPanelBg = "Assets/Resources/HeroSelection/Textures/PackBg.png";
+        /// <summary>九宫格边：left, bottom, right, top。顶 200 不拉，底 100 作为中心拉伸。</summary>
+        private static readonly Vector4 PackPanelBorder = new Vector4(0f, 0f, 0f, 200f);
 
         [InitializeOnLoadMethod]
         private static void EnsureImportedAsSprites()
@@ -25,11 +31,18 @@ namespace DouQuqu.Editor
 
         private static void ReimportIfNeeded()
         {
-            if (!AssetDatabase.IsValidFolder(Folder)) return;
-            string[] guids = AssetDatabase.FindAssets("t:Texture", new[] { Folder });
+            ReimportFolder(Folder);
+            ReimportFolder("Assets/Resources/HeroSelection/Textures");
+        }
+
+        private static void ReimportFolder(string folder)
+        {
+            if (!AssetDatabase.IsValidFolder(folder)) return;
+            string[] guids = AssetDatabase.FindAssets("t:Texture", new[] { folder });
             for (int i = 0; i < guids.Length; i++)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                if (!IsTarget(path)) continue;
                 TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
                 if (importer == null || AlreadySprite(importer)) continue;
                 ApplySpriteSettings(importer);
@@ -39,16 +52,34 @@ namespace DouQuqu.Editor
 
         private void OnPreprocessTexture()
         {
-            if (!assetPath.Replace('\\', '/').StartsWith(Folder + "/")) return;
+            if (!IsTarget(assetPath)) return;
             TextureImporter importer = (TextureImporter)assetImporter;
             ApplySpriteSettings(importer);
         }
 
+        private static bool IsTarget(string path)
+        {
+            path = path.Replace('\\', '/');
+            if (path.StartsWith(Folder + "/")) return true;
+            if (path == PackPanelBg || path == PackSelectLine) return true;
+            if (path.StartsWith(PackTabPrefix) && (path.EndsWith(".png") || path.EndsWith(".PNG"))) return true;
+            return path.StartsWith(PackBgPrefix) && (path.EndsWith(".png") || path.EndsWith(".PNG"));
+        }
+
+        private static bool IsPackPanel(string path)
+        {
+            return path.Replace('\\', '/') == PackPanelBg;
+        }
+
         private static bool AlreadySprite(TextureImporter importer)
         {
-            return importer.textureType == TextureImporterType.Sprite
-                && importer.spriteImportMode == SpriteImportMode.Single
-                && !importer.mipmapEnabled;
+            if (importer.textureType != TextureImporterType.Sprite
+                || importer.spriteImportMode != SpriteImportMode.Single
+                || importer.mipmapEnabled)
+                return false;
+            if (IsPackPanel(importer.assetPath) && importer.spriteBorder != PackPanelBorder)
+                return false;
+            return true;
         }
 
         private static void ApplySpriteSettings(TextureImporter importer)
@@ -71,7 +102,11 @@ namespace DouQuqu.Editor
             settings.spritePivot = new Vector2(0.5f, 0.5f);
             settings.alphaIsTransparency = true;
             settings.mipmapEnabled = false;
+            if (IsPackPanel(importer.assetPath))
+                settings.spriteBorder = PackPanelBorder;
             importer.SetTextureSettings(settings);
+            if (IsPackPanel(importer.assetPath))
+                importer.spriteBorder = PackPanelBorder;
         }
     }
 }

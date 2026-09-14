@@ -135,7 +135,8 @@ namespace DouQuqu
             for (int i = 0; i < group.childCount; i++)
             {
                 Transform child = group.GetChild(i);
-                if (child.name.StartsWith("Frame")) frames.Add(child);
+                if (child.name.StartsWith("Frame") || child.name.IndexOf("PackPersonalitySwitchTab") >= 0)
+                    frames.Add(child);
             }
             frames.Sort((a, b) =>
             {
@@ -151,7 +152,13 @@ namespace DouQuqu
                 Transform frame = frames[i];
                 TMP_Text label = frame.GetComponentInChildren<TMP_Text>(true);
                 if (label != null) label.text = FilterLabels[i];
-                FilterTab tab = new FilterTab { root = frame, label = label, temperament = i };
+                FilterTab tab = new FilterTab
+                {
+                    root = frame,
+                    label = label,
+                    line = FindNamed(frame, "选择线"),
+                    temperament = i
+                };
                 filterTabs.Add(tab);
                 int captured = i;
                 BindClick(frame.gameObject, () =>
@@ -180,6 +187,7 @@ namespace DouQuqu
             {
                 FilterTab tab = filterTabs[i];
                 bool on = tab.temperament == filterTemperament;
+                if (tab.line != null) tab.line.gameObject.SetActive(on);
                 if (tab.label == null) continue;
                 tab.label.color = on ? TabOn : TabOff;
                 tab.label.fontStyle = on ? FontStyles.Bold : FontStyles.Normal;
@@ -211,6 +219,13 @@ namespace DouQuqu
                 PlaceCard(card.root.transform as RectTransform, i);
                 if (card.quality != null) card.quality.text = CricketCatalog.QualityName(entry.quality);
                 if (card.name != null) card.name.text = CricketCatalog.CricketName(entry.quality, entry.temperament);
+                if (card.background != null)
+                {
+                    card.background.sprite = CricketCatalog.PackBackground(entry.quality, entry.temperament);
+                    card.background.enabled = card.background.sprite != null;
+                    card.background.preserveAspect = true;
+                    card.background.color = Color.white;
+                }
                 if (card.portrait != null)
                 {
                     card.portrait.sprite = SpriteFor(entry.quality, entry.temperament);
@@ -277,15 +292,28 @@ namespace DouQuqu
             card.name = name != null ? name.GetComponent<TMP_Text>() : null;
             Transform portrait = FindNamed(root.transform, "头像");
             card.portrait = portrait != null ? portrait.GetComponent<Image>() : null;
+            Transform bg = FindNamed(root.transform, "背景") ?? FindNamed(root.transform, "Rectangle 11");
+            card.background = bg != null ? bg.GetComponent<Image>() : null;
             return card;
         }
 
         private static void PlaceCard(RectTransform rect, int index)
         {
             if (rect == null) return;
-            int col = index % 4;
-            int row = index / 4;
-            rect.anchoredPosition = new Vector2(117.63f + col * 250.25f, -127.5f + row * -270f);
+            const int cols = 3;
+            const float card = 288f;
+            const float topPad = 66f;
+            const float vGap = 21f;
+            int col = index % cols;
+            int row = index / cols;
+            float left = col == 0 ? 67f : col == 1 ? 396f : 705f;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(card, card);
+            float x = left + card * 0.5f;
+            float y = -(topPad + card * 0.5f + row * (card + vGap));
+            rect.anchoredPosition = new Vector2(x, y);
         }
 
         private static void BindClick(GameObject go, UnityEngine.Events.UnityAction clicked)
@@ -325,6 +353,7 @@ namespace DouQuqu
             public GameObject root;
             public TMP_Text quality;
             public TMP_Text name;
+            public Image background;
             public Image portrait;
         }
 
@@ -332,6 +361,7 @@ namespace DouQuqu
         {
             public Transform root;
             public TMP_Text label;
+            public Transform line;
             public int temperament;
         }
     }
