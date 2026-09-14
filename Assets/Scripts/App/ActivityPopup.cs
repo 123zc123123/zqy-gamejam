@@ -32,6 +32,11 @@ namespace DouQuqu
             Show("玩法规则", RulesBody);
         }
 
+        public static void ShowMessage(string titleText, string bodyText)
+        {
+            Show(titleText, bodyText);
+        }
+
         private static void Show(string titleText, string bodyText)
         {
             if (instance == null) instance = Create();

@@ -157,7 +157,7 @@ namespace DouQuqu
             RefreshFriendRoomAction();
         }
 
-        /// <summary>好友房客户端提交准备；只有房主在其他玩家全部准备后才能锁定开局。</summary>
+        /// <summary>好友房由房主在人齐后统一开始；非房主只等待房主操作。</summary>
         public void OnFriendRoomAction()
         {
             if (!InRoom || !friendRoom || matching) return;
@@ -166,12 +166,12 @@ namespace DouQuqu
 
             if (network.IsHost)
             {
-                if (!network.CanStart) return;
+                if (!network.CanStart)
+                {
+                    ActivityPopup.ShowMessage("人数未齐", "四名玩家到齐后，房主才能开始。");
+                    return;
+                }
                 network.StartMatchAsHost();
-            }
-            else if (network.LocalPlayerId >= 0 && !network.LocalPlayerReady)
-            {
-                network.SetReady(true);
             }
 
             RefreshFriendRoomAction();
@@ -189,7 +189,7 @@ namespace DouQuqu
             friendRoom = false;
             matching = false;
             if (AppServices.Instance != null && AppServices.Instance.Network != null)
-                AppServices.Instance.Network.Stop();
+                AppServices.Instance.Network.LeaveRoom();
             ApplyVisual();
         }
 
@@ -515,7 +515,10 @@ namespace DouQuqu
                 if (sample.IndexOf("准备", System.StringComparison.Ordinal) >= 0) continue;
                 string name = "空位";
                 if (slots != null && slot < slots.Count && slots[slot] != null && slots[slot].connected)
+                {
                     name = string.IsNullOrEmpty(slots[slot].playerName) ? "玩家" : slots[slot].playerName;
+                    if (slot == 0) name += "（房主）";
+                }
                 label.text = name;
                 slot++;
             }
@@ -534,7 +537,7 @@ namespace DouQuqu
             Lobby.Instance.RefreshNavVisibility();
         }
 
-        /// <summary>根据本机身份刷新好友房按钮：房主为“开始”，其他玩家为“准备”。</summary>
+        /// <summary>根据本机身份刷新好友房按钮：房主可开始，其他玩家等待房主。</summary>
         private void RefreshFriendRoomAction()
         {
             if (readyRoot == null || !InRoom || !friendRoom) return;
@@ -552,7 +555,7 @@ namespace DouQuqu
             else if (network.IsHost)
             {
                 label = "开始";
-                interactable = network.CanStart;
+                interactable = true;
             }
             else if (network.LocalPlayerId < 0)
             {
@@ -561,8 +564,8 @@ namespace DouQuqu
             }
             else
             {
-                label = network.LocalPlayerReady ? "已准备" : "准备";
-                interactable = !network.LocalPlayerReady;
+                label = "等待房主";
+                interactable = false;
             }
 
             for (int i = 0; i < labels.Length; i++) labels[i].text = label;

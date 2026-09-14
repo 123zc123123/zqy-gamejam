@@ -42,6 +42,7 @@ namespace DouQuqu
         private bool bound;
         private bool sessionActive;
         private bool ready;
+        private bool waitingForLanBattle;
         private bool expanded;
         private int selectedSlot;
         private int filterTemperament;
@@ -65,6 +66,7 @@ namespace DouQuqu
             if (!bound) return;
             sessionActive = true;
             ready = false;
+            waitingForLanBattle = false;
             expanded = false;
             selectedSlot = 0;
             filterTemperament = 0;
@@ -72,12 +74,15 @@ namespace DouQuqu
             deadlineUnscaled = Time.unscaledTime + SelectSeconds;
             ApplyCollapsed();
             ApplyOtherZones();
+            HookBattleReady();
             RefreshAll();
         }
 
         public void CancelSelection()
         {
             sessionActive = false;
+            waitingForLanBattle = false;
+            UnhookBattleReady();
             ApplyCollapsed();
         }
 
@@ -331,15 +336,43 @@ namespace DouQuqu
         private void LockReady()
         {
             ready = true;
+            waitingForLanBattle = false;
             if (expanded) ApplyCollapsed();
             RefreshAll();
             AppServices.PendingLocalPicks = CopyPicks();
             LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
             if (network != null && network.IsRunning)
             {
-                network.SetReady(true);
-                network.PrepareBattle();
+                waitingForLanBattle = true;
+                HookBattleReady();
+                network.SetSelectionReady(true);
+                RefreshChrome();
+                if (network.IsBattleStarting) OnBattleReady();
+                return;
             }
+            SceneNames.Load(SceneNames.Battle);
+        }
+
+        private void HookBattleReady()
+        {
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null) return;
+            network.BattleReady -= OnBattleReady;
+            network.BattleReady += OnBattleReady;
+        }
+
+        private void UnhookBattleReady()
+        {
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            if (network == null) return;
+            network.BattleReady -= OnBattleReady;
+        }
+
+        private void OnBattleReady()
+        {
+            if (!sessionActive || !ready) return;
+            waitingForLanBattle = false;
+            UnhookBattleReady();
             SceneNames.Load(SceneNames.Battle);
         }
 
@@ -390,6 +423,8 @@ namespace DouQuqu
         {
             if (expandLabel != null) expandLabel.text = expanded ? "收起" : "展开背包";
             if (readyBadge != null) readyBadge.gameObject.SetActive(ready);
+            if (matchButtonText != null)
+                matchButtonText.text = ready ? (waitingForLanBattle ? "等待对手" : "已准备") : "准备就绪";
             if (matchButton != null) matchButton.interactable = sessionActive && !ready;
             if (ownZone != null)
             {
