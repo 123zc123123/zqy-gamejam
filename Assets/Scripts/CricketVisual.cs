@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.U2D;
 using UnityEngine.U2D.Animation;
 
 namespace DouQuqu
@@ -75,7 +76,8 @@ namespace DouQuqu
 
         /// <summary>
         /// 换皮只换贴图，不换带权重的网格。
-        /// 各套 PSB 图层打包位置接近，用 Default 网格的 UV 采样目标皮肤图集，动画才能继续播。
+        /// 用 Default（1-1）网格播骨骼；目标皮肤图集打包不同时，靠 _SrcUVRect/_DstUVRect 把 UV 重映射过去。
+        /// 4 系以后若单独绑了骨骼，只要 look 带 bind pose，就会改走自己的网格。
         /// </summary>
         public void ApplySkin(string label)
         {
@@ -87,7 +89,7 @@ namespace DouQuqu
             if (parts == null || parts.Length == 0) return;
             if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
 
-            bool ownSprite = label.StartsWith("4-");
+            bool qualityFour = label.StartsWith("4-");
             for (int i = 0; i < parts.Length; i++)
             {
                 SpriteRenderer renderer = parts[i];
@@ -95,22 +97,43 @@ namespace DouQuqu
                 string category = renderer.gameObject.name;
                 Sprite meshSprite = asset.GetSprite(category, "Default");
                 Sprite look = asset.GetSprite(category, label);
-                if (ownSprite && look == null && IsTail(category))
+                if (qualityFour && look == null && IsTail(category))
                 {
                     renderer.enabled = false;
                     continue;
                 }
 
                 renderer.enabled = true;
-                if (ownSprite && look != null) renderer.sprite = look;
-                else if (meshSprite != null) renderer.sprite = meshSprite;
                 if (look == null) look = meshSprite;
+                bool ownSkin = HasBindPose(look) && look != meshSprite;
+                if (ownSkin) renderer.sprite = look;
+                else if (meshSprite != null) renderer.sprite = meshSprite;
                 renderer.GetPropertyBlock(propertyBlock);
                 if (look != null && look.texture != null)
                     propertyBlock.SetTexture("_MainTex", look.texture);
+                propertyBlock.SetVector("_SrcUVRect", AtlasUvRect(ownSkin ? look : meshSprite));
+                propertyBlock.SetVector("_DstUVRect", AtlasUvRect(look));
                 renderer.SetPropertyBlock(propertyBlock);
                 ApplyOutlineBlock(renderer, outlineColor, outlineWidth);
             }
+        }
+
+        static bool HasBindPose(Sprite sprite)
+        {
+            if (sprite == null) return false;
+            SpriteBone[] bones = sprite.GetBones();
+            return bones != null && bones.Length > 0;
+        }
+
+        static Vector4 AtlasUvRect(Sprite sprite)
+        {
+            if (sprite == null || sprite.texture == null)
+                return new Vector4(0f, 0f, 1f, 1f);
+            Texture tex = sprite.texture;
+            Rect rect = sprite.textureRect;
+            float width = Mathf.Max(1f, tex.width);
+            float height = Mathf.Max(1f, tex.height);
+            return new Vector4(rect.x / width, rect.y / height, rect.width / width, rect.height / height);
         }
 
         public static string SkinLabel(int quality, int temperament, bool ghost = false)

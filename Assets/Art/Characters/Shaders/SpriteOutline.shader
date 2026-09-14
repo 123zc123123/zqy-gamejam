@@ -9,6 +9,8 @@ Shader "DouQuqu/SpriteOutline"
         _OutlineSoftness ("Outline Softness (px)", Range(0, 16)) = 4
         _OutlineAlphaCutoff ("Alpha Cutoff", Range(0.01, 0.99)) = 0.12
         _PixelsPerUnit ("Pixels Per Unit", Float) = 100
+        [PerRendererData] _SrcUVRect ("Src UV Rect", Vector) = (0, 0, 1, 1)
+        [PerRendererData] _DstUVRect ("Dst UV Rect", Vector) = (0, 0, 1, 1)
         [MaterialToggle] PixelSnap ("Pixel snap", Float) = 0
     }
 
@@ -21,6 +23,15 @@ Shader "DouQuqu/SpriteOutline"
     float _OutlineWidth;
     float _OutlineAlphaCutoff;
     float _PixelsPerUnit;
+    float4 _SrcUVRect;
+    float4 _DstUVRect;
+
+    float2 SkinUV(float2 uv)
+    {
+        float2 srcSize = max(_SrcUVRect.zw, float2(1e-6, 1e-6));
+        float2 local = (uv - _SrcUVRect.xy) / srcSize;
+        return _DstUVRect.xy + saturate(local) * _DstUVRect.zw;
+    }
 
     struct appdata_t
     {
@@ -40,7 +51,7 @@ Shader "DouQuqu/SpriteOutline"
     {
         v2f OUT;
         OUT.vertex = UnityObjectToClipPos(IN.vertex);
-        OUT.texcoord = IN.texcoord;
+        OUT.texcoord = SkinUV(IN.texcoord);
         OUT.color = IN.color * _Color;
 #ifdef PIXELSNAP_ON
         OUT.vertex = UnityPixelSnap(OUT.vertex);
@@ -55,7 +66,7 @@ Shader "DouQuqu/SpriteOutline"
         float4 vertex = IN.vertex;
         vertex.xy += dir * padUnit;
         OUT.vertex = UnityObjectToClipPos(vertex);
-        OUT.texcoord = IN.texcoord;
+        OUT.texcoord = SkinUV(IN.texcoord);
         OUT.color = IN.color;
         return OUT;
     }
