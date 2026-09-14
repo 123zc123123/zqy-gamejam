@@ -149,6 +149,8 @@ namespace DouQuqu.Editor
                 }
             }
 
+            added += AddSkinLabel(library, expected, "Assets/Art/Characters/Skins/4-1-ghost.psb", "4-1-ghost");
+
             EditorUtility.SetDirty(library);
             AssetDatabase.SaveAssets();
             Debug.Log("[DouQuqu] Sprite Library 标签写入：" + added);

@@ -87,14 +87,23 @@ namespace DouQuqu
             if (parts == null || parts.Length == 0) return;
             if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
 
+            bool ownSprite = label.StartsWith("4-");
             for (int i = 0; i < parts.Length; i++)
             {
                 SpriteRenderer renderer = parts[i];
                 if (renderer == null) continue;
                 string category = renderer.gameObject.name;
                 Sprite meshSprite = asset.GetSprite(category, "Default");
-                if (meshSprite != null) renderer.sprite = meshSprite;
                 Sprite look = asset.GetSprite(category, label);
+                if (ownSprite && look == null && IsTail(category))
+                {
+                    renderer.enabled = false;
+                    continue;
+                }
+
+                renderer.enabled = true;
+                if (ownSprite && look != null) renderer.sprite = look;
+                else if (meshSprite != null) renderer.sprite = meshSprite;
                 if (look == null) look = meshSprite;
                 renderer.GetPropertyBlock(propertyBlock);
                 if (look != null && look.texture != null)
@@ -104,9 +113,12 @@ namespace DouQuqu
             }
         }
 
-        public static string SkinLabel(int quality, int temperament)
+        public static string SkinLabel(int quality, int temperament, bool ghost = false)
         {
-            return Mathf.Clamp(quality, 1, 4) + "-" + Mathf.Clamp(temperament, 1, 4);
+            quality = Mathf.Clamp(quality, 1, 4);
+            temperament = Mathf.Clamp(temperament, 1, 4);
+            if (ghost && quality == 4 && temperament == 1) return "4-1-ghost";
+            return quality + "-" + temperament;
         }
 
         public void BindHierarchy()

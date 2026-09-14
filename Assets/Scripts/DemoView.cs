@@ -63,6 +63,7 @@ namespace DouQuqu
         private readonly Dictionary<int, GroundMarker> groundMarkers = new Dictionary<int, GroundMarker>();
         private readonly Dictionary<int, SkillBar> skillBars = new Dictionary<int, SkillBar>();
         private readonly Dictionary<int, int> assignedBugProfiles = new Dictionary<int, int>();
+        private readonly Dictionary<int, string> assignedSkinLabels = new Dictionary<int, string>();
         private Sprite[] premiumBugSprites;
         private MatchState assignedProfileState;
         private int assignedProfileSeed = int.MinValue;
@@ -216,6 +217,7 @@ namespace DouQuqu
             if (!ReferenceEquals(assignedProfileState, state) || assignedProfileSeed != state.randomSeed)
             {
                 assignedBugProfiles.Clear();
+                assignedSkinLabels.Clear();
                 assignedProfileState = state;
                 assignedProfileSeed = state.randomSeed;
             }
@@ -241,20 +243,21 @@ namespace DouQuqu
                 if (unit != null) unit.Bind();
                 GameObject body = BodyOf(view);
                 if (body == null) continue;
-                if (!assignedBugProfiles.TryGetValue(bug.id, out assignedProfile) || assignedProfile != profile)
+                CricketVisual skeletal = body.GetComponent<CricketVisual>();
+                int quality = profile / 4 + 1;
+                int temperament = profile % 4 + 1;
+                string skinLabel = CricketVisual.SkinLabel(quality, temperament, bug.guanYuGhost);
+                string assignedSkin;
+                bool profileChanged = !assignedBugProfiles.TryGetValue(bug.id, out assignedProfile) || assignedProfile != profile;
+                bool skinChanged = !assignedSkinLabels.TryGetValue(bug.id, out assignedSkin) || assignedSkin != skinLabel;
+                if (profileChanged || skinChanged)
                 {
-                    CricketVisual skeletal = body.GetComponent<CricketVisual>();
                     if (skeletal != null)
-                    {
-                        int quality = profile / 4 + 1;
-                        int temperament = profile % 4 + 1;
-                        skeletal.ApplySkin(CricketVisual.SkinLabel(quality, temperament));
-                    }
-                    else
-                    {
+                        skeletal.ApplySkin(skinLabel);
+                    else if (profileChanged)
                         ApplyPremiumBugSprite(body, profile);
-                    }
                     assignedBugProfiles[bug.id] = profile;
+                    assignedSkinLabels[bug.id] = skinLabel;
                 }
                 view.SetActive(bug.alive);
                 if (!bug.alive) continue;
