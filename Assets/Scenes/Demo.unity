@@ -528,7 +528,7 @@ MonoBehaviour:
     staminaCost: 0.5
     staminaJump: 0.5
     staminaRegen: 0.25
-    staminaRegenCharge: 0
+    staminaRegenCharge: 0.33333334
     staminaSlots: 8
     mass: 1
     gravity: 120

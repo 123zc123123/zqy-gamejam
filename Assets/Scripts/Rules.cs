@@ -32,7 +32,7 @@ namespace DouQuqu
         public float tChargeMax = 1f;
         [InspectorCn("点跳距离", "点一下的水平总位移。满蓄 = 该值 × 距离比。改重力/仰角/摩擦不改落点")]
         public float dMin = 1f;
-        [InspectorCn("满蓄距离比", "满蓄水平总位移 / 点跳水平总位移。蓄力进度对距离线性")]
+        [InspectorCn("满蓄距离比", "中性蓄力速度、蓄满面板时间时：总距 / 点跳距")]
         [Range(1.2f, 8f)]
         public float jumpDistRatio = 3f;
         [HideInInspector]
@@ -57,8 +57,8 @@ namespace DouQuqu
         public float staminaJump = 0.3f;
         [InspectorCn("耐力恢复", "落地未蓄力时每秒恢复；空中不恢复")]
         public float staminaRegen = 1f;
-        [InspectorCn("蓄力时恢复倍率", "蓄力时恢复 = 耐力恢复 × 该值；0 = 蓄力不回")]
-        public float staminaRegenCharge = 0f;
+        [InspectorCn("蓄力时恢复倍率", "蓄力时恢复 = 耐力恢复 × 该值；默认三分之一")]
+        public float staminaRegenCharge = 0.33333334f;
         [InspectorCn("耐力格数", "身周耐力圆环格数")]
         public int staminaSlots = 3;
 
@@ -974,23 +974,42 @@ namespace DouQuqu
             return Mathf.Max(0.0001f, mu * Gravity(knobs));
         }
 
-        /// <summary>点跳水平速度。蓄力强化把点跳距离乘 s²，速度乘 s。</summary>
+        /// <summary>点跳水平速度。对应距离 = 最小距离，不含蓄力段。</summary>
         public static float JumpSpeedMin(MatchKnobs knobs, BugState bug = null)
         {
-            float s = ChargeActive(bug) ? PickupChargeScale(knobs, bug) : 1f;
-            return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug)) * s;
+            return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug));
         }
 
-        /// <summary>出手水平速度。距离对蓄力进度线性；满蓄钉在未强化的 dMin × R。成长已含在 dMin 里。</summary>
+        /// <summary>
+        /// 水平总位移 = 最小距离 + 蓄力时间 × k。
+        /// 时间封顶为蓄力时间上限；k 跟蓄力速度：相同时间，这维越高加得越多。
+        /// </summary>
+        public static float JumpDistance(MatchKnobs knobs, BugState bug, float chargeTime)
+        {
+            float d0 = DMinOf(knobs, bug);
+            float tMax = Mathf.Max(0.000001f, EffectiveChargeTime(knobs, bug));
+            float t = Mathf.Clamp(chargeTime, 0f, tMax);
+            return d0 + t * ChargeDistanceRate(knobs, bug);
+        }
+
+        /// <summary>每秒加在点跳距离上的 k。中性蓄力速度在蓄满面板时间时，总距 = 点跳 × 满蓄距离比。</summary>
+        public static float ChargeDistanceRate(MatchKnobs knobs, BugState bug)
+        {
+            float dRef = Mathf.Max(0.01f, knobs.dMin);
+            float tRef = Mathf.Max(0.000001f, knobs.tChargeMax);
+            float r = JumpDistRatio(knobs);
+            float k0 = dRef * (r - 1f) / tRef;
+            float speed = bug == null ? 1f : StatMul(bug.chargeSpeedMul);
+            float s = ChargeActive(bug) ? PickupChargeScale(knobs, bug) : 1f;
+            float k = k0 * speed * GrowRate(knobs, bug) * s;
+            if (bug != null && bug.rageCharge) k *= Mathf.Max(0.01f, knobs.rageBoost);
+            return k;
+        }
+
+        /// <summary>出手水平速度。由 JumpDistance 反推，落点跟公式里的距离走。</summary>
         public static float JumpDeltaV(MatchKnobs knobs, BugState bug, float chargeTime)
         {
-            float tMax = Mathf.Max(0.000001f, EffectiveChargeTime(knobs, bug));
-            float p = Mathf.Clamp(chargeTime, 0f, tMax) / tMax;
-            float s = ChargeActive(bug) ? PickupChargeScale(knobs, bug) : 1f;
-            float r = JumpDistRatio(knobs);
-            float rEff = Mathf.Max(1f, r / (s * s));
-            float v0 = JumpSpeedFromDistance(knobs, DMinOf(knobs, bug));
-            return v0 * s * Mathf.Sqrt(1f + p * (rEff - 1f));
+            return JumpSpeedFromDistance(knobs, JumpDistance(knobs, bug, chargeTime));
         }
 
         /// <summary>用当前蓄力时间算出手速度。</summary>

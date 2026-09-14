@@ -449,7 +449,7 @@ $$
 - 若 $t_{\text{蓄min}}>0$ 且当前能负担的最长 $t_{\text{蓄}} < t_{\text{蓄min}}$，也不能进入蓄力。$t_{\text{蓄min}}=0$ 时无此条。
 - 消耗发生在确认起跳时。
 - 落地恢复（含滑行）。空中不恢复。
-- 蓄力中恢复速度 = `staminaRegen` × `staminaRegenCharge`（默认 0.5）。当前能负担的最长 $t_{\text{蓄}}$ 用此刻耐力重算。
+- 蓄力中恢复速度 = `staminaRegen` × `staminaRegenCharge`（默认三分之一）。当前能负担的最长 $t_{\text{蓄}}$ 用此刻耐力重算。
 - 人机同一套消耗与恢复。
 - 小蟋蟀不读耐力。
 
@@ -469,7 +469,7 @@ $$
 | 蓄满耐力 | `staminaCost` | 0.8 | 0.1–5 | 蓄满 $T_{\max}$ 的蓄力耐力；$C_{\text{蓄}}=$ 该值 $\times q$ |
 | 起跳耐力 | `staminaJump` | 0.2 | 0–2 | 每次有效起跳固定加扣；点跳只扣这一笔 |
 | 耐力恢复 | `staminaRegen` | 0.48 / s | 0–2 / s | 落地未蓄力时的恢复速度 |
-| 蓄力恢复倍率 | `staminaRegenCharge` | 0.5 | 0–1 | 蓄力时恢复 = `staminaRegen` × 该值；0 = 蓄力不回 |
+| 蓄力恢复倍率 | `staminaRegenCharge` | 1/3 | 0–1 | 蓄力时恢复 = `staminaRegen` × 该值；0 = 蓄力不回 |
 | 耐力格数 | `staminaSlots` | 5 | 3–8 | 身周圆环格数 |
 
 ### 4.2 圆环怎么显
@@ -530,7 +530,7 @@ $$
 | 蓄满耐力 | `staminaCost` | 0.8 | 0.1–5 | §4.1 | 蓄满的蓄力耐力；$C_{\text{蓄}}=$ 该值 $\times q$ |
 | 起跳耐力 | `staminaJump` | 0.2 | 0–2 | §4.1 | 每次有效起跳固定加扣；点跳只扣这一笔 |
 | 耐力恢复 | `staminaRegen` | 0.48/s | 0–2/s | §4.1 | 落地未蓄力时的恢复速度；空中不恢复 |
-| 蓄力恢复倍率 | `staminaRegenCharge` | 0.5 | 0–1 | §4.1 | 蓄力时恢复 = `staminaRegen` × 该值；0 = 蓄力不回 |
+| 蓄力恢复倍率 | `staminaRegenCharge` | 1/3 | 0–1 | §4.1 | 蓄力时恢复 = `staminaRegen` × 该值；0 = 蓄力不回 |
 | 耐力格数 | `staminaSlots` | 5 | 3–8 | §4.1 | 身周圆环格数 |
 | $A_1$（Δv_x / 秒） | `vRate` | 80 | 2–100 | §2.2 | $\Delta v_x = A_1 T_{\text{跳}}$ |
 | θ 仰角 | `theta` | 15° | 10–70 | §2.2 | 与 μ 一起钉匀速占比 $k$ |
