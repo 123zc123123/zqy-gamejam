@@ -73,11 +73,12 @@ namespace DouQuqu
 
             // 蓄力在所有移动子步后统一判断。若本段开始时正在蓄力，会保持原地直到 TickCharge；
             // 碰撞仍可清除蓄力标记，使下一子步恢复运动。
-            if (bug.charging && !IsSettled(bug) && (input == null || !input.released))
+            if (bug.charging && !IsSettled(bug) && !Rules.ChargeLocked(bug) && (input == null || !input.released))
             {
                 bug.charging = false;
                 bug.pendingCharge = held;
                 bug.chargeTime = 0f;
+                bug.luBuArmorT = 0f;
             }
             if (bug.charging) return;
 
@@ -104,14 +105,16 @@ namespace DouQuqu
                 {
                     bug.charging = false;
                     bug.chargeTime = 0f;
+                    bug.luBuArmorT = 0f;
                 }
                 return;
             }
-            if (bug.charging && !IsSettled(bug))
+            if (bug.charging && !IsSettled(bug) && !Rules.ChargeLocked(bug))
             {
                 bug.charging = false;
                 bug.pendingCharge = held;
                 bug.chargeTime = 0f;
+                bug.luBuArmorT = 0f;
             }
             if (IsSettled(bug) && bug.pendingCharge && held)
             {
@@ -130,6 +133,7 @@ namespace DouQuqu
             {
                 bug.charging = false;
                 bug.chargeTime = 0f;
+                bug.luBuArmorT = 0f;
                 return;
             }
             Launch(knobs, bug);
@@ -148,6 +152,7 @@ namespace DouQuqu
                     bug.height = 0f;
                     bug.verticalVelocity = 0f;
                     bug.airborne = false;
+                    bug.diaochanStealArmed = false;
                     ApplyGroundFriction(knobs, bug, dt * 0.25f);
                 }
             }
@@ -240,9 +245,12 @@ namespace DouQuqu
             {
                 bug.charging = false;
                 bug.chargeTime = 0f;
+                bug.luBuArmorT = 0f;
                 return;
             }
+            bool stealArmed = Rules.IsDiaoChan(bug) && Rules.IsFullCharge(knobs, bug);
             bug.stamina = Mathf.Max(0f, bug.stamina - cost);
+            bug.luBuArmorT = 0f;
             float speed = Rules.JumpDeltaV(knobs, bug);
             Vector2 direction = bug.chargeDirection.sqrMagnitude > 0.0001f ? bug.chargeDirection.normalized : Vector2.up;
             bug.velocity = new Vector3(direction.x * speed, 0f, direction.y * speed);
@@ -254,6 +262,7 @@ namespace DouQuqu
             bug.chargeTime = 0f;
             bug.charging = false;
             bug.pendingCharge = false;
+            bug.diaochanStealArmed = stealArmed;
         }
 
         private void LaunchBaby(MatchKnobs knobs, BabyState baby)
@@ -277,6 +286,7 @@ namespace DouQuqu
             bug.charging = true;
             bug.chargeTime = 0f;
             bug.pendingCharge = false;
+            bug.luBuArmorT = Rules.TryStartLuBuArmor(knobs, bug) ? Mathf.Max(0f, knobs.luBuArmorT) : 0f;
             return true;
         }
 

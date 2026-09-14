@@ -16,6 +16,7 @@ namespace DouQuqu
         private const float DeadZone = 0.12f;
 
         private MatchController match;
+        private LanSession lan;
         private RectTransform pit;
         private RectTransform catcher;
         private RectTransform pad;
@@ -27,7 +28,7 @@ namespace DouQuqu
         private bool summoned;
         private static Sprite circleSprite;
 
-        public static HudStick Create(RectTransform battlefield, Canvas hudCanvas, MatchController controller, int localPlayerId)
+        public static HudStick Create(RectTransform battlefield, Canvas hudCanvas, MatchController controller, int localPlayerId, LanSession session = null)
         {
             GameObject host = new GameObject("HudStick", typeof(RectTransform));
             RectTransform hostRect = host.GetComponent<RectTransform>();
@@ -37,6 +38,7 @@ namespace DouQuqu
 
             HudStick stick = host.AddComponent<HudStick>();
             stick.match = controller;
+            stick.lan = session;
             stick.pit = battlefield;
             stick.canvas = hudCanvas;
             stick.playerId = Mathf.Max(0, localPlayerId);
@@ -226,8 +228,13 @@ namespace DouQuqu
 
         private void SendInput(bool released)
         {
-            if (match == null || !match.IsStarted) return;
             Vector2 dir = flyDirection.sqrMagnitude > 0.0001f ? flyDirection : Vector2.up;
+            if (lan != null && lan.IsRunning)
+            {
+                lan.SendInput(dir, !released, released);
+                return;
+            }
+            if (match == null || !match.IsStarted) return;
             match.SetInput(new InputFrame(playerId, dir, !released, released));
         }
     }

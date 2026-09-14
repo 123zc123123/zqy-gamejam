@@ -19,6 +19,10 @@ namespace DouQuqu
         [SerializeField] private float outlineSoftness = 4f;
 
         private MaterialPropertyBlock propertyBlock;
+        private SpriteRenderer armorGlow;
+        private Sprite glowSprite;
+        private static readonly Color ArmorGold = new Color(1f, 0.82f, 0.18f, 1f);
+        private static readonly Color ArmorTint = new Color(1f, 0.93f, 0.55f, 1f);
 
         public SpriteRenderer BodyRenderer
         {
@@ -96,7 +100,7 @@ namespace DouQuqu
                 if (look != null && look.texture != null)
                     propertyBlock.SetTexture("_MainTex", look.texture);
                 renderer.SetPropertyBlock(propertyBlock);
-                ApplyOutlineBlock(renderer, outlineColor);
+                ApplyOutlineBlock(renderer, outlineColor, outlineWidth);
             }
         }
 
@@ -157,12 +161,12 @@ namespace DouQuqu
             for (int i = 0; i < parts.Length; i++)
             {
                 if (parts[i] == null) continue;
-                ApplyOutlineBlock(parts[i], outlineColor);
+                ApplyOutlineBlock(parts[i], outlineColor, outlineWidth);
             }
         }
 
-        /// <summary>全员黑描边，不染色贴图。队伍色走脚下圈。</summary>
-        public void ApplyTeam(bool ally, bool charging)
+        /// <summary>全员黑描边，不染色贴图。队伍色走脚下圈。吕布霸体改金描边和金光。</summary>
+        public void ApplyTeam(bool ally, bool charging, bool armorGlowOn = false, bool ghostOn = false)
         {
             if (parts == null || parts.Length == 0) BindHierarchy();
             if (parts == null || parts.Length == 0) return;
@@ -171,20 +175,85 @@ namespace DouQuqu
             _ = charging;
             if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
 
+            Color outline = armorGlowOn ? ArmorGold : (ghostOn ? new Color(0.55f, 0.85f, 1f, 1f) : outlineColor);
+            Color tint = armorGlowOn ? ArmorTint : (ghostOn ? new Color(0.78f, 0.9f, 1f, 1f) : Color.white);
+            float width = armorGlowOn ? outlineWidth * 1.7f : (ghostOn ? outlineWidth * 1.45f : outlineWidth);
             for (int i = 0; i < parts.Length; i++)
             {
                 SpriteRenderer renderer = parts[i];
                 if (renderer == null) continue;
-                ApplyOutlineBlock(renderer, outlineColor);
-                renderer.color = Color.white;
+                ApplyOutlineBlock(renderer, outline, width);
+                renderer.color = tint;
             }
+            RefreshArmorGlow(armorGlowOn);
         }
 
-        private void ApplyOutlineBlock(SpriteRenderer renderer, Color outline)
+        private void RefreshArmorGlow(bool on)
+        {
+            if (!on)
+            {
+                if (armorGlow != null) armorGlow.enabled = false;
+                return;
+            }
+
+            if (armorGlow == null)
+            {
+                Transform existing = transform.Find("ArmorGlow");
+                GameObject go = existing != null ? existing.gameObject : new GameObject("ArmorGlow");
+                if (existing == null) go.transform.SetParent(transform, false);
+                go.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+                go.transform.localRotation = Quaternion.identity;
+                go.transform.localScale = Vector3.one;
+                armorGlow = go.GetComponent<SpriteRenderer>();
+                if (armorGlow == null) armorGlow = go.AddComponent<SpriteRenderer>();
+                armorGlow.sprite = GlowSprite();
+                Shader shader = Shader.Find("Sprites/Default");
+                if (shader != null) armorGlow.sharedMaterial = new Material(shader);
+                armorGlow.sortingOrder = -2;
+            }
+
+            float pulse = 0.55f + 0.45f * (0.5f + 0.5f * Mathf.Sin(Time.time * 9f));
+            float size = VisualSize * (1.55f + 0.12f * Mathf.Sin(Time.time * 7f));
+            armorGlow.enabled = true;
+            armorGlow.color = new Color(1f, 0.78f, 0.12f, 0.42f * pulse);
+            Vector3 spriteSize = armorGlow.sprite != null ? armorGlow.sprite.bounds.size : Vector3.one;
+            armorGlow.transform.localScale = new Vector3(
+                size / Mathf.Max(0.01f, spriteSize.x),
+                size / Mathf.Max(0.01f, spriteSize.y),
+                1f);
+        }
+
+        private Sprite GlowSprite()
+        {
+            if (glowSprite != null) return glowSprite;
+            const int n = 64;
+            Texture2D texture = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+            float mid = (n - 1) * 0.5f;
+            for (int y = 0; y < n; y++)
+            {
+                for (int x = 0; x < n; x++)
+                {
+                    float u = (x - mid) / mid;
+                    float v = (y - mid) / mid;
+                    float r = Mathf.Sqrt(u * u + v * v);
+                    float a = r >= 1f ? 0f : Mathf.Clamp01(1f - r);
+                    a = a * a;
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                }
+            }
+            texture.Apply();
+            glowSprite = Sprite.Create(texture, new Rect(0f, 0f, n, n), new Vector2(0.5f, 0.5f), n);
+            glowSprite.name = "LuBuArmorGlow";
+            return glowSprite;
+        }
+
+        private void ApplyOutlineBlock(SpriteRenderer renderer, Color outline, float width)
         {
             renderer.GetPropertyBlock(propertyBlock);
             propertyBlock.SetColor("_OutlineColor", outline);
-            propertyBlock.SetFloat("_OutlineWidth", WritesOutline(renderer.name) ? outlineWidth : 0f);
+            propertyBlock.SetFloat("_OutlineWidth", WritesOutline(renderer.name) ? width : 0f);
             propertyBlock.SetFloat("_OutlineSoftness", outlineSoftness);
 
             Sprite sprite = renderer.sprite;

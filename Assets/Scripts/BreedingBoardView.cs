@@ -63,7 +63,11 @@ namespace DouQuqu
 
         private void OnEnable()
         {
-            if (board != null) board.BoardChanged += RefreshBoard;
+            if (board != null)
+            {
+                board.BoardChanged += RefreshBoard;
+                board.MergeCompleted += OnMergeCompleted;
+            }
             PlayerDataService.PlayerDataChanged += RefreshEconomyHud;
         }
 
@@ -82,8 +86,26 @@ namespace DouQuqu
 
         private void OnDisable()
         {
-            if (board != null) board.BoardChanged -= RefreshBoard;
+            if (board != null)
+            {
+                board.BoardChanged -= RefreshBoard;
+                board.MergeCompleted -= OnMergeCompleted;
+            }
             PlayerDataService.PlayerDataChanged -= RefreshEconomyHud;
+        }
+
+        private void OnMergeCompleted(MergePiece result, MergePiece consumed)
+        {
+            if (result == null || result.level < 4 || result.drawA < 4) return;
+            RefreshBoard();
+            RectTransform cell = result.cell >= 0 && result.cell < CellCount ? cells[result.cell] : null;
+            Sprite face = cell != null && result.cell < pieceImages.Length && pieceImages[result.cell] != null
+                ? pieceImages[result.cell].sprite : null;
+            FinestRevealFx.Play(
+                cell,
+                CricketCatalog.CricketName(result.drawA, result.drawB),
+                CricketCatalog.Idiom(result.drawB),
+                face);
         }
 
         /// <summary>棋盘模型按美术 4×5 对齐。</summary>
@@ -270,7 +292,7 @@ namespace DouQuqu
                 rank = CricketCatalog.RankLabel(piece.drawA, piece.drawB);
                 title = CricketCatalog.CricketName(piece.drawA, piece.drawB);
                 subtitle = CricketCatalog.TemperamentName(piece.drawB);
-                desc = CricketCatalog.Blurb(piece.drawB);
+                desc = CricketCatalog.Blurb(piece.drawA, piece.drawB);
                 stats = CricketCatalog.PanelStatDisplays(piece.drawA, piece.drawB);
                 strongStats = CricketCatalog.PanelStatStrongFlags(piece.drawB);
             }
@@ -288,7 +310,11 @@ namespace DouQuqu
             if (detailView.storeButton != null) detailView.storeButton.gameObject.SetActive(finest);
             if (detailView.sellButton != null) detailView.sellButton.gameObject.SetActive(finest);
             if (finest) detailView.SetSellPrice(PlayerDataService.SellPrice(piece.drawA));
-            detailView.Show(rank, title, desc, sprite, subtitle, stats, strongStats);
+            Color? descColor = null;
+            Color skillColor;
+            if (finest && CricketCatalog.TrySkillBlurbColor(piece.drawA, piece.drawB, out skillColor))
+                descColor = skillColor;
+            detailView.Show(rank, title, desc, sprite, subtitle, stats, strongStats, descColor);
         }
 
         private bool EnsureDetailView()
@@ -387,14 +413,19 @@ namespace DouQuqu
             detailBackpackId = entry.instanceId;
             detailView.SetBackpackMode();
             detailView.SetSellPrice(PlayerDataService.SellPrice(entry.quality));
+            Color? descColor = null;
+            Color skillColor;
+            if (CricketCatalog.TrySkillBlurbColor(entry.quality, entry.temperament, out skillColor))
+                descColor = skillColor;
             detailView.Show(
                 CricketCatalog.RankLabel(entry.quality, entry.temperament),
                 CricketCatalog.CricketName(entry.quality, entry.temperament),
-                CricketCatalog.Blurb(entry.temperament),
+                CricketCatalog.Blurb(entry.quality, entry.temperament),
                 SpriteForQuality(entry.quality, entry.temperament),
                 CricketCatalog.TemperamentName(entry.temperament),
                 CricketCatalog.PanelStatDisplays(entry.quality, entry.temperament),
-                CricketCatalog.PanelStatStrongFlags(entry.temperament));
+                CricketCatalog.PanelStatStrongFlags(entry.temperament),
+                descColor);
         }
 
         private int lastSpawnFrame = -1;

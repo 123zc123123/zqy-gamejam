@@ -75,6 +75,9 @@ namespace DouQuqu
         // 育虫盘：幼虫 → 中虫 → 成虫 → 精品虫。精品虫留在棋盘上，不再往上合。
         private const int HighestMergeLevel = 4;
         private const int DrawOptionCount = 4;
+        /// <summary>临时测试：下一次成虫合成精品必出极品。测完改 false 或删掉。</summary>
+        public const bool DebugFirstDrawIsJiPin = true;
+        private static bool debugForcedJiPin;
 
         [SerializeField] private int width = 4;
         [SerializeField] private int height = 5;
@@ -318,7 +321,9 @@ namespace DouQuqu
             drawCount++;
 
             bool pityTriggered = drawsWithoutFour >= DrawPityLimit - 1;
-            int weightedValue = pityTriggered ? DrawOptionCount : RollWeightedOption(weightedDrawWeights);
+            bool forceJi = DebugFirstDrawIsJiPin && !debugForcedJiPin;
+            if (forceJi) debugForcedJiPin = true;
+            int weightedValue = forceJi || pityTriggered ? DrawOptionCount : RollWeightedOption(weightedDrawWeights);
             int uniformValue = RollWeightedOption(uniformDrawWeights);
 
             drawsWithoutFour = weightedValue == DrawOptionCount ? 0 : drawsWithoutFour + 1;

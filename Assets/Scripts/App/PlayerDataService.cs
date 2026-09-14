@@ -60,6 +60,8 @@ namespace DouQuqu
         public const int EggCap = 99;
         public const int EggShopPrice = 10;
         public const int EggShopCount = 1;
+        /// <summary>出包前改 false。登录时保证背包有四只极品（关羽 / 吕布 / 貂蝉 / 诸葛亮）。</summary>
+        public const bool DebugGrantUltimateBackpack = true;
         public static readonly int[] PointsPlace = { 50, 30, 10, 5 };
         public static readonly int[] GoldPlace = { 40, 24, 14, 8 };
         public static readonly int[] EggPlace = { 8, 6, 4, 2 };
@@ -414,19 +416,54 @@ namespace DouQuqu
         {
             if (player == null) return;
             if (player.backpack == null) player.backpack = new List<CricketBackpackEntry>();
+            bool hasAny = false;
             for (int i = 0; i < player.backpack.Count; i++)
             {
                 CricketBackpackEntry existing = player.backpack[i];
-                if (existing != null && !string.IsNullOrEmpty(existing.instanceId)) return;
+                if (existing != null && !string.IsNullOrEmpty(existing.instanceId))
+                {
+                    hasAny = true;
+                    break;
+                }
             }
 
-            player.backpack.Clear();
+            if (!hasAny)
+            {
+                player.backpack.Clear();
+                int starterQuality = DebugGrantUltimateBackpack ? 4 : 1;
+                for (int temperament = 1; temperament <= 4; temperament++)
+                {
+                    player.backpack.Add(new CricketBackpackEntry
+                    {
+                        instanceId = Guid.NewGuid().ToString("N"),
+                        quality = starterQuality,
+                        temperament = temperament
+                    });
+                }
+            }
+
+            if (DebugGrantUltimateBackpack) EnsureUltimateDebugBackpack(player);
+        }
+
+        /// <summary>旧档已有凡品时再补四只极品，方便现在试技能。</summary>
+        private static void EnsureUltimateDebugBackpack(PlayerProfile player)
+        {
+            if (player == null || player.backpack == null) return;
+            bool[] have = new bool[5];
+            for (int i = 0; i < player.backpack.Count; i++)
+            {
+                CricketBackpackEntry entry = player.backpack[i];
+                if (entry == null || entry.quality < 4) continue;
+                int temperament = Mathf.Clamp(entry.temperament, 1, 4);
+                have[temperament] = true;
+            }
             for (int temperament = 1; temperament <= 4; temperament++)
             {
+                if (have[temperament]) continue;
                 player.backpack.Add(new CricketBackpackEntry
                 {
                     instanceId = Guid.NewGuid().ToString("N"),
-                    quality = 1,
+                    quality = 4,
                     temperament = temperament
                 });
             }
