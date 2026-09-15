@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,7 +34,7 @@ namespace DouQuqu
             Bind(menu, "MenuButtonCatalogue", SceneNames.Collection);
             Bind(menu, "MenuButtonShop", SceneNames.Shop);
             Bind(menu, "MenuButtonRanking", SceneNames.Ranking);
-            BindClick(menu, "SideButtonActivity", () => Lobby.Show(Lobby.Page.BattleEnter));
+            BindClick(menu, "SideButtonActivity", ActivityPopup.ShowActivity);
 
             Text profileName = FindLabel(menu.transform, "ProfileName");
             if (profileName != null)
@@ -71,6 +72,10 @@ namespace DouQuqu
             Text[] labels = target.GetComponentsInChildren<Text>(true);
             for (int i = 0; i < labels.Length; i++)
                 labels[i].raycastTarget = false;
+
+            TMP_Text[] tmpLabels = target.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < tmpLabels.Length; i++)
+                tmpLabels[i].raycastTarget = false;
 
             button.transition = Selectable.Transition.ColorTint;
             button.onClick.RemoveAllListeners();

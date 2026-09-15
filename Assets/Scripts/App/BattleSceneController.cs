@@ -142,7 +142,7 @@ namespace DouQuqu
             if (title == null) title = page.transform.Find("Banner/Title");
             resultText = title != null ? title.GetComponent<TMP_Text>() : overlay.GetComponentInChildren<TMP_Text>(true);
 
-            BindOrCreateReturnButton(overlay);
+            BindSettlementButtons(overlay);
             resultPanel.SetActive(false);
             return true;
         }
@@ -168,32 +168,54 @@ namespace DouQuqu
             resultPanel.SetActive(true);
         }
 
-        private void BindOrCreateReturnButton(RectTransform overlay)
+        private void BindSettlementButtons(RectTransform overlay)
         {
-            UnityEngine.UI.Button existing = FindReturnButton(overlay);
-            if (existing != null)
+            if (BindNamedButton(overlay, "退出", ReturnToBattleEntrance)
+                | BindNamedButton(overlay, "返回", ReturnToBattleEntrance)
+                | BindNamedButton(overlay, "ReturnButton", ReturnToBattleEntrance))
             {
-                existing.onClick.RemoveAllListeners();
-                existing.onClick.AddListener(ReturnToBattleEntrance);
+                BindNamedButton(overlay, "观战", SpectateBattlefield);
                 return;
             }
 
-            UiFactory.CreateButton(overlay, "ReturnButton", "返回", ReturnToBattleEntrance,
+            UiFactory.CreateButton(overlay, "ReturnButton", "退出", ReturnToBattleEntrance,
                 new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
         }
 
-        private static UnityEngine.UI.Button FindReturnButton(Transform root)
+        private static bool BindNamedButton(Transform root, string objectName, UnityEngine.Events.UnityAction clicked)
+        {
+            Transform found = FindNamed(root, objectName);
+            if (found == null) return false;
+            UnityEngine.UI.Button button = found.GetComponent<UnityEngine.UI.Button>();
+            if (button == null) button = found.gameObject.AddComponent<UnityEngine.UI.Button>();
+            UnityEngine.UI.Image image = found.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                image.raycastTarget = true;
+                button.targetGraphic = image;
+            }
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(clicked);
+            return true;
+        }
+
+        private static Transform FindNamed(Transform root, string objectName)
         {
             if (root == null) return null;
+            if (root.name == objectName) return root;
+            Transform direct = root.Find(objectName);
+            if (direct != null) return direct;
             Transform[] transforms = root.GetComponentsInChildren<Transform>(true);
             for (int i = 0; i < transforms.Length; i++)
             {
-                Transform t = transforms[i];
-                if (t.name != "ReturnButton" && t.name != "返回" && t.name != "返回按钮") continue;
-                UnityEngine.UI.Button button = t.GetComponent<UnityEngine.UI.Button>();
-                if (button != null) return button;
+                if (transforms[i].name == objectName) return transforms[i];
             }
             return null;
+        }
+
+        private void SpectateBattlefield()
+        {
+            if (settlementPage != null) settlementPage.HideForSpectate();
         }
 
         private void ReturnToBattleEntrance()
