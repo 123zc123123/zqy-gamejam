@@ -572,7 +572,8 @@ namespace DouQuqu
         {
             LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
             if (network == null) return;
-            network.DeferBattleUntilSelectionTimeout = AppServices.PendingMatchKind != MatchKind.Friend;
+            // 所有真人和机器人都准备后立即开战，不再强制等待选虫倒计时。
+            network.DeferBattleUntilSelectionTimeout = false;
         }
 
         private void ClearBattleDefer()

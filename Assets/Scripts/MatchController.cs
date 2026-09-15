@@ -37,6 +37,8 @@ namespace DouQuqu
         private CricketPick[][] pendingRoster;
         private float accumulator;
         private int inputSequence;
+        // 独立权威对象只推进规则，不创建编辑器调参 UI。
+        [NonSerialized] private bool headlessSimulation;
 
         public MatchRunMode RunMode => runMode;
         public MatchKnobs Knobs => state != null && state.knobs != null ? state.knobs : knobs;
@@ -73,7 +75,13 @@ namespace DouQuqu
 
         private void Start()
         {
-            KnobSaveHud.Ensure(this);
+            if (!headlessSimulation) KnobSaveHud.Ensure(this);
+        }
+
+        /// <summary>标记为跨场景的无界面权威模拟对象。</summary>
+        public void SetHeadlessSimulation(bool value)
+        {
+            headlessSimulation = value;
         }
 
         /// <summary>把当前旋钮写成 JSON，供退出 Play 后覆写 Demo 场景 Inspector。</summary>

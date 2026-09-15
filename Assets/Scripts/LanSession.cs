@@ -85,6 +85,10 @@ namespace DouQuqu
         private int roomCapacity = MatchController.MaxPlayers;
         private LanPlayerSlot[] slots = new LanPlayerSlot[MatchController.MaxPlayers];
         private bool running;
+        // 独立服务器模式不占用玩家槽位；IsHost 仍为 true，复用现有主机协议。
+        private bool dedicatedServer;
+        // 普通房主淘汰后把权威 MatchController 暂存到 AppServices，允许表现层返回大厅。
+        private bool persistentMatchController;
         private bool automaticMatchmaking;
         private float automaticElapsed;
         private float hostPromotionDelay;
@@ -118,6 +122,7 @@ namespace DouQuqu
         public string RoomCode => roomCode;
         public bool IsRunning => running;
         public bool IsHost { get; private set; }
+        public bool IsDedicatedServer => dedicatedServer;
         public int LocalPlayerId { get; private set; } = -1;
         public bool IsAutomaticMatchmaking => automaticMatchmaking && !matchReady;
         public bool IsMatchReady => matchReady;
@@ -156,7 +161,7 @@ namespace DouQuqu
                 return ConnectedHumanCount() >= roomCapacity;
             }
         }
-        /// <summary>随机匹配等到选虫倒计时结束再开战；好友组队四人都确定后可提前开战。</summary>
+        /// <summary>兼容旧流程的延迟开战开关；当前所有玩家准备完成后立即开战。</summary>
         public bool DeferBattleUntilSelectionTimeout { get; set; }
 
         public bool CanPrepareBattle
@@ -300,6 +305,48 @@ namespace DouQuqu
             }
         }
 
+        /// <summary>
+        /// 普通房主淘汰后，把当前快照复制到跨场景对象，避免卸载战斗场景时停止权威模拟。
+        /// 独立服务器和已经结束的对局不需要复制；返回 false 时调用方应结束网络会话。
+        /// </summary>
+        public bool DetachMatchControllerForSceneTransition()
+        {
+            if (persistentMatchController) return true;
+            if (!running || !IsHost || dedicatedServer || match == null || match.IsOver || !match.IsStarted)
+                return false;
+
+            MatchSnapshot snapshot = match.CaptureSnapshot();
+            if (snapshot == null || snapshot.bugs == null) return false;
+
+            GameObject root = new GameObject("LanHostMatchAuthority");
+            if (AppServices.Instance != null)
+                root.transform.SetParent(AppServices.Instance.transform, false);
+            else
+                DontDestroyOnLoad(root);
+            MatchController authority = root.AddComponent<MatchController>();
+            authority.SetHeadlessSimulation(true);
+            authority.Configure(MatchRunMode.Host, snapshot.playerCount, snapshot.knobs);
+            authority.ApplySnapshot(snapshot);
+            for (int i = 0; i < roomCapacity && i < slots.Length; i++)
+            {
+                LanPlayerSlot slot = slots[i];
+                authority.SetPlayerHuman(i, slot != null && slot.connected && !slot.isBot);
+            }
+
+            // 这里不能再次调用 BindMatchController：本局已经在运行，重复绑定会重置快照；
+            // 直接接管事件即可继续推进，并保留最终帧的冗余广播。
+            if (match != null) match.SnapshotReady -= OnSnapshotReady;
+            match = authority;
+            match.SnapshotReady -= OnSnapshotReady;
+            match.SnapshotReady += OnSnapshotReady;
+            finalSnapshotBody = null;
+            finalSnapshotBroadcastRemaining = 0f;
+            finalSnapshotBroadcastTick = 0f;
+            persistentMatchController = true;
+            BroadcastSnapshot();
+            return true;
+        }
+
         private void Awake()
         {
             if (match == null) match = GetComponent<MatchController>();
@@ -345,6 +392,7 @@ namespace DouQuqu
         public void StartHost(int players = 4)
         {
             Stop();
+            dedicatedServer = false;
             try
             {
                 IsHost = true;
@@ -374,10 +422,62 @@ namespace DouQuqu
             }
         }
 
+        /// <summary>
+        /// 启动不占用玩家槽位的独立局域网服务器。
+        /// 服务器只推进 MatchController，不显示战斗界面；手机端作为四个客户端加入。
+        /// </summary>
+        public void StartDedicatedServer(MatchController serverMatch, int players = MatchController.MaxPlayers,
+            float matchmakingTimeout = 10f)
+        {
+            Stop();
+            dedicatedServer = true;
+            match = serverMatch;
+            roomCapacity = Mathf.Clamp(players, 1, MatchController.MaxPlayers);
+            automaticTimeout = Mathf.Max(2f, matchmakingTimeout);
+            try
+            {
+                IsHost = true;
+                // 独立服务器不是玩家，客户端从 0 号槽位开始分配。
+                LocalPlayerId = -1;
+                sessionSocket = new UdpClient(SessionPort);
+                sessionSocket.EnableBroadcast = true;
+                discoverySocket = new UdpClient(DiscoveryPort);
+                discoverySocket.EnableBroadcast = true;
+                if (match != null)
+                {
+                    match.Configure(MatchRunMode.Host, roomCapacity);
+                    match.ResetMatch(roomCapacity, Environment.TickCount);
+                }
+
+                running = true;
+                automaticMatchmaking = true;
+                automaticElapsed = 0f;
+                hostPromotionDelay = 0f;
+                matchReady = false;
+                matchReadyEventRaised = false;
+                battleStarting = false;
+                battleStartEventRaised = false;
+                battlePrepared = false;
+                matchSeed = 0;
+                startBroadcastRemaining = 0f;
+                pendingSnapshot = null;
+                ResetSlots();
+                lastSnapshotTick = -1;
+                discoveryTimer = 0f;
+                NotifyLobbyChanged();
+            }
+            catch (Exception exception)
+            {
+                NetworkError?.Invoke("无法创建独立局域网服务器: " + exception.Message);
+                Stop();
+            }
+        }
+
         /// <summary>启动客户端并开始 UDP 广播发现。</summary>
         public void StartClient()
         {
             Stop();
+            dedicatedServer = false;
             try
             {
                 IsHost = false;
@@ -425,8 +525,16 @@ namespace DouQuqu
         {
             if (match != null && match.IsStarted) match.StopMatch();
             if (match != null) match.SnapshotReady -= OnSnapshotReady;
+            if (persistentMatchController && match != null)
+            {
+                // 新一局或退出应用时清理跨场景的无界面权威对象，避免每局累积。
+                if (Application.isPlaying) Destroy(match.gameObject);
+                else DestroyImmediate(match.gameObject);
+            }
             match = null;
             running = false;
+            dedicatedServer = false;
+            persistentMatchController = false;
             hostEndpoint = null;
             clients.Clear();
             clientIds.Clear();
@@ -777,16 +885,32 @@ namespace DouQuqu
 
         private void TryPrepareBattleFromSelectionReady()
         {
-            if (DeferBattleUntilSelectionTimeout) return;
+            // 准备状态全部满足后立即开战；保留旧属性只是为了兼容已有调用方。
             if (CanPrepareBattle) PrepareBattle();
         }
 
-        /// <summary>选虫倒计时到 0 后由房主开战；此前随机匹配即使全员已确定也不进场。</summary>
+        /// <summary>兼容旧的倒计时入口；现在只要所有玩家准备完成就会提前开战。</summary>
         public void StartBattleAfterSelectionTimeout()
         {
             DeferBattleUntilSelectionTimeout = false;
             if (!IsHost) return;
             if (CanPrepareBattle) PrepareBattle();
+        }
+
+        /// <summary>
+        /// 独立服务器的选虫兜底：超时后把未提交选虫的真人按默认阵容锁定，
+        /// 这样服务器不依赖任何客户端必须停留在选虫界面。
+        /// </summary>
+        public void PrepareDedicatedBattle()
+        {
+            if (!dedicatedServer || !IsHost || !matchReady || battleStarting) return;
+            for (int i = 0; i < roomCapacity && i < slots.Length; i++)
+            {
+                if (slots[i] == null || !slots[i].connected) continue;
+                slots[i].selectionReady = true;
+            }
+            BroadcastLobby();
+            PrepareBattle();
         }
 
         private void ResetSelectionReadyForConnectedPlayers()
@@ -800,7 +924,8 @@ namespace DouQuqu
 
         private int FindAvailableClientSlot()
         {
-            for (int i = 1; i < roomCapacity && i < slots.Length; i++)
+            int firstSlot = dedicatedServer ? 0 : 1;
+            for (int i = firstSlot; i < roomCapacity && i < slots.Length; i++)
             {
                 if (!slots[i].connected) return i;
             }

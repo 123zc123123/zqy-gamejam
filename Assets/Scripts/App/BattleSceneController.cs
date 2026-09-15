@@ -15,8 +15,10 @@ namespace DouQuqu
         private GameObject resultPanel;
         private TMP_Text resultText;
         private SettlementPage settlementPage;
+        private UnityEngine.UI.Button returnButton;
         private MatchKind matchKind;
         private bool resultShown;
+        private bool localEliminated;
 
         private void Awake()
         {
@@ -70,6 +72,7 @@ namespace DouQuqu
         private void OnEnable()
         {
             if (match != null) match.StateChanged += OnStateChanged;
+            if (match != null) match.PlayerEliminated += OnPlayerEliminated;
         }
 
         private void Start()
@@ -82,6 +85,7 @@ namespace DouQuqu
         private void OnDisable()
         {
             if (match != null) match.StateChanged -= OnStateChanged;
+            if (match != null) match.PlayerEliminated -= OnPlayerEliminated;
         }
 
         private void HideMergeUi()
@@ -111,7 +115,7 @@ namespace DouQuqu
             resultPanel = panel.gameObject;
             resultText = UiFactory.CreateText(panel, "ResultTMP", "对局结束", 52f,
                 new Vector2(0.08f, 0.48f), new Vector2(0.92f, 0.84f), Vector2.zero, Vector2.zero);
-            UiFactory.CreateButton(panel, "ReturnButton", "返回", ReturnToBattleEntrance,
+            returnButton = UiFactory.CreateButton(panel, "ReturnButton", "返回", ReturnToBattleEntrance,
                 new Vector2(0.20f, 0.16f), new Vector2(0.80f, 0.36f), Vector2.zero, Vector2.zero);
             resultPanel.SetActive(false);
         }
@@ -149,16 +153,46 @@ namespace DouQuqu
 
         private void OnStateChanged(MatchState state)
         {
-            if (state == null || !state.over || resultShown) return;
+            if (state == null) return;
+            bool eliminated = IsLocalEliminated(state);
+            if (!resultShown && eliminated)
+            {
+                ShowResult(state, true);
+                return;
+            }
+
+            if (!state.over) return;
+            if (!resultShown)
+            {
+                ShowResult(state, false);
+                return;
+            }
+
+            // 本地淘汰后已经进入即时结算；最终帧到达时只补全最终名次。
+            if (localEliminated && resultText != null) resultText.text = "结算完成\n你已淘汰";
+            SetReturnInteractable(true);
+        }
+
+        private void OnPlayerEliminated(int playerId)
+        {
+            if (playerId != LocalPlayerId() || match == null || match.State == null || resultShown) return;
+            ShowResult(match.State, true);
+        }
+
+        private void ShowResult(MatchState state, bool eliminated)
+        {
             resultShown = true;
-            int localPlayerId = network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
+            localEliminated |= eliminated;
+            int localPlayerId = LocalPlayerId();
             if (settlementPage != null)
             {
                 settlementPage.Bind(match, matchKind, localPlayerId);
             }
-            else if (resultText != null)
+            if (resultText != null)
             {
-                if (state.winnerId < 0)
+                if (eliminated)
+                    resultText.text = "结算完成\n你已淘汰";
+                else if (state.winnerId < 0)
                     resultText.text = "对局结束\n本局没有存活玩家";
                 else
                     resultText.text = state.winnerId == localPlayerId
@@ -166,6 +200,40 @@ namespace DouQuqu
                         : "对局结束\n获胜者：玩家 " + (state.winnerId + 1);
             }
             resultPanel.SetActive(true);
+            SetInputLocked();
+            // 输掉的玩家立即拥有返回权限；普通房主会在返回前把权威模拟交给持久对象。
+            SetReturnInteractable(true);
+        }
+
+        private int LocalPlayerId()
+        {
+            return network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
+        }
+
+        private bool IsLocalEliminated(MatchState state)
+        {
+            int id = LocalPlayerId();
+            return state.playerIn != null && id >= 0 && id < state.playerIn.Length && !state.playerIn[id];
+        }
+
+        private void SetReturnInteractable(bool interactable)
+        {
+            if (returnButton != null) returnButton.interactable = interactable;
+        }
+
+        private void SetInputLocked()
+        {
+            TouchInput[] touchInputs = FindObjectsOfType<TouchInput>(true);
+            for (int i = 0; i < touchInputs.Length; i++)
+                if (touchInputs[i] != null) touchInputs[i].enabled = false;
+
+            HudStick[] sticks = FindObjectsOfType<HudStick>(true);
+            for (int i = 0; i < sticks.Length; i++)
+                if (sticks[i] != null) sticks[i].enabled = false;
+
+            KeyboardInput[] keyboards = FindObjectsOfType<KeyboardInput>(true);
+            for (int i = 0; i < keyboards.Length; i++)
+                if (keyboards[i] != null) keyboards[i].enabled = false;
         }
 
         private void BindOrCreateReturnButton(RectTransform overlay)
@@ -173,12 +241,13 @@ namespace DouQuqu
             UnityEngine.UI.Button existing = FindReturnButton(overlay);
             if (existing != null)
             {
+                returnButton = existing;
                 existing.onClick.RemoveAllListeners();
                 existing.onClick.AddListener(ReturnToBattleEntrance);
                 return;
             }
 
-            UiFactory.CreateButton(overlay, "ReturnButton", "返回", ReturnToBattleEntrance,
+            returnButton = UiFactory.CreateButton(overlay, "ReturnButton", "返回", ReturnToBattleEntrance,
                 new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
         }
 
@@ -198,7 +267,22 @@ namespace DouQuqu
 
         private void ReturnToBattleEntrance()
         {
-            if (network != null) network.Stop();
+            bool matchOver = match != null && match.IsOver;
+            bool ordinaryHostStillSimulating = network != null && network.IsHost
+                && !network.IsDedicatedServer && !matchOver;
+            if (ordinaryHostStillSimulating)
+            {
+                // 房主退出表现层前保留一份无界面的权威模拟，其他设备仍能收到后续快照。
+                if (!network.DetachMatchControllerForSceneTransition())
+                {
+                    Debug.LogWarning("[DouQuqu] 无法保留房主权威模拟，结束当前局域网会话。");
+                    network.Stop();
+                }
+            }
+            else if (network != null)
+            {
+                network.Stop();
+            }
             SceneNames.Load(SceneNames.BattleEntrance);
         }
 

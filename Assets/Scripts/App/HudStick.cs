@@ -149,6 +149,7 @@ namespace DouQuqu
 
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (!enabled) return;
             SummonTo(eventData.position, eventData.pressEventCamera);
             summoned = true;
             holding = true;
@@ -159,13 +160,13 @@ namespace DouQuqu
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (!holding) return;
+            if (!enabled || !holding) return;
             UpdateDrag(eventData);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
-            if (!holding) return;
+            if (!enabled || !holding) return;
             UpdateDrag(eventData);
             holding = false;
             SendInput(true);
@@ -228,6 +229,7 @@ namespace DouQuqu
 
         private void SendInput(bool released)
         {
+            if (!enabled) return;
             Vector2 dir = flyDirection.sqrMagnitude > 0.0001f ? flyDirection : Vector2.up;
             if (lan != null && lan.IsRunning)
             {
