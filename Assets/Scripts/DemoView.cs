@@ -37,6 +37,10 @@ namespace DouQuqu
         [SerializeField] private float groundOffset = 0.35f;
         [SerializeField] private bool tintPlayers = false;
         [SerializeField] private bool fitVisualToCollision = true;
+        [Header("网络表现")]
+        [SerializeField, Range(5f, 50f)] private float clientPositionSmoothing = 24f;
+        [SerializeField, Range(0f, 0.15f)] private float clientExtrapolationLimit = 0.08f;
+        [SerializeField, Min(0.5f)] private float clientSnapDistance = 2.5f;
 
         private readonly Dictionary<int, GameObject> bugViews = new Dictionary<int, GameObject>();
         private readonly Dictionary<int, GameObject> babyViews = new Dictionary<int, GameObject>();
@@ -64,10 +68,13 @@ namespace DouQuqu
         private readonly Dictionary<int, SkillBar> skillBars = new Dictionary<int, SkillBar>();
         private readonly Dictionary<int, int> assignedBugProfiles = new Dictionary<int, int>();
         private readonly Dictionary<int, string> assignedSkinLabels = new Dictionary<int, string>();
+        private readonly HashSet<int> initializedBugPositions = new HashSet<int>();
         private Sprite[] premiumBugSprites;
         private MatchState assignedProfileState;
         private int assignedProfileSeed = int.MinValue;
         private bool warnedMissingOverlays;
+        private int observedClientTick = -1;
+        private float clientSnapshotAge;
 
 
 
@@ -136,7 +143,12 @@ namespace DouQuqu
         private void Update()
         {
             // 客户端快照和非 Unity 驱动的控制器也能通过每帧刷新及时更新表现。
-            if (match != null && match.State != null) RefreshView();
+            if (match != null && match.State != null)
+            {
+                if (match.RunMode == MatchRunMode.Client)
+                    clientSnapshotAge += Time.unscaledDeltaTime;
+                RefreshView();
+            }
         }
 
         private void OnDisable()
@@ -197,6 +209,11 @@ namespace DouQuqu
         {
             MatchState state = match == null ? null : match.State;
             if (state == null) return;
+            if (match.RunMode == MatchRunMode.Client && state.tick != observedClientTick)
+            {
+                observedClientTick = state.tick;
+                clientSnapshotAge = 0f;
+            }
             RefreshBugs(state);
             RefreshBabies(state);
             RefreshEggs(state);
@@ -223,6 +240,7 @@ namespace DouQuqu
             {
                 assignedBugProfiles.Clear();
                 assignedSkinLabels.Clear();
+                initializedBugPositions.Clear();
                 assignedProfileState = state;
                 assignedProfileSeed = state.randomSeed;
             }
@@ -266,9 +284,16 @@ namespace DouQuqu
                 }
                 view.SetActive(bug.alive);
                 if (!bug.alive) continue;
+                Vector3 predictedPosition = bug.position;
+                if (match.RunMode == MatchRunMode.Client)
+                {
+                    float predictionTime = Mathf.Min(clientSnapshotAge, clientExtrapolationLimit);
+                    predictedPosition += new Vector3(bug.velocity.x, 0f, bug.velocity.z) * predictionTime;
+                }
                 if (unit != null)
                 {
-                    view.transform.position = new Vector3(bug.position.x, 0f, bug.position.z);
+                    Vector3 target = new Vector3(predictedPosition.x, 0f, predictedPosition.z);
+                    view.transform.position = SmoothClientBugPosition(bug.id, view.transform.position, target);
                     view.transform.rotation = Quaternion.identity;
                     view.transform.localScale = Vector3.one;
                     float grow = bug.radius / Mathf.Max(0.01f, state.knobs.bugR);
@@ -277,7 +302,8 @@ namespace DouQuqu
                 else
                 {
                     float visualScale = VisualScale(body, bug.radius, state.knobs.bugR);
-                    view.transform.position = bug.position + Vector3.up * (groundOffset + bug.height);
+                    Vector3 target = predictedPosition + Vector3.up * (groundOffset + bug.height);
+                    view.transform.position = SmoothClientBugPosition(bug.id, view.transform.position, target);
                     view.transform.localScale = Vector3.one * visualScale;
                 }
                 // 蓄力中跟摇杆（图片上部=头）；飞行中跟速度。空中不改朝向。
@@ -304,6 +330,20 @@ namespace DouQuqu
                 }
             }
             HideUnseen(bugViews, seenIds);
+        }
+
+        /// <summary>
+        /// 客户端只平滑表现 Transform，不改权威 MatchState。出生、复活或大幅纠正时直接对齐，
+        /// 普通移动则用与帧率无关的指数插值消除低频快照造成的跳格。
+        /// </summary>
+        private Vector3 SmoothClientBugPosition(int bugId, Vector3 current, Vector3 target)
+        {
+            if (match == null || match.RunMode != MatchRunMode.Client) return target;
+            float snapDistanceSqr = clientSnapDistance * clientSnapDistance;
+            if (initializedBugPositions.Add(bugId) || (target - current).sqrMagnitude >= snapDistanceSqr)
+                return target;
+            float blend = 1f - Mathf.Exp(-clientPositionSmoothing * Time.unscaledDeltaTime);
+            return Vector3.LerpUnclamped(current, target, blend);
         }
 
         private int VisualProfileForBug(MatchState state, BugState bug)

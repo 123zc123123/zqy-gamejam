@@ -27,8 +27,7 @@ namespace DouQuqu.EditorTools
             EditorUserBuildSettings.buildAppBundle = false;
             PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.zqy.douququ");
             PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
-            PlayerSettings.Android.targetArchitectures =
-                AndroidArchitecture.ARMv7 | AndroidArchitecture.ARM64;
+            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
 
             BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {

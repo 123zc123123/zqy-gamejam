@@ -69,7 +69,9 @@ namespace DouQuqu
         public const int DiscoveryPort = 28778;
 
         [SerializeField] private MatchController match;
-        [SerializeField] private float snapshotInterval = 0.08f;
+        // 20Hz 快照配合客户端表现插值。原来的 12.5Hz 在真机上会明显看到逐帧跳动，
+        // 再继续提高则会让完整 JSON 快照带来更多 GC 和带宽压力。
+        [SerializeField] private float snapshotInterval = 0.05f;
         [SerializeField] private string advertisedName = "DouQuqu Host";
         [SerializeField] private string localPlayerName = "Player";
 
@@ -82,6 +84,11 @@ namespace DouQuqu
         private float snapshotTimer;
         private float discoveryTimer;
         private int lastSnapshotTick = -1;
+        private const float InputSendInterval = 1f / 30f;
+        private int outgoingInputSequence;
+        private float nextInputSendAt;
+        private bool hasSentInput;
+        private bool lastSentInputHeld;
         private int roomCapacity = MatchController.MaxPlayers;
         private LanPlayerSlot[] slots = new LanPlayerSlot[MatchController.MaxPlayers];
         private bool running;
@@ -641,14 +648,23 @@ namespace DouQuqu
         public void SendInput(Vector2 direction, bool held, bool released)
         {
             if (LocalPlayerId < 0) return;
-            InputFrame frame = new InputFrame(LocalPlayerId, direction, held, released);
             if (IsHost)
             {
-                if (match != null) match.SetInput(frame);
+                if (match != null) match.SetInput(new InputFrame(LocalPlayerId, direction, held, released));
             }
             else if (hostEndpoint != null)
             {
+                // 摇杆脚本会逐渲染帧调用这里。限制普通采样频率，避免高刷手机用大量
+                // 重复 JSON/UDP 包堵住房主主线程；按下、松开边沿始终立即发送。
+                float now = Time.unscaledTime;
+                bool inputEdge = released || !hasSentInput || held != lastSentInputHeld;
+                if (!inputEdge && now < nextInputSendAt) return;
+
+                InputFrame frame = new InputFrame(LocalPlayerId, direction, held, released, ++outgoingInputSequence);
                 SendEnvelope(sessionSocket, hostEndpoint, "INPUT", JsonUtility.ToJson(frame), LocalPlayerId);
+                hasSentInput = true;
+                lastSentInputHeld = held;
+                nextInputSendAt = now + InputSendInterval;
             }
         }
 

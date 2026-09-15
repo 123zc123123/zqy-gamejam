@@ -316,7 +316,7 @@ namespace DouQuqu
             if (state.idlePlayers != null && frame.playerId < state.idlePlayers.Length && state.idlePlayers[frame.playerId]) return;
             if (state.playerIn != null && frame.playerId < state.playerIn.Length && !state.playerIn[frame.playerId]) return;
             InputFrame current = inputs[frame.playerId];
-            if (current != null && frame.sequence > 0 && frame.sequence < current.sequence) return;
+            if (current != null && frame.sequence > 0 && frame.sequence <= current.sequence) return;
             frame.sequence = frame.sequence > 0 ? frame.sequence : ++inputSequence;
             inputs[frame.playerId] = frame;
         }
