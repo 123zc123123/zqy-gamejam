@@ -28,10 +28,10 @@ namespace DouQuqu
     public static class CricketCatalog
     {
         public static readonly string[] QualityNames = { "", "凡品", "灵品", "仙品", "极品" };
-        public static readonly string[] TemperamentNames = { "", "沉稳", "强攻", "灵巧", "智谋" };
+        public static readonly string[] TemperamentNames = { "", "耐战", "强攻", "灵巧", "智谋" };
         public static readonly string[] UltimateNames = { "", "关羽", "吕布", "貂蝉", "诸葛亮" };
         public static readonly string[] Idioms = { "", "义薄云天", "天下无双", "闭月羞花", "神机妙算" };
-        /// <summary>16 只精品虫的名字：行=品质，列=性格（1沉稳 2强攻 3灵巧 4智谋，与 1-1.psb 文件名一致）。</summary>
+        /// <summary>16 只精品虫的名字：行=品质，列=性格（1耐战 2强攻 3灵巧 4智谋，与 1-1.psb 文件名一致）。</summary>
         public static readonly string[][] CricketNames =
         {
             null,
@@ -262,7 +262,7 @@ namespace DouQuqu
         /// <summary>品质常数：凡/灵/仙/极各一个，六个维度共用。局内 knobs × 品质 × 性格。</summary>
         static readonly float[] QualityMul = { 0f, 1.04f, 1.16f, 1.28f, 1.40f };
 
-        /// <summary>双维强势 1.24，单维强势 1.44。非强势维为 1。列=沉稳/强攻/灵巧/智谋。</summary>
+        /// <summary>双维强势 1.24，单维强势 1.44。非强势维为 1。列=耐战/强攻/灵巧/智谋。</summary>
         const float TemperBoostDual = 1.24f;
         const float TemperBoostSingle = 1.44f;
         static readonly float[][] TemperMul =

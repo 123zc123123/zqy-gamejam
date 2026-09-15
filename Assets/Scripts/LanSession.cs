@@ -283,7 +283,6 @@ namespace DouQuqu
             finalSnapshotBroadcastTick = 0f;
             if (IsHost)
             {
-                if (battlePrepared) return;
                 match.Configure(MatchRunMode.Host, roomCapacity, CompetitiveMatch.WithDuration(match.Knobs));
                 match.ResetMatch(roomCapacity, matchSeed);
                 for (int i = 0; i < roomCapacity && i < slots.Length; i++)

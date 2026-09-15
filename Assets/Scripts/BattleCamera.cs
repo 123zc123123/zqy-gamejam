@@ -26,6 +26,7 @@ namespace DouQuqu
         private float settleElapsed = 1f;
         private bool hasFrame;
         private bool followEnabled;
+        private bool godView;
         private bool chasing;
         private MatchController followMatch;
         private int followPlayerId;
@@ -73,6 +74,17 @@ namespace DouQuqu
                 toSize = ComputeSize();
                 if (followEnabled) ApplySize(toSize);
                 else if (settleElapsed >= settleDuration) ApplyImmediate();
+            }
+
+            if (godView)
+            {
+                targetCenter = Vector3.zero;
+                targetHalfW = Mathf.Max(0.01f, Rules.ArenaHalfWidth);
+                targetHalfD = Mathf.Max(0.01f, Rules.ArenaHalfDepth);
+                hasFrame = true;
+                toSize = ComputeSize();
+                ApplyImmediate();
+                return;
             }
 
             if (followEnabled)
@@ -155,9 +167,20 @@ namespace DouQuqu
             FrameWorld(Vector3.zero, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, duration);
         }
 
+        /// <summary>观战上帝视角：镜头拉到整块当前有效区，不再跟人。</summary>
+        public void EnterGodView()
+        {
+            godView = true;
+            followEnabled = false;
+            fillView = true;
+            padding = 0f;
+            FrameWorld(Vector3.zero, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, 0f);
+        }
+
         /// <summary>对局中软跟随自己的虫；窗口锁成最后一档大小。</summary>
         public void FollowLocalPlayer(MatchController match, int playerId)
         {
+            godView = false;
             followMatch = match;
             followPlayerId = playerId;
             followEnabled = true;

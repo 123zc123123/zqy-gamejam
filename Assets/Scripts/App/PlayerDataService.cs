@@ -334,17 +334,20 @@ namespace DouQuqu
             return saved;
         }
 
-        /// <summary>把一只精品虫收进当前登录名的背包。</summary>
+        /// <summary>把一只精品虫收进当前登录名的背包，并点亮图鉴对应格。</summary>
         public static bool AddFinestToBackpack(int quality, int temperament)
         {
             if (CurrentPlayer == null) return false;
             if (CurrentPlayer.backpack == null) CurrentPlayer.backpack = new List<CricketBackpackEntry>();
+            quality = Mathf.Clamp(quality, 1, 4);
+            temperament = Mathf.Clamp(temperament, 1, 4);
             CurrentPlayer.backpack.Add(new CricketBackpackEntry
             {
                 instanceId = Guid.NewGuid().ToString("N"),
-                quality = Mathf.Clamp(quality, 1, 4),
-                temperament = Mathf.Clamp(temperament, 1, 4)
+                quality = quality,
+                temperament = temperament
             });
+            UnlockCollection(CurrentPlayer, quality, temperament);
             CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
             bool saved = SaveDatabase();
             PlayerDataChanged?.Invoke();
@@ -362,12 +365,15 @@ namespace DouQuqu
             {
                 MergePiece piece = taken[i];
                 if (piece == null) continue;
+                int quality = Mathf.Clamp(piece.drawA, 1, 4);
+                int temperament = Mathf.Clamp(piece.drawB, 1, 4);
                 CurrentPlayer.backpack.Add(new CricketBackpackEntry
                 {
                     instanceId = Guid.NewGuid().ToString("N"),
-                    quality = Mathf.Clamp(piece.drawA, 1, 4),
-                    temperament = Mathf.Clamp(piece.drawB, 1, 4)
+                    quality = quality,
+                    temperament = temperament
                 });
+                UnlockCollection(CurrentPlayer, quality, temperament);
             }
             CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
             bool saved = SaveDatabase();
@@ -449,6 +455,36 @@ namespace DouQuqu
             }
 
             if (DebugGrantUltimateBackpack) EnsureUltimateDebugBackpack(player);
+            SyncCollectionFromBackpack(player);
+        }
+
+        static void UnlockCollection(PlayerProfile player, int quality, int temperament)
+        {
+            if (player == null) return;
+            quality = Mathf.Clamp(quality, 1, 4);
+            temperament = Mathf.Clamp(temperament, 1, 4);
+            if (player.crickets == null) player.crickets = new List<CricketCollectionEntry>();
+            for (int i = 0; i < player.crickets.Count; i++)
+            {
+                CricketCollectionEntry entry = player.crickets[i];
+                if (entry != null && entry.drawA == quality && entry.drawB == temperament)
+                {
+                    if (entry.count < 1) entry.count = 1;
+                    return;
+                }
+            }
+            player.crickets.Add(new CricketCollectionEntry { drawA = quality, drawB = temperament, count = 1 });
+        }
+
+        static void SyncCollectionFromBackpack(PlayerProfile player)
+        {
+            if (player == null || player.backpack == null) return;
+            for (int i = 0; i < player.backpack.Count; i++)
+            {
+                CricketBackpackEntry entry = player.backpack[i];
+                if (entry == null || string.IsNullOrEmpty(entry.instanceId)) continue;
+                UnlockCollection(player, entry.quality, entry.temperament);
+            }
         }
 
         /// <summary>旧档已有凡品时再补四只极品，方便现在试技能。</summary>
@@ -479,17 +515,39 @@ namespace DouQuqu
         public static List<CricketCollectionEntry> GetCollectionSnapshot()
         {
             List<CricketCollectionEntry> result = new List<CricketCollectionEntry>();
-            if (CurrentPlayer == null || CurrentPlayer.crickets == null) return result;
-            for (int i = 0; i < CurrentPlayer.crickets.Count; i++)
+            if (CurrentPlayer == null) return result;
+            if (CurrentPlayer.crickets != null)
             {
-                CricketCollectionEntry source = CurrentPlayer.crickets[i];
-                if (source == null || source.count <= 0) continue;
-                result.Add(new CricketCollectionEntry
+                for (int i = 0; i < CurrentPlayer.crickets.Count; i++)
                 {
-                    drawA = source.drawA,
-                    drawB = source.drawB,
-                    count = source.count
-                });
+                    CricketCollectionEntry source = CurrentPlayer.crickets[i];
+                    if (source == null || source.count <= 0) continue;
+                    result.Add(new CricketCollectionEntry
+                    {
+                        drawA = source.drawA,
+                        drawB = source.drawB,
+                        count = source.count
+                    });
+                }
+            }
+            if (CurrentPlayer.backpack != null)
+            {
+                for (int i = 0; i < CurrentPlayer.backpack.Count; i++)
+                {
+                    CricketBackpackEntry bag = CurrentPlayer.backpack[i];
+                    if (bag == null || string.IsNullOrEmpty(bag.instanceId)) continue;
+                    int quality = Mathf.Clamp(bag.quality, 1, 4);
+                    int temperament = Mathf.Clamp(bag.temperament, 1, 4);
+                    bool found = false;
+                    for (int j = 0; j < result.Count; j++)
+                    {
+                        if (result[j].drawA != quality || result[j].drawB != temperament) continue;
+                        found = true;
+                        break;
+                    }
+                    if (!found)
+                        result.Add(new CricketCollectionEntry { drawA = quality, drawB = temperament, count = 1 });
+                }
             }
             result.Sort((left, right) =>
             {

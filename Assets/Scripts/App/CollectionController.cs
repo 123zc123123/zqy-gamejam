@@ -32,8 +32,8 @@ namespace DouQuqu
             bound = true;
             BottomNavBar.SuppressEmbedded(pageRoot.transform);
             countText = FindCountLabel(pageRoot.transform);
-            BindCards(pageRoot.transform);
             LoadQualitySprites();
+            BindCards(pageRoot.transform);
             if (xiangqingPrefab == null)
                 xiangqingPrefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
             RefreshCollection();

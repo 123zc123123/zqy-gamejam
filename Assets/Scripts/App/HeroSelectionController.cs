@@ -39,7 +39,7 @@ namespace DouQuqu
         private static readonly Color GreenLine = new Color(0.22f, 0.86f, 0.30f, 1f);
         private static readonly Color TabOn = new Color(0.96f, 0.90f, 0.62f, 1f);
         private static readonly Color TabOff = new Color(0.78f, 0.74f, 0.62f, 0.72f);
-        private static readonly string[] FilterLabels = { "全部", "沉稳", "强攻", "灵巧", "智谋" };
+        private static readonly string[] FilterLabels = { "全部", "耐战", "强攻", "灵巧", "智谋" };
 
         private GameObject pageRoot;
         private TMP_Text timerText;
@@ -362,7 +362,8 @@ namespace DouQuqu
                 CollectExistingCards(cardGrid);
             }
 
-            Transform group = FindNamed(backpack, "Group 7");
+            Transform group = FindNamed(backpack, "tab");
+            if (group == null) group = FindNamed(backpack, "Group 7");
             if (group != null) BindFilterTabs(group);
         }
 
@@ -373,8 +374,14 @@ namespace DouQuqu
             for (int i = 0; i < group.childCount; i++)
             {
                 Transform child = group.GetChild(i);
-                if (child.name.StartsWith("Frame") || child.name.IndexOf("PackPersonalitySwitchTab") >= 0)
+                string n = child.name;
+                if (n.StartsWith("Frame") || n.StartsWith("tab") || n.IndexOf("PackPersonalitySwitchTab") >= 0)
                     frames.Add(child);
+            }
+            if (frames.Count == 0)
+            {
+                for (int i = 0; i < group.childCount; i++)
+                    frames.Add(group.GetChild(i));
             }
             frames.Sort((a, b) =>
             {
@@ -399,6 +406,7 @@ namespace DouQuqu
                 };
                 filterTabs.Add(tab);
                 int captured = i;
+                frame.SetAsLastSibling();
                 BindClick(frame.gameObject, () => OnFilterClicked(captured));
             }
         }
@@ -540,7 +548,7 @@ namespace DouQuqu
 
         private void OnFilterClicked(int temperament)
         {
-            if (!sessionActive || ready || !expanded) return;
+            if (!sessionActive || ready) return;
             filterTemperament = temperament;
             RefreshFilters();
             RefreshCards();

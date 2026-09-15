@@ -17,6 +17,9 @@ namespace DouQuqu
         private SettlementPage settlementPage;
         private GameObject eliminationPanel;
         private EliminationPage eliminationPage;
+        private GameObject trainingExitRoot;
+        private GameObject spectateLeaveRoot;
+        private bool spectating;
         private TouchInput touchInput;
         private MatchKind matchKind;
         private bool resultShown;
@@ -81,6 +84,7 @@ namespace DouQuqu
         {
             HideMergeUi();
             BuildResultUi();
+            BuildTrainingExitUi();
             if (match != null && match.State != null) OnStateChanged(match.State);
         }
 
@@ -174,8 +178,13 @@ namespace DouQuqu
             }
 
             eliminationPanel = overlay.gameObject;
+            eliminationPanel.SetActive(false);
             eliminationPage = page.GetComponent<EliminationPage>();
             if (eliminationPage == null) eliminationPage = page.AddComponent<EliminationPage>();
+            eliminationPage.WatchClicked -= SpectateBattlefield;
+            eliminationPage.WatchClicked += SpectateBattlefield;
+            eliminationPage.ExitClicked -= ReturnToBattleEntrance;
+            eliminationPage.ExitClicked += ReturnToBattleEntrance;
             BindNamedButton(overlay, "退出", ReturnToBattleEntrance);
             BindNamedButton(overlay, "观战", SpectateBattlefield);
             UnityEngine.UI.Image overlayImage = overlay.GetComponent<UnityEngine.UI.Image>();
@@ -184,7 +193,7 @@ namespace DouQuqu
                 overlayImage.color = Color.clear;
                 overlayImage.raycastTarget = false;
             }
-            eliminationPanel.SetActive(false);
+            if (eliminationPanel != null) eliminationPanel.SetActive(false);
             return true;
         }
 
@@ -194,9 +203,11 @@ namespace DouQuqu
             if (state.over)
             {
                 HideElimination();
-                ShowResult(state);
+                if (spectateLeaveRoot != null) spectateLeaveRoot.SetActive(false);
+                if (state.elapsed > 0.2f) ShowResult(state);
                 return;
             }
+            if (!state.started) return;
             ShowEliminationIfNeeded();
         }
 
@@ -231,9 +242,9 @@ namespace DouQuqu
             int localPlayerId = LocalPlayerId();
             if (match.PlayerStillIn(localPlayerId)) return;
             if (match.Place(localPlayerId) <= 0) return;
-            if (eliminationPage != null) eliminationPage.Bind(match, localPlayerId);
-            eliminationPanel.SetActive(true);
             eliminationShown = true;
+            eliminationPanel.SetActive(true);
+            if (eliminationPage != null) eliminationPage.Bind(match, localPlayerId);
             DisableLocalInput();
         }
 
@@ -251,6 +262,57 @@ namespace DouQuqu
                 new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
         }
 
+        private void BuildTrainingExitUi()
+        {
+            if (matchKind != MatchKind.Training || trainingExitRoot != null) return;
+            RectTransform overlay = UiFactory.CreateOverlay("TrainingExitCanvas", 240);
+            GameObject buttonRoot = CreateTrainingExitFromRoomButton(overlay);
+            if (buttonRoot == null)
+            {
+                UnityEngine.UI.Button button = UiFactory.CreateButton(overlay, "TrainingExitButton", "退出训练",
+                    ReturnToBattleEntrance, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                    new Vector2(42f, -108f), new Vector2(260f, -32f));
+                buttonRoot = button.gameObject;
+            }
+
+            trainingExitRoot = overlay.gameObject;
+            BindNamedButton(buttonRoot.transform, "退出训练", ReturnToBattleEntrance);
+            BindNamedButton(buttonRoot.transform, "离开房间", ReturnToBattleEntrance);
+            BindNamedButton(buttonRoot.transform, buttonRoot.name, ReturnToBattleEntrance);
+        }
+
+        private static GameObject CreateTrainingExitFromRoomButton(RectTransform overlay)
+        {
+            GameObject battleEntrance = Resources.Load<GameObject>("BattleEntrance/Prefabs/BattleEntrance");
+            Transform source = battleEntrance != null ? FindNamed(battleEntrance.transform, "Group 11") : null;
+            if (source == null) source = battleEntrance != null ? FindNamed(battleEntrance.transform, "离开房间") : null;
+            if (source == null) return null;
+
+            GameObject clone = UnityEngine.Object.Instantiate(source.gameObject, overlay, false);
+            clone.name = "退出训练";
+            clone.SetActive(true);
+            RectTransform rect = clone.transform as RectTransform;
+            if (rect != null)
+            {
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(0f, 1f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = new Vector2(129.5f, -54.5f);
+                rect.sizeDelta = new Vector2(183f, 81f);
+                rect.localScale = Vector3.one;
+            }
+
+            TMP_Text[] labels = clone.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                if (labels[i] == null) continue;
+                labels[i].text = "退出训练";
+                labels[i].enableWordWrapping = false;
+            }
+
+            return clone;
+        }
+
         private static bool BindNamedButton(Transform root, string objectName, UnityEngine.Events.UnityAction clicked)
         {
             Transform found = FindNamed(root, objectName);
@@ -258,9 +320,15 @@ namespace DouQuqu
             UnityEngine.UI.Button button = found.GetComponent<UnityEngine.UI.Button>();
             if (button == null) button = found.gameObject.AddComponent<UnityEngine.UI.Button>();
             UnityEngine.UI.Image image = found.GetComponent<UnityEngine.UI.Image>();
+            bool addedImage = image == null;
+            if (addedImage) image = found.gameObject.AddComponent<UnityEngine.UI.Image>();
             if (image != null)
             {
                 image.raycastTarget = true;
+                if (addedImage)
+                    image.color = new Color(1f, 1f, 1f, 0.01f);
+                else if (image.color.a <= 0.01f && image.sprite == null)
+                    image.color = new Color(1f, 1f, 1f, 0.01f);
                 button.targetGraphic = image;
             }
             // Figma 的 btn-ready 把 TMP 字放在子节点且 raycastTarget=1。
@@ -292,9 +360,72 @@ namespace DouQuqu
 
         private void SpectateBattlefield()
         {
+            spectating = true;
             HideElimination();
             if (settlementPage != null) settlementPage.HideForSpectate();
             DisableLocalInput();
+            HideStick();
+            if (trainingExitRoot != null) trainingExitRoot.SetActive(false);
+            BuildSpectateLeaveUi();
+            BattleCamera cam = FindObjectOfType<BattleCamera>();
+            if (cam != null) cam.EnterGodView();
+        }
+
+        private void HideStick()
+        {
+            HudStick stick = FindObjectOfType<HudStick>();
+            if (stick != null) stick.gameObject.SetActive(false);
+            UIDocument document = FindObjectOfType<UIDocument>();
+            if (document != null) document.enabled = false;
+        }
+
+        private void BuildSpectateLeaveUi()
+        {
+            if (spectateLeaveRoot != null)
+            {
+                spectateLeaveRoot.SetActive(true);
+                return;
+            }
+
+            RectTransform overlay = UiFactory.CreateOverlay("SpectateLeaveCanvas", 245);
+            UnityEngine.UI.Image overlayImage = overlay.GetComponent<UnityEngine.UI.Image>();
+            if (overlayImage != null)
+            {
+                overlayImage.color = Color.clear;
+                overlayImage.raycastTarget = false;
+            }
+
+            GameObject battleEntrance = Resources.Load<GameObject>("BattleEntrance/Prefabs/BattleEntrance");
+            Transform source = battleEntrance != null ? FindNamed(battleEntrance.transform, "Group 11") : null;
+            if (source == null) source = battleEntrance != null ? FindNamed(battleEntrance.transform, "离开房间") : null;
+            GameObject buttonRoot;
+            if (source != null)
+            {
+                buttonRoot = UnityEngine.Object.Instantiate(source.gameObject, overlay, false);
+                buttonRoot.name = "离开房间";
+                buttonRoot.SetActive(true);
+                RectTransform rect = buttonRoot.transform as RectTransform;
+                if (rect != null)
+                {
+                    rect.anchorMin = new Vector2(1f, 1f);
+                    rect.anchorMax = new Vector2(1f, 1f);
+                    rect.pivot = new Vector2(0.5f, 0.5f);
+                    rect.anchoredPosition = new Vector2(-129.5f, -54.5f);
+                    rect.sizeDelta = new Vector2(183f, 81f);
+                    rect.localScale = Vector3.one;
+                }
+            }
+            else
+            {
+                UnityEngine.UI.Button button = UiFactory.CreateButton(overlay, "离开房间", "离开房间",
+                    ReturnToBattleEntrance, new Vector2(1f, 1f), new Vector2(1f, 1f),
+                    new Vector2(-260f, -108f), new Vector2(-42f, -32f));
+                buttonRoot = button.gameObject;
+            }
+
+            spectateLeaveRoot = overlay.gameObject;
+            BindNamedButton(buttonRoot.transform, "离开房间", ReturnToBattleEntrance);
+            BindNamedButton(buttonRoot.transform, buttonRoot.name, ReturnToBattleEntrance);
         }
 
         private void HideElimination()
@@ -325,7 +456,8 @@ namespace DouQuqu
         private void ReturnToBattleEntrance()
         {
             AwardIfLeavingEarly();
-            if (network != null) network.Stop();
+            bool keepHostAuthority = network != null && network.DetachMatchControllerForSceneTransition();
+            if (network != null && !keepHostAuthority) network.Stop();
             Lobby.Show(Lobby.Page.BattleEnter);
         }
 

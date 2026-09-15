@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,15 +11,25 @@ namespace DouQuqu
         const string RankTextureFolder = "Settlement/Textures/";
         static readonly string[] RankLabels = { "第1名", "第2名", "第3名", "第4名" };
 
+        public event Action WatchClicked;
+        public event Action ExitClicked;
+
         private void Awake()
         {
             UiFonts.ApplyTree(transform);
+            BindButtons();
+        }
+
+        private void OnEnable()
+        {
+            BindButtons();
         }
 
         public void Bind(MatchController match, int localPlayerId)
         {
             if (match == null) return;
             UiFonts.ApplyTree(transform);
+            BindButtons();
 
             int place = match.Place(localPlayerId);
             if (place <= 0) place = 4;
@@ -31,6 +42,45 @@ namespace DouQuqu
             SetText(transform, "PlaceScore", placeScore.ToString());
             SetText(transform, "KillScore", killScore.ToString());
             BindRank(place);
+            BindButtons();
+        }
+
+        void BindButtons()
+        {
+            Transform footer = FindNamed(transform, "Footer");
+            if (footer != null) footer.SetAsLastSibling();
+            BindClick(FindNamed(transform, "观战"), OnWatch);
+            BindClick(FindNamed(transform, "退出"), OnExit);
+        }
+
+        void OnWatch()
+        {
+            if (WatchClicked != null) WatchClicked.Invoke();
+        }
+
+        void OnExit()
+        {
+            if (ExitClicked != null) ExitClicked.Invoke();
+        }
+
+        static void BindClick(Transform root, UnityEngine.Events.UnityAction clicked)
+        {
+            if (root == null) return;
+            Button button = root.GetComponent<Button>();
+            if (button == null) button = root.gameObject.AddComponent<Button>();
+            Image image = root.GetComponent<Image>();
+            if (image == null) image = root.gameObject.AddComponent<Image>();
+            image.raycastTarget = true;
+            button.targetGraphic = image;
+            button.interactable = true;
+            Graphic[] graphics = root.GetComponentsInChildren<Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                if (graphics[i] == null || graphics[i].gameObject == root.gameObject) continue;
+                graphics[i].raycastTarget = false;
+            }
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(clicked);
         }
 
         void BindRank(int place)
