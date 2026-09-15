@@ -738,16 +738,14 @@ namespace DouQuqu
         private GameObject PrefabForPickup(string kind)
         {
             if (kind == "size") return sizePrefab;
-            if (kind == "shield") return shieldPrefab;
-            if (kind == "charge") return chargePrefab;
+            if (kind == "shield" || kind == "charge") return shieldPrefab;
             return heartPrefab;
         }
 
         private static Color PickupColor(string kind)
         {
             if (kind == "size") return new Color(1f, 0.38f, 0.9f);
-            if (kind == "shield") return new Color(0.25f, 0.85f, 1f);
-            if (kind == "charge") return new Color(1f, 0.58f, 0.12f);
+            if (kind == "shield" || kind == "charge") return new Color(0.25f, 0.85f, 1f);
             return new Color(1f, 0.22f, 0.32f);
         }
 

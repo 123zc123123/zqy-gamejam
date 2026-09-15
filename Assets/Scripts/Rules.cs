@@ -41,9 +41,9 @@ namespace DouQuqu
         public float vRate = 40f;
         [InspectorCn("起跳仰角", "度；与摩擦一起定空中匀速占比")]
         public float theta = 15f;
-        [InspectorCn("蓄力强化倍率", "拾取与狂暴共用。加快蓄满、点跳变大；未强化满蓄距离不变")]
+        [HideInInspector]
         public float chargeScale = 1.25f;
-        [InspectorCn("蓄力强化持续", "秒；仅拾取，狂暴不读")]
+        [HideInInspector]
         public float chargeBuffT = 5f;
         [InspectorCn("狂暴加成", "1:30 起全员蓄力速度、耐力恢复同乘；不变大")]
         public float rageBoost = 1.25f;
@@ -296,7 +296,7 @@ namespace DouQuqu
         public static float ArenaHalfWidth = DefaultArenaHalfWidth;
         public static float ArenaHalfDepth = DefaultArenaHalfDepth;
         public static float ArenaCorner = DefaultArenaCorner;
-        public static readonly string[] ItemKinds = { "shield", "charge" };
+        public static readonly string[] ItemKinds = { "shield" };
         public const int KillScoreBase = 10;
 
         public static readonly Vector2[] CornerSigns =
@@ -1115,13 +1115,9 @@ namespace DouQuqu
                 if (!bug.rageSize) bug.buffSizeT = knobs.sizeT * power;
                 RefreshBody(knobs, bug);
             }
-            else if (kind == "shield")
+            else if (kind == "shield" || kind == "charge")
             {
                 bug.buffShieldT = knobs.shieldT * power;
-            }
-            else if (kind == "charge" && !bug.rageCharge)
-            {
-                bug.buffChargeT = knobs.chargeBuffT * power;
             }
         }
 
@@ -1134,8 +1130,7 @@ namespace DouQuqu
                 baby.buffSizeT = knobs.sizeT;
                 RefreshBabyBody(knobs, baby);
             }
-            else if (kind == "shield") baby.buffShieldT = knobs.shieldT;
-            else if (kind == "charge") baby.buffChargeT = knobs.chargeBuffT;
+            else if (kind == "shield" || kind == "charge") baby.buffShieldT = knobs.shieldT;
         }
 
         /// <summary>递减蟋蟀的限时增益，并在增大结束时恢复体型。</summary>
@@ -1192,11 +1187,7 @@ namespace DouQuqu
         /// <summary>选择与上一种不同的道具类型，并更新类型游标。</summary>
         public static string PickItemKind(ref string lastKind, float roll)
         {
-            int selected = 0;
-            if (lastKind == "shield") selected = 1;
-            else if (lastKind == "charge") selected = 0;
-            else selected = Mathf.Clamp(Mathf.FloorToInt(roll * ItemKinds.Length), 0, ItemKinds.Length - 1);
-            lastKind = ItemKinds[selected];
+            lastKind = "shield";
             return lastKind;
         }
 
