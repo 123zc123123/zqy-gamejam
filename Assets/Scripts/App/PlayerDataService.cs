@@ -238,11 +238,11 @@ namespace DouQuqu
             return EggPlace[place - 1];
         }
 
-        /// <summary>随机匹配 / 好友组队按名次发放。调用方保证同一局只调一次。</summary>
-        public static bool AwardPlaceRewards(int place)
+        /// <summary>随机匹配 / 好友组队按名次和本局击杀分发放。调用方保证同一局只调一次。</summary>
+        public static bool AwardMatchRewards(int place, int killScore)
         {
             if (CurrentPlayer == null || place < 1 || place > 4) return false;
-            int points = PointsForPlace(place);
+            int points = PointsForPlace(place) + Mathf.Max(0, killScore);
             int gold = GoldForPlace(place);
             int eggs = EggsForPlace(place);
             if (points == 0 && gold == 0 && eggs == 0) return false;
@@ -253,6 +253,12 @@ namespace DouQuqu
             if (eggs != 0)
                 CurrentPlayer.eggs = Mathf.Clamp(CurrentPlayer.eggs + eggs, 0, EggCap);
             return CommitEconomy();
+        }
+
+        /// <summary>随机匹配 / 好友组队按名次发放。调用方保证同一局只调一次。</summary>
+        public static bool AwardPlaceRewards(int place)
+        {
+            return AwardMatchRewards(place, 0);
         }
 
         public static int SellPrice(int quality)

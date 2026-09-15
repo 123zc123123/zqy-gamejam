@@ -59,7 +59,7 @@ namespace DouQuqu
                 PlayerPalette.PaintOutline(row, playerId);
 
                 if (award && playerId == localPlayerId)
-                    PlayerDataService.AwardPlaceRewards(place);
+                    PlayerDataService.AwardMatchRewards(place, killScore);
             }
         }
 
