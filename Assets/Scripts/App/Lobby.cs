@@ -303,7 +303,7 @@ namespace DouQuqu
 
             GameObject instance = Instantiate(prefab);
             instance.name = objectName;
-            bool matchWidth = resourcesPath == HeroSelectionPrefab;
+            bool matchWidth = resourcesPath == HeroSelectionPrefab || resourcesPath == CollectionPrefab;
             Canvas canvas = instance.GetComponent<Canvas>();
             if (canvas == null) canvas = instance.GetComponentInChildren<Canvas>(true);
             if (canvas == null)
