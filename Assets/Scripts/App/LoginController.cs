@@ -154,15 +154,23 @@ namespace DouQuqu
 
         private System.Collections.IEnumerator LoginRoutine()
         {
+            string errorLocal;
+            if (!PlayerDataService.LoginOrCreate(nameInput.text, out errorLocal))
+            {
+                SetStatus(errorLocal);
+                loginButton.interactable = true;
+                yield break;
+            }
+
             VenueClient venue = VenueClient.Ensure();
             if (venue != null && venue.HasServer)
             {
                 SetStatus("正在连展会账本…");
                 bool done = false;
-                PlayerProfile remote = null;
-                StartCoroutine(venue.Login(nameInput.text, (player, error) =>
+                bool uploaded = false;
+                StartCoroutine(venue.PushCurrent(ok =>
                 {
-                    remote = player;
+                    uploaded = ok;
                     done = true;
                 }));
                 float wait = 0f;
@@ -172,24 +180,13 @@ namespace DouQuqu
                     yield return null;
                 }
                 if (!done) venue.AbortLogin();
-                if (remote != null)
-                {
-                    PlayerDataService.AdoptRemote(remote);
-                    SetStatus("登录成功（展会账本）");
-                    SceneNames.Load(SceneNames.MainMenu);
-                    yield break;
-                }
-                SetStatus("改用本机存档");
+                SetStatus(uploaded ? "登录成功（展会账本）" : "登录成功");
+            }
+            else
+            {
+                SetStatus("登录成功");
             }
 
-            string errorLocal;
-            if (!PlayerDataService.LoginOrCreate(nameInput.text, out errorLocal))
-            {
-                SetStatus(errorLocal);
-                loginButton.interactable = true;
-                yield break;
-            }
-            SetStatus("登录成功");
             SceneNames.Load(SceneNames.MainMenu);
         }
     }

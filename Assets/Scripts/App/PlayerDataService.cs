@@ -610,7 +610,7 @@ namespace DouQuqu
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
                 File.WriteAllText(DatabasePath, JsonUtility.ToJson(database, true));
                 if (VenueClient.Instance != null && VenueClient.Instance.HasServer && CurrentPlayer != null)
-                    VenueClient.Instance.StartCoroutine(VenueClient.Instance.PushCurrent());
+                    VenueClient.Instance.StartCoroutine(VenueClient.Instance.PushCurrent(null));
                 return true;
             }
             catch (Exception exception)

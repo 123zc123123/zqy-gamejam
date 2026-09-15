@@ -14,16 +14,23 @@ namespace DouQuqu
         public const int DiscoveryPort = 28779;
 
         [Serializable]
-        public sealed class LoginResponse
-        {
-            public PlayerProfile player;
-            public string error;
-        }
-
-        [Serializable]
         public sealed class RankingResponse
         {
             public PlayerProfile[] players;
+        }
+
+        [Serializable]
+        sealed class VenuePlayerPayload
+        {
+            public string playerId;
+            public string playerName;
+            public long updatedAtUtcTicks;
+            public int score;
+            public int gold;
+            public int eggs;
+            public bool economyReady;
+            public CricketCollectionEntry[] crickets;
+            public CricketBackpackEntry[] backpack;
         }
 
         public static VenueClient Instance { get; private set; }
@@ -114,58 +121,55 @@ namespace DouQuqu
             activeLogin = null;
         }
 
-        public IEnumerator Login(string playerName, Action<PlayerProfile, string> done)
+        public IEnumerator PushCurrent(Action<bool> done)
         {
-            if (!HasServer)
+            if (!HasServer || PlayerDataService.CurrentPlayer == null)
             {
-                if (done != null) done(null, null);
+                if (done != null) done(false);
                 yield break;
             }
-            string json = "{\"playerName\":\"" + Escape(playerName) + "\"}";
-            using (UnityWebRequest req = new UnityWebRequest(BaseUrl + "/login", "POST"))
+
+            AbortLogin();
+            string json = ToVenueJson(PlayerDataService.CurrentPlayer);
+            using (UnityWebRequest req = new UnityWebRequest(BaseUrl + "/player", "PUT"))
             {
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(body);
+                req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
                 req.downloadHandler = new DownloadHandlerBuffer();
                 req.SetRequestHeader("Content-Type", "application/json");
                 req.timeout = 2;
                 activeLogin = req;
                 yield return req.SendWebRequest();
                 if (activeLogin == req) activeLogin = null;
-                if (req.result != UnityWebRequest.Result.Success)
-                {
-                    if (done != null) done(null, "连不上展会账本，改用本机存档");
-                    yield break;
-                }
-                try
-                {
-                    LoginResponse parsed = JsonUtility.FromJson<LoginResponse>(req.downloadHandler.text);
-                    if (parsed == null || parsed.player == null)
-                    {
-                        if (done != null) done(null, parsed != null ? parsed.error : "登录失败");
-                        yield break;
-                    }
-                    if (done != null) done(parsed.player, null);
-                }
-                catch
-                {
-                    if (done != null) done(null, "登录失败");
-                }
+                bool ok = req.result == UnityWebRequest.Result.Success;
+                if (!ok)
+                    Debug.LogWarning("[Venue] 本机档上传失败: " + req.error);
+                if (done != null) done(ok);
             }
         }
 
-        public IEnumerator PushCurrent()
+        static string ToVenueJson(PlayerProfile player)
         {
-            if (!HasServer || PlayerDataService.CurrentPlayer == null) yield break;
-            string json = JsonUtility.ToJson(PlayerDataService.CurrentPlayer);
-            using (UnityWebRequest req = new UnityWebRequest(BaseUrl + "/player", "PUT"))
+            VenuePlayerPayload payload = new VenuePlayerPayload
             {
-                req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                req.timeout = 4;
-                yield return req.SendWebRequest();
-            }
+                playerId = player.playerId,
+                playerName = player.playerName,
+                updatedAtUtcTicks = player.updatedAtUtcTicks,
+                score = player.score,
+                gold = player.gold,
+                eggs = player.eggs,
+                economyReady = player.economyReady,
+                crickets = ToArray(player.crickets),
+                backpack = ToArray(player.backpack)
+            };
+            return JsonUtility.ToJson(payload);
+        }
+
+        static T[] ToArray<T>(System.Collections.Generic.List<T> list)
+        {
+            if (list == null || list.Count == 0) return new T[0];
+            T[] result = new T[list.Count];
+            list.CopyTo(result);
+            return result;
         }
 
         public IEnumerator RefreshRanking(Action done)
@@ -186,12 +190,6 @@ namespace DouQuqu
                 }
             }
             if (done != null) done();
-        }
-
-        static string Escape(string value)
-        {
-            if (string.IsNullOrEmpty(value)) return string.Empty;
-            return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
         }
     }
 }
