@@ -17,6 +17,7 @@ namespace DouQuqu
         private SettlementPage settlementPage;
         private GameObject eliminationPanel;
         private EliminationPage eliminationPage;
+        private GameObject trainingExitRoot;
         private TouchInput touchInput;
         private MatchKind matchKind;
         private bool resultShown;
@@ -81,6 +82,7 @@ namespace DouQuqu
         {
             HideMergeUi();
             BuildResultUi();
+            BuildTrainingExitUi();
             if (match != null && match.State != null) OnStateChanged(match.State);
         }
 
@@ -251,6 +253,57 @@ namespace DouQuqu
                 new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
         }
 
+        private void BuildTrainingExitUi()
+        {
+            if (matchKind != MatchKind.Training || trainingExitRoot != null) return;
+            RectTransform overlay = UiFactory.CreateOverlay("TrainingExitCanvas", 240);
+            GameObject buttonRoot = CreateTrainingExitFromRoomButton(overlay);
+            if (buttonRoot == null)
+            {
+                UnityEngine.UI.Button button = UiFactory.CreateButton(overlay, "TrainingExitButton", "退出训练",
+                    ReturnToBattleEntrance, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                    new Vector2(42f, -108f), new Vector2(260f, -32f));
+                buttonRoot = button.gameObject;
+            }
+
+            trainingExitRoot = overlay.gameObject;
+            BindNamedButton(buttonRoot.transform, "退出训练", ReturnToBattleEntrance);
+            BindNamedButton(buttonRoot.transform, "离开房间", ReturnToBattleEntrance);
+            BindNamedButton(buttonRoot.transform, buttonRoot.name, ReturnToBattleEntrance);
+        }
+
+        private static GameObject CreateTrainingExitFromRoomButton(RectTransform overlay)
+        {
+            GameObject battleEntrance = Resources.Load<GameObject>("BattleEntrance/Prefabs/BattleEntrance");
+            Transform source = battleEntrance != null ? FindNamed(battleEntrance.transform, "Group 11") : null;
+            if (source == null) source = battleEntrance != null ? FindNamed(battleEntrance.transform, "离开房间") : null;
+            if (source == null) return null;
+
+            GameObject clone = UnityEngine.Object.Instantiate(source.gameObject, overlay, false);
+            clone.name = "退出训练";
+            clone.SetActive(true);
+            RectTransform rect = clone.transform as RectTransform;
+            if (rect != null)
+            {
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(0f, 1f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = new Vector2(129.5f, -54.5f);
+                rect.sizeDelta = new Vector2(183f, 81f);
+                rect.localScale = Vector3.one;
+            }
+
+            TMP_Text[] labels = clone.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                if (labels[i] == null) continue;
+                labels[i].text = "退出训练";
+                labels[i].enableWordWrapping = false;
+            }
+
+            return clone;
+        }
+
         private static bool BindNamedButton(Transform root, string objectName, UnityEngine.Events.UnityAction clicked)
         {
             Transform found = FindNamed(root, objectName);
@@ -258,9 +311,15 @@ namespace DouQuqu
             UnityEngine.UI.Button button = found.GetComponent<UnityEngine.UI.Button>();
             if (button == null) button = found.gameObject.AddComponent<UnityEngine.UI.Button>();
             UnityEngine.UI.Image image = found.GetComponent<UnityEngine.UI.Image>();
+            bool addedImage = image == null;
+            if (addedImage) image = found.gameObject.AddComponent<UnityEngine.UI.Image>();
             if (image != null)
             {
                 image.raycastTarget = true;
+                if (addedImage)
+                    image.color = new Color(1f, 1f, 1f, 0.01f);
+                else if (image.color.a <= 0.01f && image.sprite == null)
+                    image.color = new Color(1f, 1f, 1f, 0.01f);
                 button.targetGraphic = image;
             }
             // Figma 的 btn-ready 把 TMP 字放在子节点且 raycastTarget=1。
