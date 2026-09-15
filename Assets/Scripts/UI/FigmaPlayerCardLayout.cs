@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -11,6 +12,7 @@ public class FigmaPlayerCardLayout : MonoBehaviour
     [SerializeField] public bool rightSide;
 
     [HideInInspector] [SerializeField] Vector2 leftAvatarPos;
+    [HideInInspector] [SerializeField] Vector2 leftAvatarPivot;
     [HideInInspector] [SerializeField] Vector2 leftInfoPos;
     [HideInInspector] [SerializeField] Vector2 leftNamePos;
     [HideInInspector] [SerializeField] Vector2 leftScorePos;
@@ -19,6 +21,7 @@ public class FigmaPlayerCardLayout : MonoBehaviour
     [HideInInspector] [SerializeField] Vector2 leftCricket3Pos;
     [HideInInspector] [SerializeField] bool hasLeftSnapshot;
 
+    RectTransform background;
     RectTransform avatarFrame;
     RectTransform infoColumn;
     RectTransform playerName;
@@ -49,16 +52,17 @@ public class FigmaPlayerCardLayout : MonoBehaviour
         AlignTexts();
 
         Vector2 avatarPos;
+        Vector2 avatarPivot;
         Vector2 infoPos;
         Vector2 namePos;
         Vector2 scorePos;
         Vector2 c1Pos;
         Vector2 c2Pos;
         Vector2 c3Pos;
-        if (!TryReadLeftFromPrefab(out avatarPos, out infoPos, out namePos, out scorePos, out c1Pos, out c2Pos, out c3Pos))
+        if (!TryReadLeftFromPrefab(out avatarPos, out avatarPivot, out infoPos, out namePos, out scorePos, out c1Pos, out c2Pos, out c3Pos))
         {
-            if (!hasLeftSnapshot) CaptureLeft();
             avatarPos = leftAvatarPos;
+            avatarPivot = leftAvatarPivot;
             infoPos = leftInfoPos;
             namePos = leftNamePos;
             scorePos = leftScorePos;
@@ -67,13 +71,14 @@ public class FigmaPlayerCardLayout : MonoBehaviour
             c3Pos = leftCricket3Pos;
         }
 
+        ApplyBackgroundFlip();
         if (!rightSide)
         {
             CaptureLeft();
             return;
         }
 
-        MirrorX(avatarFrame, avatarPos);
+        PlaceAvatarOnRight(avatarFrame, avatarPos, avatarPivot);
         MirrorX(infoColumn, infoPos);
         MirrorX(playerName, namePos);
         MirrorX(score, scorePos);
@@ -96,7 +101,8 @@ public class FigmaPlayerCardLayout : MonoBehaviour
             root.sizeDelta = new Vector2(424f, 140f);
         }
 
-        SetRect(avatarFrame, new Vector2(-142f, 0f), new Vector2(124f, 124f));
+        if (avatarFrame != null && avatarFrame.name != "PlayerFrame")
+            SetRect(avatarFrame, new Vector2(-142f, 0f), new Vector2(124f, 124f));
         SetRect(infoColumn, new Vector2(68f, 0f), new Vector2(272f, 126f));
 
         var topRow = FindRect("TopRow");
@@ -118,7 +124,8 @@ public class FigmaPlayerCardLayout : MonoBehaviour
 
     void Bind()
     {
-        avatarFrame = FindRect("AvatarFrame");
+        background = FindRect("Background") ?? FindRect("背景");
+        avatarFrame = FindRect("PlayerFrame") ?? FindRect("AvatarFrame");
         infoColumn = FindRect("InfoColumn");
         playerName = FindRect("PlayerName");
         score = FindRect("Score");
@@ -157,7 +164,11 @@ public class FigmaPlayerCardLayout : MonoBehaviour
 
     void CaptureLeft()
     {
-        if (avatarFrame != null) leftAvatarPos = avatarFrame.anchoredPosition;
+        if (avatarFrame != null)
+        {
+            leftAvatarPos = avatarFrame.anchoredPosition;
+            leftAvatarPivot = avatarFrame.pivot;
+        }
         if (infoColumn != null) leftInfoPos = infoColumn.anchoredPosition;
         if (playerName != null) leftNamePos = playerName.anchoredPosition;
         if (score != null) leftScorePos = score.anchoredPosition;
@@ -169,6 +180,7 @@ public class FigmaPlayerCardLayout : MonoBehaviour
 
     bool TryReadLeftFromPrefab(
         out Vector2 avatarPos,
+        out Vector2 avatarPivot,
         out Vector2 infoPos,
         out Vector2 namePos,
         out Vector2 scorePos,
@@ -177,6 +189,7 @@ public class FigmaPlayerCardLayout : MonoBehaviour
         out Vector2 c3Pos)
     {
         avatarPos = leftAvatarPos;
+        avatarPivot = leftAvatarPivot;
         infoPos = leftInfoPos;
         namePos = leftNamePos;
         scorePos = leftScorePos;
@@ -187,7 +200,8 @@ public class FigmaPlayerCardLayout : MonoBehaviour
         GameObject source = PrefabUtility.GetCorrespondingObjectFromOriginalSource(gameObject);
         if (source == null || source == gameObject) return hasLeftSnapshot;
         Transform srcRoot = source.transform;
-        RectTransform srcAvatar = FindNamed(srcRoot, "AvatarFrame") as RectTransform;
+        RectTransform srcAvatar = FindNamed(srcRoot, "PlayerFrame") as RectTransform;
+        if (srcAvatar == null) srcAvatar = FindNamed(srcRoot, "AvatarFrame") as RectTransform;
         RectTransform srcInfo = FindNamed(srcRoot, "InfoColumn") as RectTransform;
         RectTransform srcName = FindNamed(srcRoot, "PlayerName") as RectTransform;
         RectTransform srcScore = FindNamed(srcRoot, "Score") as RectTransform;
@@ -197,6 +211,7 @@ public class FigmaPlayerCardLayout : MonoBehaviour
         if (srcAvatar != null && srcInfo != null)
         {
             avatarPos = srcAvatar.anchoredPosition;
+            avatarPivot = srcAvatar.pivot;
             infoPos = srcInfo.anchoredPosition;
             if (srcName != null) namePos = srcName.anchoredPosition;
             if (srcScore != null) scorePos = srcScore.anchoredPosition;
@@ -207,6 +222,41 @@ public class FigmaPlayerCardLayout : MonoBehaviour
         }
 #endif
         return hasLeftSnapshot;
+    }
+
+    void ApplyBackgroundFlip()
+    {
+        if (background == null) return;
+
+        Vector3 scale = background.localScale;
+        float absX = Mathf.Abs(scale.x) < 0.01f ? 1f : Mathf.Abs(scale.x);
+        background.localScale = new Vector3(rightSide ? -absX : absX, scale.y, scale.z);
+    }
+
+    static void PlaceAvatarOnRight(RectTransform rect, Vector2 leftPos, Vector2 leftPivot)
+    {
+        if (rect == null) return;
+
+        bool leftAnchored = rect.anchorMin.x < 0.49f;
+        bool leftPivotEdge = rect.pivot.x < 0.49f;
+        bool alreadyRight = rect.anchorMin.x > 0.51f && rect.pivot.x > 0.51f;
+        if (alreadyRight) return;
+
+        if (leftAnchored || leftPivotEdge)
+        {
+            Vector2 aMin = rect.anchorMin;
+            Vector2 aMax = rect.anchorMax;
+            Vector2 pivot = rect.pivot;
+            Vector2 pos = rect.anchoredPosition;
+            rect.anchorMin = new Vector2(1f - aMin.x, aMin.y);
+            rect.anchorMax = new Vector2(1f - aMax.x, aMax.y);
+            rect.pivot = new Vector2(1f - pivot.x, pivot.y);
+            rect.anchoredPosition = new Vector2(-pos.x, pos.y);
+            return;
+        }
+
+        rect.pivot = new Vector2(1f - leftPivot.x, leftPivot.y);
+        rect.anchoredPosition = new Vector2(-leftPos.x, leftPos.y);
     }
 
     static void MirrorX(RectTransform rect, Vector2 leftPos)

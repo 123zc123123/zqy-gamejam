@@ -13,6 +13,9 @@ namespace DouQuqu
         private static readonly Color TabOn = new Color(0.96f, 0.90f, 0.62f, 1f);
         private static readonly Color TabOff = new Color(0.78f, 0.74f, 0.62f, 0.72f);
 
+        private const float DesignWidth = 1080f;
+        private const float DesignHeight = 1920f;
+
         private GameObject overlay;
         private Transform backpackRoot;
         private Transform cardGrid;
@@ -22,6 +25,7 @@ namespace DouQuqu
         private readonly List<FilterTab> filterTabs = new List<FilterTab>();
         private Sprite[] qualitySprites;
         private int filterTemperament;
+        private float lastPageWidth = -1f;
         private System.Action<CricketBackpackEntry> onCardInspect;
 
         public bool IsOpen => overlay != null && overlay.activeSelf;
@@ -40,10 +44,18 @@ namespace DouQuqu
             if (overlay == null) return;
             overlay.SetActive(true);
             filterTemperament = 0;
+            lastPageWidth = -1f;
             if (expandLabel != null) expandLabel.text = "收起";
             if (cardGrid != null) cardGrid.gameObject.SetActive(true);
+            ApplyBackpackAspect();
             RefreshFilters();
             RefreshCards();
+        }
+
+        private void LateUpdate()
+        {
+            if (overlay == null || !overlay.activeSelf) return;
+            ApplyBackpackAspect();
         }
 
         public void Hide()
@@ -103,6 +115,38 @@ namespace DouQuqu
 
             BindBackpack(backpackRoot);
             LoadQualitySprites();
+            lastPageWidth = -1f;
+            ApplyBackpackAspect();
+        }
+
+        private void ApplyBackpackAspect()
+        {
+            RectTransform bag = backpackRoot as RectTransform;
+            if (bag == null) return;
+            float pageWidth = ReadPageWidth();
+            if (pageWidth <= 1f) return;
+            if (Mathf.Abs(pageWidth - lastPageWidth) < 0.5f) return;
+            lastPageWidth = pageWidth;
+            float widthRatio = pageWidth / DesignWidth;
+            float uniformScale = Mathf.Min(1f, widthRatio);
+            bag.localScale = new Vector3(uniformScale, uniformScale, 1f);
+            Vector2 size = bag.sizeDelta;
+            size.x = DesignWidth * Mathf.Max(1f, widthRatio);
+            bag.sizeDelta = size;
+        }
+
+        private float ReadPageWidth()
+        {
+            if (overlay != null)
+            {
+                RectTransform rect = overlay.transform as RectTransform;
+                if (rect != null && rect.rect.width > 1f) return rect.rect.width;
+                Canvas canvas = overlay.GetComponent<Canvas>();
+                if (canvas != null && canvas.scaleFactor > 0.01f && canvas.pixelRect.width > 1f)
+                    return canvas.pixelRect.width / canvas.scaleFactor;
+            }
+            if (Screen.height > 0) return DesignHeight * Screen.width / (float)Screen.height;
+            return DesignWidth;
         }
 
         private void BindBackpack(Transform backpack)

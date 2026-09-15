@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace DouQuqu
 {
     /// <summary>
-    /// 战斗 HUD 玩家卡：头像=当前上场虫，三槽=roster 立绘，出圈变灰打叉。
+    /// 战斗 HUD 玩家卡：头像用通用 PlayerFrame，三槽=roster 立绘，出圈变灰打叉。
     /// 积分在名字旁，连杀在头像右上。
     /// </summary>
     public sealed class BattleScoreHud : MonoBehaviour
@@ -116,13 +116,10 @@ namespace DouQuqu
         void PaintAvatar(CardView card, int playerId, int current, bool inMatch, bool currentAlive, bool force)
         {
             if (card.avatar == null) return;
-            CricketPick pick = match != null ? match.RosterPick(playerId, current) : null;
-            int key = AvatarKey(pick, inMatch, currentAlive);
+            int key = (inMatch ? 1 : 0) | (currentAlive ? 2 : 0);
             if (!force && key == lastAvatarKey[playerId]) return;
             lastAvatarKey[playerId] = key;
 
-            Sprite portrait = pick != null ? CricketCatalog.Portrait(pick.quality, pick.temperament) : null;
-            if (portrait != null) card.avatar.sprite = portrait;
             card.avatar.preserveAspect = true;
             bool dead = !inMatch || !currentAlive;
             card.avatar.color = dead ? DeadColor : AliveColor;
@@ -191,15 +188,6 @@ namespace DouQuqu
             return bug != null && bug.alive;
         }
 
-        static int AvatarKey(CricketPick pick, bool inMatch, bool currentAlive)
-        {
-            int q = pick == null ? 0 : pick.quality;
-            int t = pick == null ? 0 : pick.temperament;
-            int id = pick == null ? 0 : pick.catalogId;
-            int flags = (inMatch ? 1 : 0) | (currentAlive ? 2 : 0);
-            return (id << 16) ^ (q << 8) ^ (t << 4) ^ flags;
-        }
-
         static int SlotKey(CricketPick pick, SlotLife life)
         {
             int q = pick == null ? 0 : pick.quality;
@@ -245,9 +233,9 @@ namespace DouQuqu
             Transform nameNode = FindNamed(card, "PlayerName");
             view.playerName = nameNode != null ? nameNode.GetComponent<TMP_Text>() : null;
 
-            Transform avatar = FindNamed(card, "Avatar");
+            Transform avatar = FindNamed(card, "头像贴图") ?? FindNamed(card, "Avatar");
             view.avatar = avatar != null ? avatar.GetComponent<Image>() : null;
-            Transform avatarFrame = FindNamed(card, "AvatarFrame");
+            Transform avatarFrame = FindNamed(card, "PlayerFrame") ?? FindNamed(card, "AvatarFrame");
             view.streak = EnsureBadge(avatarFrame as RectTransform, view.score);
 
             view.slots = new SlotView[SlotCount];
@@ -359,7 +347,8 @@ namespace DouQuqu
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = new Vector2(6f, 6f);
             rect.sizeDelta = new Vector2(BadgeSize, BadgeSize);
-            rect.localScale = Vector3.one;
+            float inv = Mathf.Abs(avatar.localScale.x) > 0.01f ? 1f / avatar.localScale.x : 1f;
+            rect.localScale = new Vector3(inv, inv, 1f);
             rect.SetAsLastSibling();
 
             TMP_Text text = rect.GetComponent<TMP_Text>();

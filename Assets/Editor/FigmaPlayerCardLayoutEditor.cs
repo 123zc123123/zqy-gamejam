@@ -8,7 +8,7 @@ public class FigmaPlayerCardLayoutEditor : Editor
     {
         var layout = (FigmaPlayerCardLayout)target;
         EditorGUILayout.HelpBox(
-            "左边：直接在 Scene / Prefab 里拖 AvatarFrame、InfoColumn、名字、积分和三只蛐蛐。\n" +
+            "左边：直接在 Scene / Prefab 里拖 PlayerFrame、InfoColumn、名字、积分和三只蛐蛐。\n" +
             "右边：勾选 Right Side，内部位置按左边预制体镜像，不要手改。",
             MessageType.Info);
 

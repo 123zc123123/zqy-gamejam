@@ -446,43 +446,60 @@ namespace DouQuqu
         private static void EnsureRoomInput(RectTransform room)
         {
             if (room == null) return;
-            if (room.GetComponent<TMP_InputField>() != null) return;
 
             Image image = room.GetComponent<Image>();
             if (image == null) image = room.gameObject.AddComponent<Image>();
             image.raycastTarget = true;
 
-            TMP_Text placeholder = room.GetComponentInChildren<TMP_Text>(true);
+            Transform placeholderTf = FindNamed(room, "房间号：");
+            TMP_Text placeholder = placeholderTf != null ? placeholderTf.GetComponent<TMP_Text>() : null;
             if (placeholder != null) placeholder.raycastTarget = false;
 
-            GameObject textGo = new GameObject("RoomCodeText", typeof(RectTransform), typeof(TextMeshProUGUI));
-            RectTransform textRect = textGo.GetComponent<RectTransform>();
-            textRect.SetParent(room, false);
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(16f, 8f);
-            textRect.offsetMax = new Vector2(-16f, -8f);
-            TextMeshProUGUI inputText = textGo.GetComponent<TextMeshProUGUI>();
-            inputText.font = UiFactory.Font;
-            inputText.fontSize = placeholder != null ? placeholder.fontSize : 36f;
-            inputText.color = RoomInputText;
-            inputText.alignment = TextAlignmentOptions.Center;
-            inputText.enableWordWrapping = false;
-            inputText.overflowMode = TextOverflowModes.Overflow;
+            Transform textTf = FindNamed(room, "RoomCodeText");
+            TextMeshProUGUI inputText = textTf != null ? textTf.GetComponent<TextMeshProUGUI>() : null;
+            if (inputText == null)
+            {
+                GameObject textGo = new GameObject("RoomCodeText", typeof(RectTransform), typeof(TextMeshProUGUI));
+                RectTransform textRect = textGo.GetComponent<RectTransform>();
+                textRect.SetParent(room, false);
+                textRect.anchorMin = Vector2.zero;
+                textRect.anchorMax = Vector2.one;
+                textRect.offsetMin = new Vector2(16f, 8f);
+                textRect.offsetMax = new Vector2(-16f, -8f);
+                inputText = textGo.GetComponent<TextMeshProUGUI>();
+                inputText.font = UiFactory.Font;
+                inputText.fontSize = placeholder != null ? placeholder.fontSize : 36f;
+                inputText.color = RoomInputText;
+                inputText.alignment = TextAlignmentOptions.Center;
+                inputText.enableWordWrapping = false;
+                inputText.overflowMode = TextOverflowModes.Overflow;
+            }
             inputText.raycastTarget = false;
 
-            TMP_InputField field = room.gameObject.AddComponent<TMP_InputField>();
-            field.targetGraphic = image;
-            field.textViewport = room;
-            field.textComponent = inputText;
-            field.characterLimit = 6;
-            field.lineType = TMP_InputField.LineType.SingleLine;
-            field.caretWidth = 3;
-            field.caretBlinkRate = 0.85f;
-            field.customCaretColor = true;
-            field.caretColor = RoomInputText;
+            TMP_InputField field = room.GetComponent<TMP_InputField>();
+            if (field == null)
+            {
+                field = room.gameObject.AddComponent<TMP_InputField>();
+                field.targetGraphic = image;
+                field.textViewport = room;
+                field.textComponent = inputText;
+                field.characterLimit = 6;
+                field.lineType = TMP_InputField.LineType.SingleLine;
+                field.caretWidth = 3;
+                field.caretBlinkRate = 0.85f;
+                field.customCaretColor = true;
+                field.caretColor = RoomInputText;
+                if (placeholder != null) field.placeholder = placeholder;
+            }
+            else
+            {
+                if (field.textComponent == null) field.textComponent = inputText;
+                if (field.textViewport == null) field.textViewport = room;
+                if (field.targetGraphic == null) field.targetGraphic = image;
+                if (field.placeholder == null && placeholder != null) field.placeholder = placeholder;
+            }
 
-            if (placeholder != null)
+            if (placeholder != null && field.placeholder == null)
             {
                 field.onSelect.AddListener(_ => placeholder.enabled = false);
                 field.onEndEdit.AddListener(value =>

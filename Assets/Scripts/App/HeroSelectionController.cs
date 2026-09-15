@@ -395,9 +395,8 @@ namespace DouQuqu
         {
             RectTransform bag = backpackRoot as RectTransform;
             if (bag == null) return;
-            float xScale = Mathf.Min(1f, widthRatio);
-            Vector3 scale = bag.localScale;
-            bag.localScale = new Vector3(xScale, scale.y == 0f ? 1f : scale.y, 1f);
+            float uniformScale = Mathf.Min(1f, widthRatio);
+            bag.localScale = new Vector3(uniformScale, uniformScale, 1f);
             Vector2 size = bag.sizeDelta;
             size.x = DesignWidth * Mathf.Max(1f, widthRatio);
             bag.sizeDelta = size;
@@ -646,8 +645,8 @@ namespace DouQuqu
 
         private void LoadButtonSprites()
         {
-            confirmSprite = LoadSprite("HeroSelection/Textures/绿色准备");
-            cancelSprite = LoadSprite("HeroSelection/Textures/红色取消");
+            confirmSprite = LoadSprite("Common/Textures/绿色准备");
+            cancelSprite = LoadSprite("Common/Textures/红色取消");
         }
 
         private void OnBattleReady()
@@ -709,7 +708,11 @@ namespace DouQuqu
             if (matchButtonImage != null)
             {
                 Sprite sprite = ready ? cancelSprite : confirmSprite;
-                if (sprite != null) matchButtonImage.sprite = sprite;
+                if (sprite != null)
+                {
+                    matchButtonImage.sprite = sprite;
+                    matchButtonImage.color = Color.white;
+                }
             }
             if (matchButton != null) matchButton.interactable = sessionActive && !selectionClosed;
             if (ownPlayerName != null && PlayerDataService.IsLoggedIn)

@@ -28,6 +28,12 @@ namespace DouQuqu
                 if (card == null) card = FindNamed(hudRoot, "FigmaPlayer" + (i + 1));
                 if (card == null) continue;
                 UnityEngine.UI.Image plate = card.GetComponent<UnityEngine.UI.Image>();
+                if (plate == null)
+                {
+                    Transform bg = FindNamed(card, "Background");
+                    if (bg == null) bg = FindNamed(card, "背景");
+                    if (bg != null) plate = bg.GetComponent<UnityEngine.UI.Image>();
+                }
                 if (plate == null) continue;
                 Color c = plate.color;
                 c.a = 1f;

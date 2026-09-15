@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Chinese SDF battlematchbtn
+  m_Name: Chinese SDF baibian 1
   m_Shader: {fileID: 4800000, guid: fe393ace9b354375a9cb14cdbbc28be4, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -33,16 +33,16 @@ Material:
     m_Floats:
     - _ColorMask: 15
     - _CullMode: 0
-    - _FaceDilate: 0.13
+    - _FaceDilate: 0.1
     - _GradientScale: 25
     - _MaskSoftnessX: 0
     - _MaskSoftnessY: 0
     - _OutlineSoftness: 0
-    - _OutlineWidth: 0.1
+    - _OutlineWidth: 0.05
     - _PerspectiveFilter: 0.875
     - _ScaleRatioA: 0.96
     - _ScaleRatioB: 1
-    - _ScaleRatioC: 0.65520006
+    - _ScaleRatioC: 0.684
     - _ScaleX: 1
     - _ScaleY: 1
     - _ShaderFlags: 0
@@ -54,9 +54,9 @@ Material:
     - _StencilWriteMask: 255
     - _TextureHeight: 2048
     - _TextureWidth: 2048
-    - _UnderlayDilate: 0.3
+    - _UnderlayDilate: 0.15
     - _UnderlayOffsetX: 0
-    - _UnderlayOffsetY: -0.3
+    - _UnderlayOffsetY: -0.15
     - _UnderlaySoftness: 0
     - _VertexOffsetX: 0
     - _VertexOffsetY: 0
@@ -65,6 +65,6 @@ Material:
     m_Colors:
     - _ClipRect: {r: -32767, g: -32767, b: 32767, a: 32767}
     - _FaceColor: {r: 1, g: 1, b: 1, a: 1}
-    - _OutlineColor: {r: 0.18490559, g: 0.025299238, b: 0, a: 1}
-    - _UnderlayColor: {r: 0.46934295, g: 0.11161399, b: 0, a: 1}
+    - _OutlineColor: {r: 1, g: 1, b: 1, a: 1}
+    - _UnderlayColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   m_BuildTextureStacks: []
