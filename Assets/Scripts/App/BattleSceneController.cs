@@ -62,11 +62,6 @@ namespace DouQuqu
                 match.Configure(MatchRunMode.Offline, MatchController.MaxPlayers, runtime);
                 ApplyPendingRosters(match, matchKind);
                 match.ResetMatch(MatchController.MaxPlayers, System.Environment.TickCount);
-                if (matchKind == MatchKind.Training)
-                {
-                    for (int i = 0; i < TrainingCamp.BotCount; i++)
-                        match.SetPlayerIdle(i + 1, true);
-                }
             }
 
             touchInput = GetComponent<TouchInput>();

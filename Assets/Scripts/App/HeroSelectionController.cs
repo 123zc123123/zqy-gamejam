@@ -50,6 +50,8 @@ namespace DouQuqu
         private Transform ownZone;
         private Transform backpackRoot;
         private Transform cardGrid;
+        private RectTransform cardViewport;
+        private ScrollRect cardScroll;
         private Transform[] otherZones;
         private OtherZoneView[] otherZoneViews;
         private Transform readyBadge;
@@ -354,8 +356,9 @@ namespace DouQuqu
             Transform sample = FindNamed(backpack, "极品_1");
             if (sample != null)
             {
-                cardGrid = sample.parent;
+                cardViewport = sample.parent as RectTransform;
                 cardTemplate = sample.gameObject;
+                EnsureCardScroll();
                 CollectExistingCards(cardGrid);
             }
 
@@ -823,6 +826,7 @@ namespace DouQuqu
             if (cardGrid == null || cardTemplate == null) return;
             List<CricketBackpackEntry> entries = FilteredBackpack();
             EnsureCardCount(entries.Count);
+            UpdateCardScrollContent(entries.Count);
             for (int i = 0; i < cards.Count; i++)
             {
                 CardView card = cards[i];
@@ -868,6 +872,72 @@ namespace DouQuqu
                 clone.SetActive(true);
                 cards.Add(ReadCard(clone));
             }
+        }
+
+        private void EnsureCardScroll()
+        {
+            if (cardViewport == null) return;
+
+            cardScroll = cardViewport.GetComponent<ScrollRect>();
+            Transform existingContent = null;
+            if (cardScroll != null && cardScroll.content != null)
+                existingContent = cardScroll.content;
+
+            if (existingContent == null)
+            {
+                GameObject contentObject = new GameObject("CardScrollContent", typeof(RectTransform));
+                contentObject.transform.SetParent(cardViewport, false);
+                RectTransform contentRect = contentObject.transform as RectTransform;
+                contentRect.anchorMin = new Vector2(0f, 1f);
+                contentRect.anchorMax = new Vector2(0f, 1f);
+                contentRect.pivot = new Vector2(0f, 1f);
+                contentRect.anchoredPosition = Vector2.zero;
+                contentRect.sizeDelta = cardViewport.rect.size;
+
+                List<Transform> children = new List<Transform>();
+                for (int i = 0; i < cardViewport.childCount; i++)
+                {
+                    Transform child = cardViewport.GetChild(i);
+                    if (child != contentObject.transform) children.Add(child);
+                }
+                for (int i = 0; i < children.Count; i++)
+                    children[i].SetParent(contentObject.transform, false);
+                existingContent = contentObject.transform;
+            }
+
+            cardGrid = existingContent;
+            cardScroll = cardViewport.GetComponent<ScrollRect>();
+            if (cardScroll == null) cardScroll = cardViewport.gameObject.AddComponent<ScrollRect>();
+            cardScroll.viewport = cardViewport;
+            cardScroll.content = cardGrid as RectTransform;
+            cardScroll.horizontal = false;
+            cardScroll.vertical = true;
+            cardScroll.movementType = ScrollRect.MovementType.Clamped;
+            cardScroll.inertia = true;
+            cardScroll.scrollSensitivity = 32f;
+
+            Image viewportGraphic = cardViewport.GetComponent<Image>();
+            if (viewportGraphic == null) viewportGraphic = cardViewport.gameObject.AddComponent<Image>();
+            viewportGraphic.color = new Color(1f, 1f, 1f, 0f);
+            viewportGraphic.raycastTarget = true;
+            if (cardViewport.GetComponent<RectMask2D>() == null)
+                cardViewport.gameObject.AddComponent<RectMask2D>();
+        }
+
+        private void UpdateCardScrollContent(int entryCount)
+        {
+            if (cardGrid == null) return;
+            RectTransform content = cardGrid as RectTransform;
+            if (content == null) return;
+            const float card = 288f;
+            const float topPad = 66f;
+            const float vGap = 21f;
+            const float bottomScrollPad = 180f;
+            int rows = Mathf.Max(1, Mathf.CeilToInt(Mathf.Max(1, entryCount) / 3f));
+            // Leave room below the last row so it can be dragged fully into view.
+            float height = topPad + rows * card + Mathf.Max(0, rows - 1) * vGap + 40f + bottomScrollPad;
+            float width = DesignWidth * Mathf.Max(1f, PageWidthRatio());
+            content.sizeDelta = new Vector2(width, Mathf.Max(cardViewport != null ? cardViewport.rect.height : 795f, height));
         }
 
         private List<CricketBackpackEntry> FilteredBackpack()

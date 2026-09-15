@@ -19,6 +19,7 @@ namespace DouQuqu
         private GameObject readyRoot;
         private GameObject matchmakingStatusRoot;
         private TMP_Text matchmakingTimerText;
+        private MergeBackpackPanel backpackPanel;
         private readonly Dictionary<Button, bool> lockedButtonStates = new Dictionary<Button, bool>();
         private bool bound;
         private bool friendRoom;
@@ -284,6 +285,11 @@ namespace DouQuqu
             if (rules == null) rules = FindGo(root, "玩法规则");
             if (rules != null) BindButton(rules, ActivityPopup.ShowRules);
 
+            GameObject backpack = FindGo(root, "SideButton_背包");
+            if (backpack == null) backpack = FindGo(root, "SideButton_Pack");
+            if (backpack == null) backpack = FindGo(root, "背包");
+            if (backpack != null) BindButton(backpack, OpenBackpack);
+
             GameObject training = FindGo(root, "训练营");
             if (training != null) BindCard(training, OpenTrainingCamp);
         }
@@ -296,10 +302,19 @@ namespace DouQuqu
         {
             GameObject match = FindGo(root, "MatchBtn-random");
             if (match == null) match = FindGo(root, "StartMatchButton");
-            if (match == null) match = FindGo(root, "随机匹配");
             if (match != null) return match;
 
-            Transform startLabel = FindNamed(root, "开始匹配");
+            // 某些导入版本把“随机匹配”作为 TMP 文本节点名；文本自身不是可点击容器，
+            // 不能直接给它添加 Image，否则会触发 Graphic 冲突并且按钮事件不会生效。
+            GameObject namedLabel = FindGo(root, "随机匹配");
+            if (namedLabel != null && namedLabel.GetComponent<TMP_Text>() == null)
+                return namedLabel;
+
+            // 优先使用随机卡片内部的文本；页面还可能有一个“开始匹配”准备按钮，
+            // 不能因为全局查找顺序而误绑到那个隐藏节点。
+            Transform startLabel = namedLabel != null
+                ? namedLabel.transform
+                : FindNamed(root, "开始匹配");
             if (startLabel == null) return null;
             Transform parent = startLabel.parent;
             if (parent != null && parent.name == "确认" && parent.parent != null)
@@ -313,6 +328,12 @@ namespace DouQuqu
             BindButton(card, clicked);
             Transform confirm = FindDirect(card.transform, "确认");
             if (confirm != null) BindButton(confirm.gameObject, clicked);
+        }
+
+        private void OpenBackpack()
+        {
+            if (backpackPanel == null) backpackPanel = gameObject.AddComponent<MergeBackpackPanel>();
+            backpackPanel.Show(null);
         }
 
         private static void OpenTrainingCamp()
@@ -670,6 +691,7 @@ namespace DouQuqu
             if (image == null) image = go.AddComponent<Image>();
             if (image != null)
             {
+                image.enabled = true;
                 image.raycastTarget = true;
                 if (image.color.a <= 0.01f && image.sprite == null)
                     image.color = new Color(1f, 1f, 1f, 0.01f);
@@ -682,6 +704,17 @@ namespace DouQuqu
             if (image != null) button.targetGraphic = image;
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(clicked);
+
+            // 预制体内部可能还有 Button。Unity 的事件会在第一个 Button 处停止向上冒泡，
+            // 所以把这些子按钮也转发到同一回调，避免出现只有部分区域点不动的情况。
+            Button[] nestedButtons = go.GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < nestedButtons.Length; i++)
+            {
+                Button nested = nestedButtons[i];
+                if (nested == null || nested == button) continue;
+                nested.onClick.RemoveAllListeners();
+                nested.onClick.AddListener(clicked);
+            }
         }
 
         private static GameObject FindGo(Transform root, string objectName)
