@@ -15,8 +15,13 @@ namespace DouQuqu
         private GameObject resultPanel;
         private TMP_Text resultText;
         private SettlementPage settlementPage;
+        private GameObject eliminationPanel;
+        private EliminationPage eliminationPage;
+        private TouchInput touchInput;
         private MatchKind matchKind;
         private bool resultShown;
+        private bool eliminationShown;
+        private bool awardedThisMatch;
 
         private void Awake()
         {
@@ -59,10 +64,10 @@ namespace DouQuqu
                 }
             }
 
-            TouchInput touchInput = GetComponent<TouchInput>();
+            touchInput = GetComponent<TouchInput>();
             if (touchInput != null)
             {
-                int localPlayerId = network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
+                int localPlayerId = LocalPlayerId();
                 touchInput.BindRuntime(match, network, localPlayerId);
             }
         }
@@ -94,7 +99,9 @@ namespace DouQuqu
 
         private void BuildResultUi()
         {
-            if (TryBuildArtResult()) return;
+            bool art = TryBuildArtResult();
+            TryBuildEliminationUi();
+            if (art) return;
 
             RectTransform root = UiFactory.CreateScreen("BattleResultCanvas");
             root.GetComponent<Canvas>().sortingOrder = 100;
@@ -147,14 +154,61 @@ namespace DouQuqu
             return true;
         }
 
+        private bool TryBuildEliminationUi()
+        {
+            GameObject prefab = Resources.Load<GameObject>("Settlement/Prefabs/Chuju");
+            if (prefab == null) return false;
+
+            RectTransform overlay = UiFactory.CreateOverlay("BattleEliminatedCanvas", 250);
+            GameObject page = Instantiate(prefab, overlay, false);
+            page.name = "Chuju";
+            RectTransform pageRect = page.GetComponent<RectTransform>();
+            if (pageRect != null)
+            {
+                pageRect.anchorMin = new Vector2(0.5f, 0.5f);
+                pageRect.anchorMax = new Vector2(0.5f, 0.5f);
+                pageRect.pivot = new Vector2(0.5f, 0.5f);
+                pageRect.anchoredPosition = Vector2.zero;
+                pageRect.sizeDelta = new Vector2(1080f, 1920f);
+                pageRect.localScale = Vector3.one;
+            }
+
+            eliminationPanel = overlay.gameObject;
+            eliminationPage = page.GetComponent<EliminationPage>();
+            if (eliminationPage == null) eliminationPage = page.AddComponent<EliminationPage>();
+            BindNamedButton(overlay, "退出", ReturnToBattleEntrance);
+            BindNamedButton(overlay, "观战", SpectateBattlefield);
+            UnityEngine.UI.Image overlayImage = overlay.GetComponent<UnityEngine.UI.Image>();
+            if (overlayImage != null)
+            {
+                overlayImage.color = Color.clear;
+                overlayImage.raycastTarget = false;
+            }
+            eliminationPanel.SetActive(false);
+            return true;
+        }
+
         private void OnStateChanged(MatchState state)
         {
-            if (state == null || !state.over || resultShown) return;
+            if (state == null) return;
+            if (state.over)
+            {
+                HideElimination();
+                ShowResult(state);
+                return;
+            }
+            ShowEliminationIfNeeded();
+        }
+
+        private void ShowResult(MatchState state)
+        {
+            if (resultShown || resultPanel == null) return;
             resultShown = true;
-            int localPlayerId = network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
+            int localPlayerId = LocalPlayerId();
             if (settlementPage != null)
             {
                 settlementPage.Bind(match, matchKind, localPlayerId);
+                awardedThisMatch = true;
             }
             else if (resultText != null)
             {
@@ -166,6 +220,21 @@ namespace DouQuqu
                         : "对局结束\n获胜者：玩家 " + (state.winnerId + 1);
             }
             resultPanel.SetActive(true);
+            DisableLocalInput();
+        }
+
+        private void ShowEliminationIfNeeded()
+        {
+            if (eliminationShown || eliminationPanel == null || match == null) return;
+            if (matchKind != MatchKind.Random && matchKind != MatchKind.Friend && matchKind != MatchKind.Training)
+                return;
+            int localPlayerId = LocalPlayerId();
+            if (match.PlayerStillIn(localPlayerId)) return;
+            if (match.Place(localPlayerId) <= 0) return;
+            if (eliminationPage != null) eliminationPage.Bind(match, localPlayerId);
+            eliminationPanel.SetActive(true);
+            eliminationShown = true;
+            DisableLocalInput();
         }
 
         private void BindSettlementButtons(RectTransform overlay)
@@ -215,11 +284,39 @@ namespace DouQuqu
 
         private void SpectateBattlefield()
         {
+            HideElimination();
             if (settlementPage != null) settlementPage.HideForSpectate();
+            DisableLocalInput();
+        }
+
+        private void HideElimination()
+        {
+            if (eliminationPanel != null) eliminationPanel.SetActive(false);
+        }
+
+        private void DisableLocalInput()
+        {
+            if (touchInput != null) touchInput.enabled = false;
+        }
+
+        private int LocalPlayerId()
+        {
+            return network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
+        }
+
+        private void AwardIfLeavingEarly()
+        {
+            if (awardedThisMatch || match == null) return;
+            if (matchKind != MatchKind.Random && matchKind != MatchKind.Friend) return;
+            int place = match.Place(LocalPlayerId());
+            if (place <= 0) return;
+            PlayerDataService.AwardPlaceRewards(place);
+            awardedThisMatch = true;
         }
 
         private void ReturnToBattleEntrance()
         {
+            AwardIfLeavingEarly();
             if (network != null) network.Stop();
             SceneNames.Load(SceneNames.BattleEntrance);
         }
