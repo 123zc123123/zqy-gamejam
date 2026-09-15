@@ -94,6 +94,7 @@ namespace DouQuqu
                 bool inMatch = !started || match.PlayerStillIn(i);
                 int current = match != null ? match.CricketIndex(i) : 0;
                 bool currentAlive = !started || CurrentAlive(i);
+                PlayerPalette.PaintHudCard(card.root, i);
                 PaintAvatar(card, i, current, inMatch, currentAlive, force);
                 PaintSlots(card, i, current, inMatch, currentAlive, force);
                 if (card.group != null) card.group.alpha = inMatch ? 1f : 0.55f;

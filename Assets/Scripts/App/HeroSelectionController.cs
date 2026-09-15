@@ -217,6 +217,7 @@ namespace DouQuqu
 
             Transform playerFrame = EnsureChildPrefab(zone, "PlayerFrame", "Common/Prefabs/PlayerFrame");
             PlaceScaled(playerFrame as RectTransform, framePos, frameScale);
+            PlayerPalette.PaintOutline(zone, LocalPlayerId());
 
             GameObject packPrefab = Resources.Load<GameObject>("HeroSelection/Prefabs/Parts/PackCricket");
             float rightEdge = PackCricketVisual * 0.5f;
@@ -917,10 +918,16 @@ namespace DouQuqu
         private void ApplyOtherZones()
         {
             if (otherZoneViews == null) return;
+            int localId = LocalPlayerId();
+            if (ownZone != null) PlayerPalette.PaintOutline(ownZone, localId);
+
             if (AppServices.PendingMatchKind == MatchKind.Training)
             {
                 for (int i = 0; i < otherZoneViews.Length; i++)
-                    PaintOtherZone(otherZoneViews[i], TrainingCamp.BotName(i), true);
+                {
+                    int playerId = i >= localId ? i + 1 : i;
+                    PaintOtherZone(otherZoneViews[i], TrainingCamp.BotName(i), true, playerId);
+                }
                 return;
             }
             LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
@@ -932,7 +939,8 @@ namespace DouQuqu
             for (int i = 0; i < otherZoneViews.Length; i++)
             {
                 OtherZoneView view = otherZoneViews[i];
-                PaintOtherZone(view, view != null ? view.homeName : string.Empty, false);
+                int playerId = i >= localId ? i + 1 : i;
+                PaintOtherZone(view, view != null ? view.homeName : string.Empty, false, playerId);
             }
         }
 
@@ -951,24 +959,32 @@ namespace DouQuqu
                         ? slot.playerName
                         : "玩家" + (i + 1);
                     bool confirmed = slot != null && (slot.selectionReady || slot.isBot);
-                    PaintOtherZone(otherZoneViews[zone], playerName, confirmed);
+                    PaintOtherZone(otherZoneViews[zone], playerName, confirmed, i);
                     zone++;
                 }
             }
             for (; zone < otherZoneViews.Length; zone++)
             {
                 OtherZoneView view = otherZoneViews[zone];
-                PaintOtherZone(view, view != null ? view.homeName : string.Empty, false);
+                PaintOtherZone(view, view != null ? view.homeName : string.Empty, false, -1);
             }
         }
 
-        private static void PaintOtherZone(OtherZoneView zone, string playerName, bool confirmed)
+        private static void PaintOtherZone(OtherZoneView zone, string playerName, bool confirmed, int playerId)
         {
             if (zone == null) return;
             if (zone.playerName != null && !string.IsNullOrEmpty(playerName))
                 zone.playerName.text = playerName;
             if (zone.status != null)
                 zone.status.text = confirmed ? StatusConfirmed : StatusSelecting;
+            if (playerId >= 0 && zone.root != null)
+                PlayerPalette.PaintOutline(zone.root, playerId);
+        }
+
+        static int LocalPlayerId()
+        {
+            LanSession net = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            return net != null && net.LocalPlayerId >= 0 ? net.LocalPlayerId : 0;
         }
 
         private static void HideCricketSlots(Transform zone)

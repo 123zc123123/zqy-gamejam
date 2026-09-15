@@ -69,7 +69,7 @@ namespace DouQuqu
         private int assignedProfileSeed = int.MinValue;
         private bool warnedMissingOverlays;
 
-        private static readonly Color[] PlayerColors = GroundMarker.PlayerColors;
+
 
         private void Awake()
         {
@@ -294,7 +294,7 @@ namespace DouQuqu
                 }
                 else if (tintPlayers)
                 {
-                    Color tint = PlayerColors[Mathf.Abs(bug.id) % PlayerColors.Length];
+                    Color tint = GroundMarker.ColorForPlayer(bug.id);
                     if (bug.charging) tint = Color.Lerp(tint, Color.white, 0.35f);
                     Tint(body, tint);
                 }

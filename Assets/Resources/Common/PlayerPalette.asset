@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f13bd3224b2b8674c81c263534189c70, type: 3}
+  m_Name: PlayerPalette
+  m_EditorClassIdentifier: 
+  p1:
+    outline: {r: 1, g: 0.88, b: 0.32, a: 1}
+    hudBackground: {r: 0.9, g: 0.68, b: 0.08, a: 0.61}
+    circle: {r: 1, g: 0.87843144, b: 0.32156864, a: 1}
+  p2:
+    outline: {r: 1, g: 0.18823528, b: 0.32471374, a: 1}
+    hudBackground: {r: 0.61960787, g: 0.16862746, b: 0.30209035, a: 0.61}
+    circle: {r: 1, g: 0.18823531, b: 0.3254902, a: 1}
+  p3:
+    outline: {r: 0.5254902, g: 0.8705883, b: 0.023529414, a: 1}
+    hudBackground: {r: 0.24826321, g: 0.34901962, b: 0.14901961, a: 0.61}
+    circle: {r: 0.52462345, g: 0.87169814, b: 0.024670552, a: 1}
+  p4:
+    outline: {r: 0.36862743, g: 0.83913237, b: 1, a: 1}
+    hudBackground: {r: 0.19215685, g: 0.54834217, b: 0.78039217, a: 0.61}
+    circle: {r: 0.36862746, g: 0.83921576, b: 1, a: 1}

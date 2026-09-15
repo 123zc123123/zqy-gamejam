@@ -10,46 +10,18 @@ namespace DouQuqu
     [ExecuteAlways]
     public sealed class GroundMarker : MonoBehaviour
     {
-        /// <summary>与战斗 HUD Player1–4 头像底色同一套：棕、红、绿、蓝。</summary>
-        public static readonly Color[] PlayerColors =
+        /// <summary>局内圆圈色，真源是 PlayerPalette。</summary>
+        public static Color[] PlayerColors => new[]
         {
-            new Color(0.90f, 0.68f, 0.08f, 1f),
-            new Color(0.62f, 0.17f, 0.17f, 1f),
-            new Color(0.18f, 0.35f, 0.15f, 1f),
-            new Color(0.43f, 0.53f, 0.87f, 1f)
+            PlayerPalette.Circle(0),
+            PlayerPalette.Circle(1),
+            PlayerPalette.Circle(2),
+            PlayerPalette.Circle(3)
         };
 
         public static void SyncFromHud(Transform hudRoot)
         {
-            if (hudRoot == null) return;
-            for (int i = 0; i < PlayerColors.Length; i++)
-            {
-                Transform card = FindNamed(hudRoot, "Player" + (i + 1));
-                if (card == null) card = FindNamed(hudRoot, "FigmaPlayer" + (i + 1));
-                if (card == null) continue;
-                UnityEngine.UI.Image plate = card.GetComponent<UnityEngine.UI.Image>();
-                if (plate == null)
-                {
-                    Transform bg = FindNamed(card, "Background");
-                    if (bg == null) bg = FindNamed(card, "背景");
-                    if (bg != null) plate = bg.GetComponent<UnityEngine.UI.Image>();
-                }
-                if (plate == null) continue;
-                Color c = plate.color;
-                c.a = 1f;
-                PlayerColors[i] = c;
-            }
-        }
-
-        static Transform FindNamed(Transform root, string objectName)
-        {
-            if (root.name == objectName) return root;
-            for (int i = 0; i < root.childCount; i++)
-            {
-                Transform hit = FindNamed(root.GetChild(i), objectName);
-                if (hit != null) return hit;
-            }
-            return null;
+            PlayerPalette.PaintBattleHud(hudRoot);
         }
 
         private const int RingPoints = 48;
@@ -72,8 +44,7 @@ namespace DouQuqu
 
         public static Color ColorForPlayer(int playerId)
         {
-            int index = Mathf.Abs(playerId) % PlayerColors.Length;
-            return PlayerColors[index];
+            return PlayerPalette.Circle(playerId);
         }
 
         private void OnEnable()
@@ -127,7 +98,7 @@ namespace DouQuqu
         public void Bake(float bugRadius)
         {
             EnsureReady();
-            LayoutMarker(Mathf.Max(0.2f, bugRadius), 1f, PlayerColors[0], fillAlpha);
+            LayoutMarker(Mathf.Max(0.2f, bugRadius), 1f, ColorForPlayer(0), fillAlpha);
         }
 
         /// <summary>预制体 / 编辑器里正对镜头，不躺到地面、不改父节点。</summary>
@@ -135,7 +106,7 @@ namespace DouQuqu
         {
             EnsureReady();
             transform.rotation = Quaternion.identity;
-            LayoutMarker(PreviewRadius, 1f, PlayerColors[0], Mathf.Max(fillAlpha, 0.35f));
+            LayoutMarker(PreviewRadius, 1f, ColorForPlayer(0), Mathf.Max(fillAlpha, 0.35f));
         }
 
         /// <summary>单位预制体里只保证看得见，不改已经摆好的 Transform。</summary>

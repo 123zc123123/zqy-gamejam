@@ -545,6 +545,21 @@ namespace DouQuqu
                 label.text = name;
                 slot++;
             }
+
+            PaintLobbyFrames();
+        }
+
+        private void PaintLobbyFrames()
+        {
+            if (playersRoot == null) return;
+            Transform root = playersRoot.transform;
+            int count = Mathf.Min(4, root.childCount);
+            for (int i = 0; i < count; i++)
+            {
+                Transform card = root.GetChild(i);
+                if (card == null) continue;
+                PlayerPalette.PaintOutline(card, i);
+            }
         }
 
         private void ApplyVisual()
@@ -556,6 +571,7 @@ namespace DouQuqu
             SetPageButtonsLocked(matching);
             RefreshFriendRoomAction();
             RefreshMatchmakingTimer();
+            if (InRoom) PaintLobbyFrames();
             if (Lobby.Instance == null) return;
             Lobby.Instance.RefreshNavVisibility();
         }

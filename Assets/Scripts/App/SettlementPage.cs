@@ -56,6 +56,7 @@ namespace DouQuqu
                 SetText(row, "KillScore", killScore.ToString());
                 BindRank(row, place);
                 BindAvatar(row, match, playerId);
+                PlayerPalette.PaintOutline(row, playerId);
 
                 if (award && playerId == localPlayerId)
                     PlayerDataService.AwardPlaceRewards(place);

@@ -8,12 +8,13 @@ namespace DouQuqu
     /// </summary>
     public sealed class MatchClockHud : MonoBehaviour
     {
-        private static readonly Color NormalColor = Color.white;
         private static readonly Color RageColor = new Color(0.941f, 0.627f, 0.439f, 1f);
 
         private MatchController match;
         private TMP_Text valueText;
         private TMP_Text labelText;
+        private Color valueBaseColor = Color.white;
+        private Color labelBaseColor = Color.white;
         private string lastShown;
 
         public void Bind(MatchController matchController)
@@ -49,6 +50,9 @@ namespace DouQuqu
                     if (valueText == null) valueText = texts[i];
                 }
             }
+
+            if (valueText != null) valueBaseColor = valueText.color;
+            if (labelText != null) labelBaseColor = labelText.color;
         }
 
         private void Refresh(bool force)
@@ -69,11 +73,11 @@ namespace DouQuqu
 
             lastShown = clock;
             valueText.text = clock;
-            valueText.color = rage ? RageColor : NormalColor;
+            valueText.color = rage ? RageColor : valueBaseColor;
             if (labelText != null)
             {
                 labelText.text = rage ? "狂暴" : "剩余时间";
-                labelText.color = rage ? RageColor : NormalColor;
+                labelText.color = rage ? RageColor : labelBaseColor;
             }
 
             if (phase == MatchPhase.Over && started)

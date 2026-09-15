@@ -8,8 +8,8 @@ public class FigmaPlayerCardLayoutEditor : Editor
     {
         var layout = (FigmaPlayerCardLayout)target;
         EditorGUILayout.HelpBox(
-            "左边：直接在 Scene / Prefab 里拖 PlayerFrame、InfoColumn、名字、积分和三只蛐蛐。\n" +
-            "右边：勾选 Right Side，内部位置按左边预制体镜像，不要手改。",
+            "左边：直接在 BattlePlayer 里拖 player（头像+名字）、TopRow（积分）、CricketRow。\n" +
+            "右边：勾选 Right Side，整组按左边镜像（头像靠右，积分和三槽靠左，第 1 只仍贴头像）。",
             MessageType.Info);
 
         DrawDefaultInspector();
