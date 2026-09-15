@@ -32,19 +32,22 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void GuanYuRevivePullsBackOnce()
+        public void GuanYuReviveConsumesOnceAndGhostsFreshBody()
         {
             BugState bug = Make(4, (int)CricketTemperament.ChenWen);
             bug.guanYuReviveLeft = 1;
-            bug.position = new Vector3(80f, 0f, 0f);
-            Assert.IsFalse(Rules.InsideArena(bug.position));
-            float massBefore = bug.massMul;
-            Assert.IsTrue(Rules.TryGuanYuRevive(knobs, bug));
+            bug.grow = 4;
+            Rules.RefreshBody(knobs, bug);
+            float grownMass = bug.mass;
+            Assert.IsTrue(Rules.ConsumeGuanYuRevive(bug));
             Assert.AreEqual(0, bug.guanYuReviveLeft);
+            bug.grow = 0;
+            bug.buffSizeT = 0f;
+            Rules.RefreshBody(knobs, bug);
+            Rules.EnterGuanYuGhost(knobs, bug);
             Assert.IsTrue(bug.guanYuGhost);
-            Assert.AreEqual(massBefore * knobs.guanYuGhostMul, bug.massMul, 1e-4f);
-            Assert.IsTrue(Rules.InsideArena(bug.position));
-            Assert.IsFalse(Rules.TryGuanYuRevive(knobs, bug));
+            Assert.Less(bug.mass, grownMass);
+            Assert.IsFalse(Rules.ConsumeGuanYuRevive(bug));
         }
 
         [Test]

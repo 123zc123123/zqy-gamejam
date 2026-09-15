@@ -79,6 +79,7 @@ namespace DouQuqu
             LoadPremiumBugSprites();
             EnsureBattleCamera();
             EnsureRoots();
+            if (GetComponent<BattleFx>() == null) gameObject.AddComponent<BattleFx>();
         }
 
         /// <summary>
@@ -110,6 +111,8 @@ namespace DouQuqu
         private void OnEnable()
         {
             if (match != null) match.StateChanged += OnStateChanged;
+            BattleFx fx = GetComponent<BattleFx>();
+            if (fx != null) fx.Bind(match);
         }
 
         private void Start()
@@ -159,6 +162,8 @@ namespace DouQuqu
             if (isActiveAndEnabled && match != null) match.StateChanged -= OnStateChanged;
             match = controller;
             if (isActiveAndEnabled && match != null) match.StateChanged += OnStateChanged;
+            BattleFx fx = GetComponent<BattleFx>();
+            if (fx != null) fx.Bind(match);
         }
 
         /// <summary>创建运行时容器，保证表现对象不会散落在场景根节点。</summary>
@@ -626,8 +631,9 @@ namespace DouQuqu
             float pending = bug.charging ? Rules.JumpStaminaCost(knobs, bug) : 0f;
             float ratio = current / max;
             float pendingRatio = pending / max;
-            if (BarOfUnit(bug.id) != null) bar.ApplyFill(ratio, slots, pendingRatio);
-            else bar.Apply(ratio, slots, bug.position + Vector3.up * bug.height, bug.radius, pendingRatio);
+            float hotGate = Rules.IsLuBu(bug) ? Mathf.Clamp01(knobs.luBuArmorStamina) : 0f;
+            if (BarOfUnit(bug.id) != null) bar.ApplyFill(ratio, slots, pendingRatio, hotGate);
+            else bar.Apply(ratio, slots, bug.position + Vector3.up * bug.height, bug.radius, pendingRatio, hotGate);
         }
 
         private static GameObject BodyOf(GameObject view)

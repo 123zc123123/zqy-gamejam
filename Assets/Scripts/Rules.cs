@@ -160,8 +160,8 @@ namespace DouQuqu
         public float jiItemPower = 1.7f;
         [InspectorCn("无穷质量", "吕布霸体碰撞用的质量")]
         public float unstoppableMass = 1000000f;
-        [InspectorCn("貂蝉偷耐力", "满蓄撞到第一个人时扣对方、加给自己的量")]
-        public float diaochanStealStamina = 1.5f;
+        [InspectorCn("貂蝉偷耐力", "满蓄撞人时扣对方、加给自己的格数。1 格 = 1")]
+        public float diaochanStealStamina = 3f;
 
         [Header("人机")]
         [InspectorCn("人机攻击距离", "人机主动起跳的攻击距离")]
@@ -564,17 +564,44 @@ namespace DouQuqu
             return bug.chargeTime + 1e-4f >= EffectiveChargeTime(knobs, bug);
         }
 
-        /// <summary>满蓄跳出去撞到的第一个人：对方扣到 0 为止，貂蝉加配置值到自己上限。</summary>
+        /// <summary>1 格耐力 = staminaMax / staminaSlots。玩家看到的 +3 就是 3 格。</summary>
+        public static float StaminaSlotSize(MatchKnobs knobs)
+        {
+            int slots = knobs == null ? 3 : Mathf.Max(1, knobs.staminaSlots);
+            float max = knobs == null ? 3f : Mathf.Max(0.01f, knobs.staminaMax);
+            return max / slots;
+        }
+
+        public static float StealAmount(MatchKnobs knobs)
+        {
+            float slots = knobs == null ? 3f : Mathf.Max(0f, knobs.diaochanStealStamina);
+            return slots * StaminaSlotSize(knobs);
+        }
+
+        /// <summary>满蓄跳出去撞到的第一个人：对方扣到 0 为止，貂蝉加配置格数到自己上限。</summary>
         public static bool TryDiaoChanSteal(MatchKnobs knobs, BugState diao, BugState victim)
         {
+            float gained;
+            float lost;
+            return TryDiaoChanSteal(knobs, diao, victim, out gained, out lost);
+        }
+
+        public static bool TryDiaoChanSteal(MatchKnobs knobs, BugState diao, BugState victim, out float gained, out float lost)
+        {
+            gained = 0f;
+            lost = 0f;
             if (!IsDiaoChan(diao) || diao == null || !diao.diaochanStealArmed || victim == null || diao == victim)
                 return false;
             if (!victim.alive) return false;
             diao.diaochanStealArmed = false;
-            float amount = knobs != null ? Mathf.Max(0f, knobs.diaochanStealStamina) : 1.5f;
+            float amount = StealAmount(knobs);
+            float beforeVictim = victim.stamina;
+            float beforeDiao = diao.stamina;
             victim.stamina = Mathf.Max(0f, victim.stamina - amount);
             float max = StaminaMaxOf(knobs, diao);
             diao.stamina = Mathf.Min(max, diao.stamina + amount);
+            gained = diao.stamina - beforeDiao;
+            lost = beforeVictim - victim.stamina;
             BreakLuBuArmorIfBelowGate(knobs, victim);
             return true;
         }
@@ -602,28 +629,12 @@ namespace DouQuqu
             return bug.stamina + 1e-6f >= max * Mathf.Clamp01(knobs.luBuArmorStamina);
         }
 
-        /// <summary>关羽第一次出圈立刻拉回。护盾已经处理过才走到这里。</summary>
-        public static bool TryGuanYuRevive(MatchKnobs knobs, BugState bug)
+        /// <summary>关羽还有额外命。真正入场点、清成长由对局按换虫那套走。</summary>
+        public static bool ConsumeGuanYuRevive(BugState bug)
         {
             if (bug == null || bug.guanYuReviveLeft <= 0) return false;
+            if (!IsGuanYu(bug)) return false;
             bug.guanYuReviveLeft--;
-            float pad = bug.radius + (knobs != null ? Mathf.Max(0f, knobs.shieldPad) : 0.08f);
-            bug.position = ClampInsideArena(bug.position, pad);
-            bug.previousPosition = bug.position;
-            bug.velocity = Vector3.zero;
-            ClearLaunch(bug);
-            bug.height = 0f;
-            bug.verticalVelocity = 0f;
-            bug.airborne = false;
-            bug.charging = false;
-            bug.holding = false;
-            bug.pendingCharge = false;
-            bug.chargeTime = 0f;
-            bug.luBuArmorT = 0f;
-            bug.diaochanStealArmed = false;
-            bug.hitTier = HitTier.None;
-            bug.lastHitId = -1;
-            EnterGuanYuGhost(knobs, bug);
             return true;
         }
 

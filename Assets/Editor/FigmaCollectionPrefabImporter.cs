@@ -156,7 +156,7 @@ public static class FigmaCollectionPrefabImporter
             group.transform,
             CardBounds,
             new Rect(6108f, 540f, 156f, 55f),
-            "灼云展",
+            CricketCatalog.CricketName(1, 1),
             36f,
             NameColor,
             TextAlignmentOptions.Top,
@@ -322,6 +322,17 @@ public static class FigmaCollectionPrefabImporter
 
     static void ApplyCardVariant(GameObject card, int quality, int temperament)
     {
+        Transform nameNode = FindNamed(card.transform, "名字");
+        if (nameNode != null)
+        {
+            TextMeshProUGUI nameText = nameNode.GetComponent<TextMeshProUGUI>();
+            if (nameText == null) nameText = nameNode.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (nameText != null)
+            {
+                nameText.text = CricketCatalog.CricketName(quality, temperament);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(nameText);
+            }
+        }
         ApplyBadgeVariant(card.transform, "品级", CricketCatalog.QualityName(quality), CricketCatalog.QualityColors[quality]);
         ApplyBadgeVariant(card.transform, "性格", CricketCatalog.TemperamentName(temperament), CricketCatalog.TemperamentColors[temperament]);
     }

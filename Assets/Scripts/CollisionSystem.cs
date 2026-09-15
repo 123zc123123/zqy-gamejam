@@ -219,8 +219,8 @@ namespace DouQuqu
             Vector3 launchB = Rules.LaunchOf(b);
             float normalSpeed = Vector3.Dot(launchB - launchA, normal);
             if (normalSpeed >= -0.0001f) return;
-            if (Rules.TryDiaoChanSteal(knobs, a, b)) emit?.Invoke("steal", a.position);
-            if (Rules.TryDiaoChanSteal(knobs, b, a)) emit?.Invoke("steal", b.position);
+            EmitSteal(knobs, a, b, emit);
+            EmitSteal(knobs, b, a, emit);
             bool lockA = Rules.Unstoppable(a);
             bool lockB = Rules.Unstoppable(b);
             a.lastHitId = b.id;
@@ -398,6 +398,16 @@ namespace DouQuqu
                 ApplyHitSlide(knobs, bug, tier);
             }
             emit?.Invoke("hit", bug.position);
+        }
+
+        static void EmitSteal(MatchKnobs knobs, BugState attacker, BugState victim, Action<string, Vector3> emit)
+        {
+            float gained;
+            float lost;
+            if (!Rules.TryDiaoChanSteal(knobs, attacker, victim, out gained, out lost)) return;
+            int show = Mathf.Max(1, Mathf.RoundToInt(Mathf.Max(0f, knobs != null ? knobs.diaochanStealStamina : 3f)));
+            emit?.Invoke("steal-gain:" + show, attacker.position);
+            emit?.Invoke("steal-loss:" + show, victim.position);
         }
 
         // 命中后落地滑行，并清除当前蓄力；若仍按住按键则交给 pendingCharge 续蓄。
