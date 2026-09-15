@@ -303,11 +303,15 @@ namespace DouQuqu
 
             GameObject instance = Instantiate(prefab);
             instance.name = objectName;
+            bool matchWidth = resourcesPath == HeroSelectionPrefab;
             Canvas canvas = instance.GetComponent<Canvas>();
             if (canvas == null) canvas = instance.GetComponentInChildren<Canvas>(true);
             if (canvas == null)
             {
                 RectTransform overlay = UiFactory.CreateOverlay(objectName, 10);
+                CanvasScaler overlayScaler = overlay.GetComponent<CanvasScaler>();
+                if (overlayScaler != null && matchWidth)
+                    overlayScaler.matchWidthOrHeight = 0f;
                 instance.transform.SetParent(overlay, false);
                 Stretch(instance.transform as RectTransform);
                 instance = overlay.gameObject;
@@ -322,7 +326,7 @@ namespace DouQuqu
                 {
                     scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
                     scaler.referenceResolution = new Vector2(1080f, 1920f);
-                    scaler.matchWidthOrHeight = 1f;
+                    scaler.matchWidthOrHeight = matchWidth ? 0f : 1f;
                 }
             }
 

@@ -253,6 +253,14 @@ namespace DouQuqu
                 }
             }
 
+            Button rules = FindButtonByChildName(canvasInstance.transform, "btn-left-rules");
+            if (rules == null) rules = FindButtonByLabel("玩法规则");
+            if (rules != null)
+            {
+                rules.onClick.RemoveListener(ActivityPopup.ShowMerge);
+                rules.onClick.AddListener(ActivityPopup.ShowMerge);
+            }
+
             Transform[] all = canvasInstance.GetComponentsInChildren<Transform>(true);
             for (int i = 0; i < all.Length; i++)
             {

@@ -203,7 +203,12 @@ namespace DouQuqu
             {
                 Transform frame = frames[i];
                 TMP_Text label = frame.GetComponentInChildren<TMP_Text>(true);
-                if (label != null) label.text = FilterLabels[i];
+                if (label != null)
+                {
+                    label.enableWordWrapping = false;
+                    label.overflowMode = TextOverflowModes.Overflow;
+                    label.text = "<nobr>" + FilterLabels[i] + "</nobr>";
+                }
                 FilterTab tab = new FilterTab
                 {
                     root = frame,

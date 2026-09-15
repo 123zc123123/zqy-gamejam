@@ -90,6 +90,7 @@ namespace DouQuqu
             pageRoot = root;
             bound = true;
             lastPageWidth = -1f;
+            LockParentCanvasScale();
             BottomNavBar.SuppressEmbedded(root.transform);
             if (!TryBindArt(root.transform))
                 BuildOverlay(root.transform);
@@ -102,6 +103,7 @@ namespace DouQuqu
         public void BeginSession()
         {
             if (!bound) return;
+            LockParentCanvasScale();
             sessionActive = true;
             ready = false;
             selectionClosed = false;
@@ -396,7 +398,12 @@ namespace DouQuqu
             {
                 Transform frame = frames[i];
                 TMP_Text label = frame.GetComponentInChildren<TMP_Text>(true);
-                if (label != null) label.text = FilterLabels[i];
+                if (label != null)
+                {
+                    label.enableWordWrapping = false;
+                    label.overflowMode = TextOverflowModes.Overflow;
+                    label.text = "<nobr>" + FilterLabels[i] + "</nobr>";
+                }
                 FilterTab tab = new FilterTab
                 {
                     root = frame,
@@ -432,6 +439,19 @@ namespace DouQuqu
             ApplyBackpackAspect(pageWidth / DesignWidth);
             if (ownZone != null) LayoutOwnRow(ownZone);
             RefreshCards();
+        }
+
+        private void LockParentCanvasScale()
+        {
+            if (pageRoot == null) return;
+            Canvas canvas = pageRoot.GetComponent<Canvas>();
+            if (canvas == null) canvas = pageRoot.GetComponentInParent<Canvas>();
+            if (canvas == null) return;
+            CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+            if (scaler == null) return;
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(DesignWidth, DesignHeight);
+            scaler.matchWidthOrHeight = 0f;
         }
 
         private void ApplyBackpackAspect(float widthRatio)
