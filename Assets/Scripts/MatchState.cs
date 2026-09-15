@@ -108,6 +108,11 @@ namespace DouQuqu
         public int catalogId;
         public int quality = 1;
         public int temperament = 1;
+
+        public bool HasBug()
+        {
+            return catalogId > 0;
+        }
     }
 
     [Serializable]

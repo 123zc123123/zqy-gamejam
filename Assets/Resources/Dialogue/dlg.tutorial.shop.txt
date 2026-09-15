@@ -1,0 +1,22 @@
+---
+id: dlg.tutorial.shop
+title: 新手 · 小铺
+---
+
+## 1. 老头 · 农忙
+> mood: warm
+> avatar: oldman
+
+老头：秋天农忙，可不能花太多时间在玩乐上，所以老头我啊。
+
+## 2. 老头 · 卖幼虫
+> mood: warm
+> avatar: oldman
+
+老头：专门给你们提供蛐蛐幼虫，还可以来买各种物品。
+
+## 3. 老头 · 玉环
+> mood: warm
+> avatar: oldman
+
+老头：只要给我斗蛐蛐时得到的蛐蛐玉环就行。

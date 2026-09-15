@@ -7,6 +7,7 @@ namespace DouQuqu
     /// <summary>百戏市集：金币买虫卵；其余价签仍提示即将开放。</summary>
     public sealed class ShopController : MonoBehaviour
     {
+        public Button EggOfferButton { get; private set; }
         private Transform pageRoot;
         private GameObject toastRoot;
         private Text toastLabel;
@@ -60,6 +61,7 @@ namespace DouQuqu
                 button.onClick.RemoveAllListeners();
                 if (IsEggOffer(button.transform))
                 {
+                    EggOfferButton = button;
                     SetPriceText(button.transform, PlayerDataService.EggShopPrice.ToString());
                     button.onClick.AddListener(BuyEggs);
                 }
@@ -83,6 +85,7 @@ namespace DouQuqu
                 return;
             }
             ShowToast("买到虫卵 +" + PlayerDataService.EggShopCount);
+            TutorialDirector.OnBoughtEggs();
         }
 
         private void CacheGoldLabel(Transform root)

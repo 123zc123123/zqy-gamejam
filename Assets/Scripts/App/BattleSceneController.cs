@@ -233,6 +233,7 @@ namespace DouQuqu
             }
             resultPanel.SetActive(true);
             DisableLocalInput();
+            TutorialDirector.OnSettlementShown(resultPanel);
         }
 
         private void ShowEliminationIfNeeded()
@@ -247,6 +248,7 @@ namespace DouQuqu
             eliminationPanel.SetActive(true);
             if (eliminationPage != null) eliminationPage.Bind(match, localPlayerId);
             DisableLocalInput();
+            TutorialDirector.OnEliminationShown(eliminationPanel);
         }
 
         private void BindSettlementButtons(RectTransform overlay)
@@ -461,6 +463,13 @@ namespace DouQuqu
                 FinishLeaveBattle();
                 return;
             }
+            if (TutorialDirector.IsActive &&
+                (TutorialDirector.Step == TutorialDirector.StepBattle ||
+                 TutorialDirector.Step == TutorialDirector.StepClickExit))
+            {
+                FinishLeaveBattle();
+                return;
+            }
             AwardIfLeavingEarly();
             int gold = LeaveRewardGold();
             if (!goldGrantedThisMatch)
@@ -485,6 +494,7 @@ namespace DouQuqu
             leavingAfterReward = false;
             bool keepHostAuthority = network != null && network.DetachMatchControllerForSceneTransition();
             if (network != null && !keepHostAuthority) network.Stop();
+            if (TutorialDirector.TryHandleReturn()) return;
             Lobby.Show(Lobby.Page.BattleEnter);
         }
 

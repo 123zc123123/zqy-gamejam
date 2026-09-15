@@ -173,9 +173,14 @@ namespace DouQuqu
         {
             if (state == null || state.bugs == null || playerId < 0 || playerId >= state.bugs.Length) return 0;
             if (state.playerIn != null && playerId < state.playerIn.Length && !state.playerIn[playerId]) return 0;
-            int unused = LivesPerPlayer - CricketIndex(playerId) - 1;
+            int unused = 0;
+            for (int slot = CricketIndex(playerId) + 1; slot < LivesPerPlayer; slot++)
+            {
+                CricketPick later = GetPick(playerId, slot);
+                if (later != null && later.HasBug()) unused++;
+            }
             int current = state.bugs[playerId] != null && state.bugs[playerId].alive ? 1 : 0;
-            return current + Mathf.Max(0, unused) + ExtraLives(playerId);
+            return current + unused + ExtraLives(playerId);
         }
 
         private int ExtraLives(int playerId)
@@ -783,6 +788,8 @@ namespace DouQuqu
             if (state.cricketIndex == null || playerId < 0 || playerId >= state.cricketIndex.Length) return false;
             int next = state.cricketIndex[playerId] + 1;
             if (next >= LivesPerPlayer) return false;
+            CricketPick nextPick = GetPick(playerId, next);
+            if (nextPick == null || !nextPick.HasBug()) return false;
             state.cricketIndex[playerId] = next;
             RecycleBug(state.bugs[playerId], SpawnPoint(playerId));
             ApplyPickToBug(state.bugs[playerId], playerId, next);

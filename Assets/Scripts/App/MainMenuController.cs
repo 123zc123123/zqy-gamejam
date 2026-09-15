@@ -35,6 +35,7 @@ namespace DouQuqu
             Bind(menu, "MenuButtonShop", SceneNames.Shop);
             Bind(menu, "MenuButtonRanking", SceneNames.Ranking);
             BindClick(menu, "SideButtonActivity", ActivityPopup.ShowActivity);
+            TutorialDirector.OnHomeReady();
 
             Text profileName = FindLabel(menu.transform, "ProfileName");
             if (profileName != null)

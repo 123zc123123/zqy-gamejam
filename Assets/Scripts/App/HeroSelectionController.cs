@@ -120,6 +120,12 @@ namespace DouQuqu
             HookBattleReady();
             HookLobby();
             RefreshAll();
+            TutorialDirector.OnHeroSelectOpened(this);
+        }
+
+        public void NotifyBackpackChanged()
+        {
+            if (sessionActive) RefreshAll();
         }
 
         public void CancelSelection()
@@ -142,6 +148,11 @@ namespace DouQuqu
             if (bound && pageRoot != null && pageRoot.activeInHierarchy)
                 ApplyAspectLayout();
             if (!sessionActive || timerText == null) return;
+            if (TutorialDirector.BlocksHeroReady)
+            {
+                deadlineUnscaled += Time.unscaledDeltaTime;
+                return;
+            }
             int remain = Mathf.Max(0, Mathf.CeilToInt(deadlineUnscaled - Time.unscaledTime));
             timerText.text = remain.ToString();
             if (remain > 0 || selectionClosed) return;
@@ -577,6 +588,7 @@ namespace DouQuqu
         private void OnReadyClicked()
         {
             if (!sessionActive || selectionClosed) return;
+            if (TutorialDirector.BlocksHeroReady) return;
             LanSession network = ActiveLanBattle();
             if (network != null && network.IsBattleStarting) return;
             if (ready)
@@ -591,6 +603,7 @@ namespace DouQuqu
         private void AutoFillAndReady()
         {
             if (ready) return;
+            if (TutorialDirector.BlocksHeroReady) return;
             List<CricketBackpackEntry> pool = AvailableEntries();
             Shuffle(pool);
             int p = 0;
@@ -1006,7 +1019,8 @@ namespace DouQuqu
 
         private bool AllSlotsFilled()
         {
-            for (int i = 0; i < SlotCount; i++)
+            int need = TutorialDirector.OneSlotStart ? 1 : SlotCount;
+            for (int i = 0; i < need; i++)
                 if (slotEntries[i] == null) return false;
             return true;
         }

@@ -154,9 +154,16 @@ namespace DouQuqu
             }
 
             if (page == Page.BattleEnter && battleEnter != null)
+            {
                 battleEnter.RefreshVisual();
+                TutorialDirector.OnBattleEnterReady();
+            }
             if (page == Page.HeroSelection && heroSelection != null)
                 heroSelection.BeginSession();
+            if (page == Page.Shop && shop != null)
+                TutorialDirector.OnShopOpened(shop);
+            if (page == Page.Home)
+                TutorialDirector.OnHomeReady();
             RefreshNavVisibility();
         }
 

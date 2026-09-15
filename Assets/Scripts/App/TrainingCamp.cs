@@ -35,7 +35,8 @@ namespace DouQuqu
         {
             int temperament = Mathf.Clamp(botIndex, 0, BotCount - 1) + 1;
             CricketPick[] picks = new CricketPick[MatchController.LivesPerPlayer];
-            for (int i = 0; i < picks.Length; i++)
+            int lives = TutorialDirector.OneLifeBattle ? 1 : picks.Length;
+            for (int i = 0; i < lives; i++)
                 picks[i] = MakePick(1, temperament);
             return picks;
         }

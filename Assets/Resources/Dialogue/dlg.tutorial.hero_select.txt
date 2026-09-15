@@ -1,0 +1,10 @@
+---
+id: dlg.tutorial.hero_select
+title: 新手 · 选虫前
+---
+
+## 1. 老头 · 借虫
+> mood: warm
+> avatar: oldman
+
+老头：哦吼吼，年轻人呦，看你骨骼精奇，是斗蛐蛐的好才地，先借你一只蛐蛐玩玩吧。

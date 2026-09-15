@@ -1,0 +1,22 @@
+---
+id: dlg.tutorial.settlement
+title: 新手 · 结算后
+---
+
+## 1. 老头 · 熟悉了嘛
+> mood: warm
+> avatar: oldman
+
+老头：哦吼吼，年轻人呦，熟悉怎么斗蛐蛐了嘛。
+
+## 2. 老头 · 小铺
+> mood: warm
+> avatar: oldman
+
+老头：听说村子中央开了个超级厉害的蛐蛐小铺，也不知道是谁开的这么厉害的铺子。
+
+## 3. 老头 · 回村
+> mood: warm
+> avatar: oldman
+
+老头：回村子中央看看哇。

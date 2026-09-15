@@ -1,0 +1,14 @@
+---
+id: dlg.sample.box
+title: 对话框样例
+---
+
+## 1. 旁白 · 开场
+> mood: calm
+
+旁白：点一下会先打完这句，再点进入下一句。
+
+## 2. 旁白 · 结束
+> mood: warm
+
+旁白：新对白做成同目录的 txt，用 frontmatter 的 id 调用 DialogueBoxView.Play。

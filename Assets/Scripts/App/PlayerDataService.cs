@@ -36,6 +36,7 @@ namespace DouQuqu
         public bool economyReady;
         public List<CricketCollectionEntry> crickets = new List<CricketCollectionEntry>();
         public List<CricketBackpackEntry> backpack = new List<CricketBackpackEntry>();
+        public int tutorialStep;
     }
 
     [Serializable]
@@ -75,6 +76,7 @@ namespace DouQuqu
         public static int Score => CurrentPlayer == null ? 0 : CurrentPlayer.score;
         public static int Gold => CurrentPlayer == null ? 0 : CurrentPlayer.gold;
         public static int Eggs => CurrentPlayer == null ? 0 : CurrentPlayer.eggs;
+        public static int TutorialStep => CurrentPlayer == null ? 0 : CurrentPlayer.tutorialStep;
         public static event Action PlayerDataChanged;
 
         /// <summary>本机积分大于 0 的玩家，按账号积分从高到低；同分先登录的在前。</summary>
@@ -135,7 +137,8 @@ namespace DouQuqu
                     eggs = StartEggs,
                     economyReady = true,
                     crickets = new List<CricketCollectionEntry>(),
-                    backpack = new List<CricketBackpackEntry>()
+                    backpack = new List<CricketBackpackEntry>(),
+                    tutorialStep = TutorialDirector.StepHeroSelectTalk
                 };
                 database.players.Add(CurrentPlayer);
             }
@@ -429,11 +432,36 @@ namespace DouQuqu
             };
         }
 
-        /// <summary>开档送凡品 1-1～1-4。旧档背包仍空时补一次，已有虫不补。</summary>
+        public static void SetTutorialStep(int step)
+        {
+            if (CurrentPlayer == null) return;
+            CurrentPlayer.tutorialStep = step;
+            CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
+            SaveDatabase();
+        }
+
+        public static int BackpackCount()
+        {
+            if (CurrentPlayer == null || CurrentPlayer.backpack == null) return 0;
+            int count = 0;
+            for (int i = 0; i < CurrentPlayer.backpack.Count; i++)
+            {
+                CricketBackpackEntry entry = CurrentPlayer.backpack[i];
+                if (entry != null && !string.IsNullOrEmpty(entry.instanceId)) count++;
+            }
+            return count;
+        }
+
+        /// <summary>开档送凡品 1-1～1-4。旧档背包仍空时补一次，已有虫不补。新手进行中不送。</summary>
         private static void EnsureStarterBackpack(PlayerProfile player)
         {
             if (player == null) return;
             if (player.backpack == null) player.backpack = new List<CricketBackpackEntry>();
+            if (TutorialDirector.BlocksStarterGrant(player))
+            {
+                SyncCollectionFromBackpack(player);
+                return;
+            }
             bool hasAny = false;
             for (int i = 0; i < player.backpack.Count; i++)
             {

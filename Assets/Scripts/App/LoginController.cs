@@ -187,6 +187,7 @@ namespace DouQuqu
                 SetStatus("登录成功");
             }
 
+            TutorialDirector.RouteAfterLogin();
             SceneNames.Load(SceneNames.MainMenu);
         }
     }

@@ -1,0 +1,10 @@
+---
+id: dlg.tutorial.shop_bought
+title: 新手 · 买了幼虫
+---
+
+## 1. 老头 · 去育虫
+> mood: warm
+> avatar: oldman
+
+老头：有了幼虫，去育虫庐培育看看。

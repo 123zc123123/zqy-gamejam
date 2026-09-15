@@ -176,6 +176,10 @@ namespace DouQuqu
                 SlotView slot = card.slots[s];
                 if (slot == null) continue;
                 CricketPick pick = match != null ? match.RosterPick(playerId, s) : null;
+                bool filled = pick != null && pick.HasBug();
+                if (slot.portrait != null)
+                    slot.portrait.transform.parent.gameObject.SetActive(filled);
+                if (!filled) continue;
                 SlotLife life = Classify(s, current, inMatch, currentAlive);
                 int key = SlotKey(pick, life);
                 int index = playerId * SlotCount + s;
