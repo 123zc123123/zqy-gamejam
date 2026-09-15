@@ -32,8 +32,8 @@ namespace DouQuqu
             bound = true;
             BottomNavBar.SuppressEmbedded(pageRoot.transform);
             countText = FindCountLabel(pageRoot.transform);
-            BindCards(pageRoot.transform);
             LoadQualitySprites();
+            BindCards(pageRoot.transform);
             if (xiangqingPrefab == null)
                 xiangqingPrefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
             RefreshCollection();
@@ -101,6 +101,7 @@ namespace DouQuqu
             button.onClick.AddListener(() => OpenDetail(capturedQuality, capturedTemperament));
 
             ApplyCardLabels(root.transform, quality, temperament);
+            ApplyCardPortrait(root.transform, SpriteFor(quality, temperament));
 
             return new CardSlot
             {
@@ -116,6 +117,20 @@ namespace DouQuqu
             SetNamedText(root, "名字", CricketCatalog.CricketName(quality, temperament));
             SetNamedChildText(root, "品级", CricketCatalog.QualityName(quality));
             SetNamedChildText(root, "性格", CricketCatalog.TemperamentName(temperament));
+        }
+
+        static void ApplyCardPortrait(Transform root, Sprite sprite)
+        {
+            if (sprite == null) return;
+            Transform node = FindNamed(root, "Image");
+            if (node == null) node = FindNamed(root, "Rectangle");
+            if (node == null) return;
+            Image image = node.GetComponent<Image>();
+            if (image == null) return;
+            image.sprite = sprite;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
         }
 
         static void SetNamedText(Transform root, string objectName, string value)

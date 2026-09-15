@@ -335,6 +335,20 @@ public static class FigmaCollectionPrefabImporter
         }
         ApplyBadgeVariant(card.transform, "品级", CricketCatalog.QualityName(quality), CricketCatalog.QualityColors[quality]);
         ApplyBadgeVariant(card.transform, "性格", CricketCatalog.TemperamentName(temperament), CricketCatalog.TemperamentColors[temperament]);
+        Transform portrait = FindNamed(card.transform, "Image");
+        if (portrait == null) portrait = FindNamed(card.transform, "Rectangle");
+        if (portrait != null)
+        {
+            Image image = portrait.GetComponent<Image>();
+            Sprite sprite = CricketCatalog.Portrait(quality, temperament);
+            if (image != null && sprite != null)
+            {
+                image.sprite = sprite;
+                image.color = Color.white;
+                image.preserveAspect = true;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(image);
+            }
+        }
     }
 
     static void ApplyBadgeVariant(Transform root, string badgeName, string label, Color color)

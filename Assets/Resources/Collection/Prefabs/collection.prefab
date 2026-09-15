@@ -2100,7 +2100,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 275092474840633849, guid: c2b59988faeb2f44eadb7fb8a82ca0e4, type: 3}
       propertyPath: m_text
-      value: "\u7A33\u91CD"
+      value: "\u8010\u6218"
       objectReference: {fileID: 0}
     - target: {fileID: 275092474840633849, guid: c2b59988faeb2f44eadb7fb8a82ca0e4, type: 3}
       propertyPath: m_TextStyleHashCode
@@ -2258,7 +2258,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 275092474840633849, guid: c2b59988faeb2f44eadb7fb8a82ca0e4, type: 3}
       propertyPath: m_text
-      value: "\u7A33\u91CD"
+      value: "\u8010\u6218"
       objectReference: {fileID: 0}
     - target: {fileID: 275092474840633849, guid: c2b59988faeb2f44eadb7fb8a82ca0e4, type: 3}
       propertyPath: m_TextStyleHashCode
@@ -2416,7 +2416,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 275092474840633849, guid: c2b59988faeb2f44eadb7fb8a82ca0e4, type: 3}
       propertyPath: m_text
-      value: "\u7A33\u91CD"
+      value: "\u8010\u6218"
       objectReference: {fileID: 0}
     - target: {fileID: 275092474840633849, guid: c2b59988faeb2f44eadb7fb8a82ca0e4, type: 3}
       propertyPath: m_TextStyleHashCode
@@ -2886,7 +2886,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 275092474840633849, guid: c2b59988faeb2f44eadb7fb8a82ca0e4, type: 3}
       propertyPath: m_text
-      value: "\u7A33\u91CD"
+      value: "\u8010\u6218"
       objectReference: {fileID: 0}
     - target: {fileID: 275092474840633849, guid: c2b59988faeb2f44eadb7fb8a82ca0e4, type: 3}
       propertyPath: m_TextStyleHashCode

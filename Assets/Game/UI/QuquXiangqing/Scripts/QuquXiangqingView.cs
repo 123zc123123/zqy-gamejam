@@ -73,6 +73,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
         private void Awake()
         {
             EnsureDimmer();
+            EnsureHelpUi();
             CacheButtons();
             if (closeButton != null)
             {
@@ -149,6 +150,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
         public void Show(string rank, string displayName, string description, Sprite sprite, string subtitle = null, string[] stats = null, bool[] strongStats = null, Color? descriptionColor = null)
         {
             EnsureDimmer();
+            EnsureHelpUi();
             CacheButtons();
             CacheLabels();
             BringToFront();
@@ -214,6 +216,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
 
         public void Hide()
         {
+            HideHelp();
             gameObject.SetActive(false);
             Closed?.Invoke();
         }
@@ -381,6 +384,239 @@ namespace ZqyGameJam.UI.QuquXiangqing
             if (objectName.IndexOf("Stat05", System.StringComparison.Ordinal) >= 0) return 4;
             if (objectName.IndexOf("Stat06", System.StringComparison.Ordinal) >= 0) return 5;
             return -1;
+        }
+
+        const string HelpButtonName = "StatHelpButton";
+        const string HelpPopupName = "StatHelpPopup";
+        static readonly Color HelpInk = new Color(0.16f, 0.11f, 0.07f, 1f);
+        static readonly Color HelpMuted = new Color(0.40f, 0.32f, 0.24f, 1f);
+        static readonly Color HelpPaper = new Color(0.98f, 0.95f, 0.88f, 1f);
+        static readonly Color HelpAccent = new Color(0.52f, 0.30f, 0.14f, 1f);
+        static readonly string[] HelpNames =
+        {
+            "重量", "抓地力", "蓄力速度", "蓄力时间上限", "耐力恢复速度", "耐力上限"
+        };
+        static readonly string[] HelpDescs =
+        {
+            "影响初始的体积与碰撞力量",
+            "影响受撞击后的移动距离与时间",
+            "影响相同时间蓄力的进度",
+            "影响蓄力的最大时长即跳跃的最远距离",
+            "影响落地状态的耐力恢复速度",
+            "影响最大耐力值"
+        };
+
+        GameObject helpPopup;
+
+        void EnsureHelpUi()
+        {
+            EnsureHelpButton();
+            EnsureHelpPopup();
+        }
+
+        void EnsureHelpButton()
+        {
+            Transform page = FindDeep(transform, "PageSurface");
+            Transform existing = FindDeep(transform, HelpButtonName);
+            GameObject go;
+            if (existing != null) go = existing.gameObject;
+            else
+            {
+                go = new GameObject(HelpButtonName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+                go.transform.SetParent(page != null ? page : transform, false);
+            }
+
+            Transform label = go.transform.Find("Label");
+            if (label != null) Destroy(label.gameObject);
+
+            RectTransform rect = go.GetComponent<RectTransform>();
+            if (page != null && go.transform.parent != page) go.transform.SetParent(page, false);
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(-28f, -28f);
+            rect.sizeDelta = new Vector2(72f, 72f);
+            rect.localScale = Vector3.one;
+
+            Image image = go.GetComponent<Image>();
+            if (image == null) image = go.AddComponent<Image>();
+            Sprite icon = Resources.Load<Sprite>("Collection/Textures/StatHelpIcon");
+            image.sprite = icon;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.raycastTarget = true;
+
+            Button button = go.GetComponent<Button>();
+            if (button == null) button = go.AddComponent<Button>();
+            button.transition = Selectable.Transition.ColorTint;
+            button.targetGraphic = image;
+            button.onClick.RemoveListener(ShowHelp);
+            button.onClick.AddListener(ShowHelp);
+        }
+
+        void EnsureHelpPopup()
+        {
+            Transform existing = transform.Find(HelpPopupName);
+            if (existing != null)
+            {
+                if (Application.isPlaying) Destroy(existing.gameObject);
+                else DestroyImmediate(existing.gameObject);
+            }
+
+            helpPopup = new GameObject(HelpPopupName, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(Image), typeof(Button));
+            RectTransform root = helpPopup.GetComponent<RectTransform>();
+            root.SetParent(transform, false);
+            root.SetAsLastSibling();
+            root.anchorMin = Vector2.zero;
+            root.anchorMax = Vector2.one;
+            root.offsetMin = Vector2.zero;
+            root.offsetMax = Vector2.zero;
+            root.localScale = Vector3.one;
+            Canvas canvas = helpPopup.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = OverlaySortingOrder + 80;
+            canvas.pixelPerfect = true;
+            CanvasScaler scaler = helpPopup.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.matchWidthOrHeight = 1f;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            Image dim = helpPopup.GetComponent<Image>();
+            dim.color = new Color(0.04f, 0.03f, 0.02f, 0.58f);
+            dim.raycastTarget = true;
+            Button dimButton = helpPopup.GetComponent<Button>();
+            dimButton.transition = Selectable.Transition.None;
+            dimButton.targetGraphic = dim;
+            dimButton.onClick.AddListener(HideHelp);
+
+            GameObject panel = new GameObject("Panel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            RectTransform panelRect = panel.GetComponent<RectTransform>();
+            panelRect.SetParent(root, false);
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = new Vector2(860f, 1080f);
+            panelRect.anchoredPosition = Vector2.zero;
+            Image paper = panel.GetComponent<Image>();
+            paper.color = HelpPaper;
+            paper.raycastTarget = true;
+
+            TMP_Text title = CreateTmp(panelRect, "Title", "六维介绍", 42f, HelpInk);
+            RectTransform titleRect = title.rectTransform;
+            titleRect.anchorMin = new Vector2(0.5f, 1f);
+            titleRect.anchorMax = new Vector2(0.5f, 1f);
+            titleRect.pivot = new Vector2(0.5f, 1f);
+            titleRect.anchoredPosition = new Vector2(0f, -40f);
+            titleRect.sizeDelta = new Vector2(740f, 56f);
+            title.alignment = TextAlignmentOptions.Center;
+            title.fontStyle = FontStyles.Bold;
+
+            GameObject line = new GameObject("Rule", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            RectTransform lineRect = line.GetComponent<RectTransform>();
+            lineRect.SetParent(panelRect, false);
+            lineRect.anchorMin = new Vector2(0.5f, 1f);
+            lineRect.anchorMax = new Vector2(0.5f, 1f);
+            lineRect.pivot = new Vector2(0.5f, 1f);
+            lineRect.anchoredPosition = new Vector2(0f, -108f);
+            lineRect.sizeDelta = new Vector2(680f, 2f);
+            line.GetComponent<Image>().color = new Color(HelpAccent.r, HelpAccent.g, HelpAccent.b, 0.35f);
+            line.GetComponent<Image>().raycastTarget = false;
+
+            float rowH = 128f;
+            float startY = -140f;
+            for (int i = 0; i < HelpNames.Length; i++)
+            {
+                GameObject row = new GameObject("Row" + i, typeof(RectTransform));
+                RectTransform rowRect = row.GetComponent<RectTransform>();
+                rowRect.SetParent(panelRect, false);
+                rowRect.anchorMin = new Vector2(0.5f, 1f);
+                rowRect.anchorMax = new Vector2(0.5f, 1f);
+                rowRect.pivot = new Vector2(0.5f, 1f);
+                rowRect.anchoredPosition = new Vector2(0f, startY - i * rowH);
+                rowRect.sizeDelta = new Vector2(720f, rowH - 12f);
+
+                TMP_Text name = CreateTmp(rowRect, "Name", HelpNames[i], 32f, HelpAccent);
+                RectTransform nameRect = name.rectTransform;
+                nameRect.anchorMin = new Vector2(0f, 1f);
+                nameRect.anchorMax = new Vector2(1f, 1f);
+                nameRect.pivot = new Vector2(0.5f, 1f);
+                nameRect.anchoredPosition = Vector2.zero;
+                nameRect.sizeDelta = new Vector2(0f, 40f);
+                name.alignment = TextAlignmentOptions.Left;
+                name.fontStyle = FontStyles.Bold;
+
+                TMP_Text desc = CreateTmp(rowRect, "Desc", HelpDescs[i], 28f, HelpMuted);
+                RectTransform descRect = desc.rectTransform;
+                descRect.anchorMin = new Vector2(0f, 0f);
+                descRect.anchorMax = new Vector2(1f, 1f);
+                descRect.offsetMin = new Vector2(0f, 4f);
+                descRect.offsetMax = new Vector2(0f, -42f);
+                desc.alignment = TextAlignmentOptions.TopLeft;
+                desc.enableWordWrapping = true;
+                desc.lineSpacing = 8f;
+            }
+
+            GameObject ok = new GameObject("Ok", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            RectTransform okRect = ok.GetComponent<RectTransform>();
+            okRect.SetParent(panelRect, false);
+            okRect.anchorMin = new Vector2(0.5f, 0f);
+            okRect.anchorMax = new Vector2(0.5f, 0f);
+            okRect.pivot = new Vector2(0.5f, 0f);
+            okRect.anchoredPosition = new Vector2(0f, 40f);
+            okRect.sizeDelta = new Vector2(280f, 72f);
+            Image okImage = ok.GetComponent<Image>();
+            okImage.color = HelpAccent;
+            Button okButton = ok.GetComponent<Button>();
+            okButton.targetGraphic = okImage;
+            okButton.onClick.AddListener(HideHelp);
+            TMP_Text okLabel = CreateTmp(okRect, "Label", "知道了", 32f, Color.white);
+            RectTransform okLabelRect = okLabel.rectTransform;
+            okLabelRect.anchorMin = Vector2.zero;
+            okLabelRect.anchorMax = Vector2.one;
+            okLabelRect.offsetMin = Vector2.zero;
+            okLabelRect.offsetMax = Vector2.zero;
+            okLabel.alignment = TextAlignmentOptions.Center;
+            okLabel.raycastTarget = false;
+
+            helpPopup.SetActive(false);
+        }
+
+        void ShowHelp()
+        {
+            EnsureHelpPopup();
+            if (helpPopup == null) return;
+            helpPopup.transform.SetAsLastSibling();
+            helpPopup.SetActive(true);
+        }
+
+        void HideHelp()
+        {
+            if (helpPopup != null) helpPopup.SetActive(false);
+        }
+
+        static TMP_Text CreateTmp(Transform parent, string objectName, string text, float size, Color color)
+        {
+            GameObject go = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            go.transform.SetParent(parent, false);
+            TextMeshProUGUI label = go.GetComponent<TextMeshProUGUI>();
+            TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts/Chinese SDF");
+            if (font != null) label.font = font;
+            label.text = text;
+            label.fontSize = size;
+            label.color = color;
+            label.raycastTarget = false;
+            label.extraPadding = true;
+            label.enableAutoSizing = false;
+            label.overflowMode = TextOverflowModes.Overflow;
+            if (label.fontSharedMaterial != null)
+            {
+                label.fontMaterial = new Material(label.fontSharedMaterial);
+                label.fontMaterial.SetFloat("_OutlineWidth", 0f);
+                label.fontMaterial.SetFloat("_OutlineSoftness", 0f);
+                label.fontMaterial.SetFloat("_FaceDilate", 0f);
+            }
+            return label;
         }
 
         private static Transform FindDeep(Transform root, string objectName)
