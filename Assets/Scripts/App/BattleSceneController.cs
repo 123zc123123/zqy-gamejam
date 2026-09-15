@@ -384,7 +384,8 @@ namespace DouQuqu
         private void ReturnToBattleEntrance()
         {
             AwardIfLeavingEarly();
-            if (network != null) network.Stop();
+            bool keepHostAuthority = network != null && network.DetachMatchControllerForSceneTransition();
+            if (network != null && !keepHostAuthority) network.Stop();
             Lobby.Show(Lobby.Page.BattleEnter);
         }
 
