@@ -55,7 +55,7 @@ namespace DouQuqu
                 SetText(row, "PlaceScore", placeScore.ToString());
                 SetText(row, "KillScore", killScore.ToString());
                 BindRank(row, place);
-                BindAvatar(row, match, playerId);
+                PlayerPalette.BindAvatar(row);
                 PlayerPalette.PaintOutline(row, playerId);
 
                 if (award && playerId == localPlayerId)
@@ -147,21 +147,6 @@ namespace DouQuqu
                 }
                 SetText(rank, "RankText", RankLabels[clamped - 1]);
             }
-        }
-
-        static void BindAvatar(Transform row, MatchController match, int playerId)
-        {
-            Transform portrait = FindNamed(row, "头像贴图");
-            if (portrait == null) portrait = FindNamed(row, "Avatar");
-            if (portrait == null) return;
-            Image image = portrait.GetComponent<Image>();
-            if (image == null) image = portrait.GetComponentInChildren<Image>(true);
-            if (image == null) return;
-            int slot = match.CricketIndex(playerId);
-            CricketPick pick = match.RosterPick(playerId, slot);
-            Sprite sprite = pick != null ? CricketCatalog.Portrait(pick.quality, pick.temperament) : null;
-            if (sprite != null) image.sprite = sprite;
-            image.preserveAspect = true;
         }
 
         static string DisplayName(MatchController match, int playerId, int localPlayerId)

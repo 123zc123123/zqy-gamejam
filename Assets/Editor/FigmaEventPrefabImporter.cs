@@ -176,7 +176,7 @@ public static class FigmaEventPrefabImporter
     {
         GameObject root = CreateBoundObject("领取", parent, ClaimBounds, ClaimBounds, "241:2090", "COMPONENT");
         CreateColorImage("Rectangle 18", root.transform, ClaimBounds, ClaimBounds, ClaimFill, "241:2065", "RECTANGLE");
-        CreateText("领取", root.transform, ClaimBounds, new Rect(11682f, 651f, 80f, 48f), "领取", 40f, TitleColor, TextAlignmentOptions.Center, "228:764");
+        CreateText("领取文案", root.transform, ClaimBounds, new Rect(11682f, 651f, 80f, 48f), "领取", 40f, TitleColor, TextAlignmentOptions.Center, "228:764");
         EnableRaycast(root);
         return root;
     }

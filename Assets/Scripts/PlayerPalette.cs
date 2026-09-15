@@ -11,6 +11,7 @@ namespace DouQuqu
     public sealed class PlayerPalette : ScriptableObject
     {
         public const string ResourcePath = "Common/PlayerPalette";
+        public const string AvatarResource = "Common/Textures/PlayerAvatar";
         public const int PlayerCount = 4;
 
         [System.Serializable]
@@ -58,6 +59,37 @@ namespace DouQuqu
         public static Color Circle(int playerId)
         {
             return Resolve(playerId).circle;
+        }
+
+        /// <summary>PlayerFrame 里的头像贴图是玩家形象，不是上场虫。</summary>
+        public static void BindAvatar(Transform root, bool visible = true)
+        {
+            if (root == null) return;
+            Transform portrait = FindNamed(root, "头像贴图") ?? FindNamed(root, "Avatar");
+            if (portrait == null)
+            {
+                Transform avatarRoot = FindNamed(root, "avatar");
+                if (avatarRoot != null)
+                {
+                    Transform nested = avatarRoot.Find("avatar");
+                    portrait = nested != null ? nested : avatarRoot;
+                }
+            }
+
+            if (portrait == null) return;
+            Image image = portrait.GetComponent<Image>();
+            if (image == null) image = portrait.GetComponentInChildren<Image>(true);
+            if (image == null) return;
+            if (!visible)
+            {
+                image.enabled = false;
+                return;
+            }
+
+            image.enabled = true;
+            image.preserveAspect = true;
+            Sprite sprite = Resources.Load<Sprite>(AvatarResource);
+            if (sprite != null) image.sprite = sprite;
         }
 
         public static void PaintOutline(Transform root, int playerId)

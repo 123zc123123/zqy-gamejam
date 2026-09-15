@@ -60,6 +60,13 @@ namespace DouQuqu
             for (int i = 0; i < children.Length; i++)
             {
                 if (children[i].name != "领取") continue;
+                // Prefab 根按钮和内部 TMP 文案都叫「领取」。文案节点已有 Graphic，不能再加 Image。
+                if (children[i].GetComponent<TMP_Text>() != null)
+                {
+                    Button stray = children[i].GetComponent<Button>();
+                    if (stray != null) Object.Destroy(stray);
+                    continue;
+                }
                 GameObject go = children[i].gameObject;
                 BindButton(go, () => MarkClaimed(go));
             }
@@ -86,20 +93,31 @@ namespace DouQuqu
         private static void BindButton(GameObject go, UnityEngine.Events.UnityAction clicked)
         {
             if (go == null) return;
-            Image image = go.GetComponent<Image>();
-            if (image == null) image = go.AddComponent<Image>();
+            Graphic graphic = go.GetComponent<Graphic>();
+            Image image = graphic as Image;
+            if (graphic == null)
+            {
+                image = go.AddComponent<Image>();
+                image.color = new Color(1f, 1f, 1f, 0.01f);
+                graphic = image;
+            }
+
             if (image != null)
             {
                 image.raycastTarget = true;
                 if (image.color.a <= 0.01f && image.sprite == null)
                     image.color = new Color(1f, 1f, 1f, 0.01f);
             }
+            else if (graphic != null)
+            {
+                graphic.raycastTarget = true;
+            }
 
             Button button = go.GetComponent<Button>();
             if (button == null) button = go.AddComponent<Button>();
             if (button == null) return;
             button.transition = Selectable.Transition.None;
-            if (image != null) button.targetGraphic = image;
+            if (graphic != null) button.targetGraphic = graphic;
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(clicked);
         }

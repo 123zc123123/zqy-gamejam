@@ -94,7 +94,9 @@ namespace DouQuqu
             if (id == "Rank" && (nodeName == "RankText" || nodeName == "PlaceValue" || nodeName == "第1名" || nodeName == "第2名" || nodeName == "第3名" || nodeName == "第4名")) return true;
             if (id == "Subtitle" && nodeName == "PlaceLabel") return true;
             if (id == "Button" && (nodeName == "返回" || nodeName == "ReturnButton" || nodeName == "退出" || nodeName == "观战")) return true;
-            if (id == "Name" && (nodeName == "玩家1" || nodeName == "PlayerName")) return true;
+            if (id == "Name" && (nodeName == "玩家1" || nodeName == "PlayerName" || nodeName == "name")) return true;
+            if (id == "Score" && (nodeName == "1200" || nodeName == "count")) return true;
+            if (id == "Rank" && nodeName == "1") return true;
             return false;
         }
     }

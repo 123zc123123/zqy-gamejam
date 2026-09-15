@@ -69,11 +69,13 @@ namespace DouQuqu
         private void BindCards(Transform root)
         {
             List<Transform> found = new List<Transform>();
-            CollectNamed(root, "CricketCard", found);
+            CollectNamed(root, "PackCricket", found);
+            if (found.Count == 0) CollectNamed(root, "CricketCard", found);
             int count = Mathf.Min(CatalogSize, found.Count);
             for (int i = 0; i < count; i++)
             {
-                int quality = i / 4 + 1;
+                // 自上而下与 qualityIcon 对齐：极品 / 仙品 / 灵品 / 凡品。
+                int quality = 4 - i / 4;
                 int temperament = i % 4 + 1;
                 cards[i] = MakeSlot(found[i].gameObject, quality, temperament);
             }
@@ -100,7 +102,7 @@ namespace DouQuqu
             int capturedTemperament = temperament;
             button.onClick.AddListener(() => OpenDetail(capturedQuality, capturedTemperament));
 
-            ApplyCardLabels(root.transform, quality, temperament);
+            ApplyPackCard(root.transform, quality, temperament);
 
             return new CardSlot
             {
@@ -111,11 +113,44 @@ namespace DouQuqu
             };
         }
 
-        static void ApplyCardLabels(Transform root, int quality, int temperament)
+        static void ApplyPackCard(Transform root, int quality, int temperament)
         {
+            SetNamedText(root, "白头狮", CricketCatalog.CricketName(quality, temperament));
             SetNamedText(root, "名字", CricketCatalog.CricketName(quality, temperament));
-            SetNamedChildText(root, "品级", CricketCatalog.QualityName(quality));
             SetNamedChildText(root, "性格", CricketCatalog.TemperamentName(temperament));
+
+            Transform mask = FindNamed(root, "选中的蛐蛐遮罩");
+            if (mask != null) mask.gameObject.SetActive(false);
+
+            Transform badge = FindNamed(root, "品级");
+            if (badge != null) badge.gameObject.SetActive(false);
+
+            Transform bg = FindNamed(root, "背景");
+            if (bg == null) bg = FindNamed(root, "Rectangle 11");
+            if (bg != null)
+            {
+                Image image = bg.GetComponent<Image>();
+                if (image != null)
+                {
+                    image.sprite = CricketCatalog.PackBackground(quality, temperament);
+                    image.enabled = image.sprite != null;
+                    image.preserveAspect = true;
+                    image.color = Color.white;
+                }
+            }
+
+            Transform portrait = FindNamed(root, "头像");
+            if (portrait == null) portrait = FindNamed(root, "Image");
+            if (portrait != null)
+            {
+                Image image = portrait.GetComponent<Image>();
+                if (image != null)
+                {
+                    image.sprite = CricketCatalog.Portrait(quality, temperament);
+                    image.enabled = image.sprite != null;
+                    CricketCatalog.FitPackPortrait(image);
+                }
+            }
         }
 
         static void SetNamedText(Transform root, string objectName, string value)
