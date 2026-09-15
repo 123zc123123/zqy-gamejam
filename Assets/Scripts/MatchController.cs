@@ -403,7 +403,7 @@ namespace DouQuqu
             if (state == null) return null;
             MatchSnapshot snapshot = new MatchSnapshot
             {
-                version = 8,
+                version = 9,
                 tick = state.tick,
                 playerCount = state.playerCount,
                 randomSeed = state.randomSeed,
@@ -440,6 +440,7 @@ namespace DouQuqu
                 snapshot.bugs[i] = new BugSnapshot
                 {
                     id = b.id, catalogId = b.catalogId, alive = b.alive, position = b.position, velocity = b.velocity,
+                    chargeDirection = b.chargeDirection,
                     height = b.height, verticalVelocity = b.verticalVelocity, radius = b.radius,
                     chargeTime = b.chargeTime, stamina = b.stamina, grow = b.grow, score = b.score, lastHitId = b.lastHitId,
                     buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
@@ -463,6 +464,7 @@ namespace DouQuqu
             {
                 BabyState b = state.babies[i];
                 snapshot.babies[i] = new BabySnapshot { id = b.id, ownerId = b.ownerId, position = b.position, velocity = b.velocity,
+                    chargeDirection = b.chargeDirection,
                     height = b.height, verticalVelocity = b.verticalVelocity, charging = b.charging, grow = b.grow, score = b.score,
                     buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
                     hitTier = (int)b.hitTier, remaining = Mathf.Max(0f, b.lifeEnd - state.elapsed), alive = b.alive,
@@ -517,6 +519,8 @@ namespace DouQuqu
                 b.hitTier = Rules.CanonicalHitTier((HitTier)Mathf.Clamp(s.hitTier, 0, (int)HitTier.Slip));
                 b.launchVelocity = snapshot.version >= 8 ? s.launchVelocity : Rules.Planar(s.velocity);
                 b.initialSpeed = new Vector2(b.launchVelocity.x, b.launchVelocity.z).magnitude;
+                if (snapshot.version >= 9 && s.chargeDirection.sqrMagnitude > 0.0001f)
+                    b.chargeDirection = s.chargeDirection.normalized;
                 b.guanYuReviveLeft = s.guanYuReviveLeft;
                 b.luBuArmorT = s.luBuArmorT;
                 b.diaochanStealArmed = s.diaochanStealArmed;
@@ -546,8 +550,10 @@ namespace DouQuqu
                 for (int i = 0; i < snapshot.babies.Length; i++)
                 {
                     BabySnapshot b = snapshot.babies[i];
+                    Vector2 restoredDirection = snapshot.version >= 9 ? b.chargeDirection : new Vector2(b.velocity.x, b.velocity.z);
+                    restoredDirection = restoredDirection.sqrMagnitude > 0.0001f ? restoredDirection.normalized : Vector2.up;
                     BabyState restoredBaby = new BabyState { id = b.id, ownerId = b.ownerId, position = b.position, previousPosition = b.position - b.velocity * FixedDeltaTime,
-                        velocity = b.velocity, height = b.height, verticalVelocity = b.verticalVelocity, charging = b.charging,
+                        velocity = b.velocity, chargeDirection = restoredDirection, height = b.height, verticalVelocity = b.verticalVelocity, charging = b.charging,
                         airborne = b.height > 0.03f || b.verticalVelocity > 0f, grow = b.grow, score = b.score,
                         buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
                         hitTier = Rules.CanonicalHitTier((HitTier)Mathf.Clamp(b.hitTier, 0, (int)HitTier.Slip)),

@@ -468,7 +468,10 @@ private void FitPitToHud()
                 target = null;
             }
 
-            target = new RenderTexture(pixels.x, pixels.y, 16, RenderTextureFormat.ARGB32)
+            // The cricket outline shader uses stencil to keep its eight outline passes
+            // from painting back over the sprite body. A 16-bit depth target has no
+            // stencil attachment, while the 24-bit variant requests one.
+            target = new RenderTexture(pixels.x, pixels.y, 24, RenderTextureFormat.ARGB32)
             {
                 name = "Battlefield",
                 antiAliasing = 1,

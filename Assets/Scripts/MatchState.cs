@@ -119,6 +119,7 @@ namespace DouQuqu
         public bool alive;
         public Vector3 position;
         public Vector3 velocity;
+        public Vector2 chargeDirection;
         public float height;
         public float verticalVelocity;
         public float radius;
@@ -169,6 +170,7 @@ namespace DouQuqu
         public int ownerId;
         public Vector3 position;
         public Vector3 velocity;
+        public Vector2 chargeDirection;
         public float height;
         public float verticalVelocity;
         public bool charging;
@@ -194,11 +196,11 @@ namespace DouQuqu
 
     [Serializable]
     /// <summary>
-    /// 完整权威状态。v7 含连杀；v6 含三条命阵容与出局名次；v5 含耐力；v4 含经济和巢穴游标。
+    /// 完整权威状态。v9 含蓄力方向；v8 含发射速度；v7 含连杀；v6 含三条命阵容与出局名次。
     /// </summary>
     public sealed class MatchSnapshot
     {
-        public int version = 8;
+        public int version = 9;
         public int tick;
         public int playerCount;
         public int randomSeed;
