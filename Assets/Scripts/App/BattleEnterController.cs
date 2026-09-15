@@ -10,6 +10,7 @@ namespace DouQuqu
     {
         private static readonly Color ConfirmFill = new Color(0.5192f, 0.0899f, 0.0936f, 1f);
         private static readonly Color TitleColor = new Color(0.9608f, 0.9255f, 0.8235f, 1f);
+        private static readonly Color RoomInputText = new Color(0.31f, 0.22f, 0.16f, 1f);
 
         private GameObject pageRoot;
         private GameObject actionsRoot;
@@ -35,7 +36,6 @@ namespace DouQuqu
             EnsureTeamRoomUi();
             EnsureReadyButton();
             EnsureMatchmakingUi();
-            RelabelMatchButton();
             BindButtons();
             HookLobby();
             ApplyVisual();
@@ -273,7 +273,6 @@ namespace DouQuqu
             Transform team = FindNamed(root, "好友组队");
             if (team != null)
             {
-                BindButton(team.gameObject, EnterFriendRoom);
                 Transform confirm = FindNamed(team, "确认");
                 if (confirm != null) BindButton(confirm.gameObject, EnterFriendRoom);
             }
@@ -295,27 +294,6 @@ namespace DouQuqu
         {
             AppServices.PendingMatchKind = MatchKind.Training;
             Lobby.Show(Lobby.Page.HeroSelection);
-        }
-
-        private void RelabelMatchButton()
-        {
-            if (pageRoot == null) return;
-            GameObject match = FindGo(pageRoot.transform, "StartMatchButton");
-            if (match == null) match = FindGo(pageRoot.transform, "开始匹配");
-            if (match == null) return;
-            TMP_Text[] labels = match.GetComponentsInChildren<TMP_Text>(true);
-            for (int i = 0; i < labels.Length; i++)
-            {
-                if (labels[i].text == "开始匹配"
-                    || labels[i].name == "开始匹配"
-                    || labels[i].text == "随机匹配"
-                    || labels[i].name == "随机匹配")
-                {
-                    labels[i].text = "随机\n匹配";
-                    labels[i].enableWordWrapping = true;
-                    labels[i].alignment = TextAlignmentOptions.Center;
-                }
-            }
         }
 
         private void EnsureTeamRoomUi()
@@ -380,7 +358,25 @@ namespace DouQuqu
                 confirm = go.transform;
             }
 
+            PassClicksToRoomAndConfirm(team, room, confirm);
             if (room != null) EnsureRoomInput(room as RectTransform);
+        }
+
+        /// <summary>描边/底图/图标盖在白框上面时，点房间号会点到整张卡而不是输入框。</summary>
+        private static void PassClicksToRoomAndConfirm(Transform team, Transform room, Transform confirm)
+        {
+            if (team == null) return;
+            Image[] images = team.GetComponentsInChildren<Image>(true);
+            for (int i = 0; i < images.Length; i++)
+            {
+                Image image = images[i];
+                if (image == null) continue;
+                Transform t = image.transform;
+                bool onRoom = room != null && (t == room || t.IsChildOf(room));
+                bool onConfirm = confirm != null && (t == confirm || t.IsChildOf(confirm));
+                if (onRoom || onConfirm) continue;
+                image.raycastTarget = false;
+            }
         }
 
         private void EnsureReadyButton()
@@ -457,11 +453,7 @@ namespace DouQuqu
             image.raycastTarget = true;
 
             TMP_Text placeholder = room.GetComponentInChildren<TMP_Text>(true);
-            if (placeholder != null)
-            {
-                placeholder.text = "房间号：";
-                placeholder.raycastTarget = false;
-            }
+            if (placeholder != null) placeholder.raycastTarget = false;
 
             GameObject textGo = new GameObject("RoomCodeText", typeof(RectTransform), typeof(TextMeshProUGUI));
             RectTransform textRect = textGo.GetComponent<RectTransform>();
@@ -473,17 +465,31 @@ namespace DouQuqu
             TextMeshProUGUI inputText = textGo.GetComponent<TextMeshProUGUI>();
             inputText.font = UiFactory.Font;
             inputText.fontSize = placeholder != null ? placeholder.fontSize : 36f;
-            inputText.color = placeholder != null ? placeholder.color : new Color(0.31f, 0.35f, 0.28f, 1f);
+            inputText.color = RoomInputText;
             inputText.alignment = TextAlignmentOptions.Center;
-            inputText.raycastTarget = true;
+            inputText.enableWordWrapping = false;
+            inputText.overflowMode = TextOverflowModes.Overflow;
+            inputText.raycastTarget = false;
 
             TMP_InputField field = room.gameObject.AddComponent<TMP_InputField>();
+            field.targetGraphic = image;
             field.textViewport = room;
             field.textComponent = inputText;
-            field.placeholder = placeholder;
             field.characterLimit = 6;
             field.lineType = TMP_InputField.LineType.SingleLine;
-            field.caretWidth = 2;
+            field.caretWidth = 3;
+            field.caretBlinkRate = 0.85f;
+            field.customCaretColor = true;
+            field.caretColor = RoomInputText;
+
+            if (placeholder != null)
+            {
+                field.onSelect.AddListener(_ => placeholder.enabled = false);
+                field.onEndEdit.AddListener(value =>
+                {
+                    placeholder.enabled = string.IsNullOrEmpty(value);
+                });
+            }
         }
 
         private string ReadRoomCode()
