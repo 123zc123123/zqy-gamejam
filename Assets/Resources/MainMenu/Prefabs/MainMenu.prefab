@@ -164,6 +164,7 @@ GameObject:
   - component: {fileID: 6810455177557259267}
   - component: {fileID: 3502459987781778388}
   - component: {fileID: 4215831810003206878}
+  - component: {fileID: 6901824515465742978}
   m_Layer: 0
   m_Name: BannerTitle
   m_TagString: Untagged
@@ -228,6 +229,21 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &6901824515465742978
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4109646946047939828}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfabb0440166ab443bba8876756fdfa9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 8, y: -8}
+  m_UseGraphicAlpha: 1
 --- !u!1 &4167533764395132394
 GameObject:
   m_ObjectHideFlags: 0
