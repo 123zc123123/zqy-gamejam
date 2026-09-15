@@ -114,15 +114,27 @@ namespace DouQuqu
 
         private void HandleStealPopup(string kind, Vector3 world)
         {
-            if (!string.IsNullOrEmpty(kind) && kind.StartsWith("steal-gain:"))
+            int amount;
+            if (TryParseTagged(kind, "steal-gain:", out amount))
             {
                 Play("heart", world + Vector3.up * FxHeight, burstScale * 0.7f, 1.2f);
+                BattleHudBinder.ShowStaminaDelta(world, "耐力+" + amount, new Color(1f, 0.42f, 0.74f, 1f));
                 return;
             }
-            if (!string.IsNullOrEmpty(kind) && kind.StartsWith("steal-loss:"))
+            if (TryParseTagged(kind, "steal-loss:", out amount))
+            {
+                BattleHudBinder.ShowStaminaDelta(world, "耐力-" + amount, new Color(1f, 0.28f, 0.22f, 1f));
                 return;
+            }
             if (kind == "steal")
                 Play("heart", world + Vector3.up * FxHeight, burstScale * 0.7f, 1.2f);
+        }
+
+        static bool TryParseTagged(string kind, string prefix, out int amount)
+        {
+            amount = 0;
+            if (string.IsNullOrEmpty(kind) || !kind.StartsWith(prefix)) return false;
+            return int.TryParse(kind.Substring(prefix.Length), out amount);
         }
 
         private void SpawnDelta(Vector3 position, string text, Color color)

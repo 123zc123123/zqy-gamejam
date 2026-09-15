@@ -649,7 +649,7 @@ namespace DouQuqu
         private void AddGrow(BugState bug)
         {
             if (bug == null || !bug.alive) return;
-            if (bug.grow < 6) bug.grow++;
+            if (bug.grow < Rules.GrowMax) bug.grow++;
             Rules.RefreshBody(knobs, bug);
             Emit("grow", bug.position);
         }

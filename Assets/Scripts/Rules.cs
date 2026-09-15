@@ -132,7 +132,7 @@ namespace DouQuqu
             jumpKnobSchema = 1;
         }
         [InspectorCn("每层成长", "每层给半径和质量加的倍率")]
-        public float growPer = 0.16f;
+        public float growPer = 0.12f;
         [InspectorCn("开局半径", "成长和增大再乘")]
         public float bugR = 1.8f;
 
@@ -298,6 +298,7 @@ namespace DouQuqu
         public static float ArenaCorner = DefaultArenaCorner;
         public static readonly string[] ItemKinds = { "shield" };
         public const int KillScoreBase = 10;
+        public const int GrowMax = 8;
 
         public static readonly Vector2[] CornerSigns =
         {
@@ -655,11 +656,17 @@ namespace DouQuqu
             bug.slideMu = GripOf(knobs, bug);
         }
 
-        /// <summary>成长层倍率。半径、质量各乘一次；玩家跳跃乘在点跳距离 dMin 上。</summary>
+        /// <summary>成长层倍率。半径、质量各乘一次。</summary>
         public static float GrowRate(MatchKnobs knobs, BugState bug)
         {
             if (bug == null) return 1f;
             return 1f + bug.grow * Mathf.Max(0f, knobs.growPer) * ItemPowerMul(knobs, bug);
+        }
+
+        /// <summary>跳跃用的成长：growRate 开三次根，避免体型变大跳距按比例炸开。</summary>
+        public static float JumpGrowRate(MatchKnobs knobs, BugState bug)
+        {
+            return Mathf.Pow(Mathf.Max(0.01f, GrowRate(knobs, bug)), 1f / 3f);
         }
 
         /// <summary>计算幼虫自身成长层对体型、质量和蓄力速度产生的倍率。</summary>
@@ -942,12 +949,12 @@ namespace DouQuqu
             return r > 1f ? r : 3f;
         }
 
-        /// <summary>点跳水平总位移。品质和成长都直接乘距离。</summary>
+        /// <summary>点跳水平总位移。品质直接乘；成长乘 growRate 的三次根。</summary>
         public static float DMinOf(MatchKnobs knobs, BugState bug = null)
         {
             float d = Mathf.Max(0f, knobs.dMin);
             float mul = bug == null ? 1f : StatMul(bug.dMinMul);
-            return d * mul * GrowRate(knobs, bug);
+            return d * mul * JumpGrowRate(knobs, bug);
         }
 
         /// <summary>把水平总位移反推成出手速度。D = v²/g × (2tanθ + 1/(2μ))。</summary>
@@ -1012,7 +1019,7 @@ namespace DouQuqu
             float k0 = dRef * (r - 1f) / tRef;
             float speed = bug == null ? 1f : StatMul(bug.chargeSpeedMul);
             float s = ChargeActive(bug) ? PickupChargeScale(knobs, bug) : 1f;
-            float k = k0 * speed * GrowRate(knobs, bug) * s;
+            float k = k0 * speed * JumpGrowRate(knobs, bug) * s;
             if (bug != null && bug.rageCharge) k *= Mathf.Max(0.01f, knobs.rageBoost);
             return k;
         }

@@ -1,4 +1,5 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -139,9 +140,9 @@ namespace DouQuqu
         {
             int amount;
             if (TryParseTagged(kind, "steal-gain:", out amount))
-                ShowStaminaDelta(world, "+" + amount, new Color(1f, 0.42f, 0.74f, 1f));
+                ShowStaminaDelta(world, "耐力+" + amount, new Color(1f, 0.42f, 0.74f, 1f));
             else if (TryParseTagged(kind, "steal-loss:", out amount))
-                ShowStaminaDelta(world, "-" + amount, new Color(1f, 0.28f, 0.22f, 1f));
+                ShowStaminaDelta(world, "耐力-" + amount, new Color(1f, 0.28f, 0.22f, 1f));
         }
 
         static bool TryParseTagged(string kind, string prefix, out int amount)
@@ -151,46 +152,82 @@ namespace DouQuqu
             return int.TryParse(kind.Substring(prefix.Length), out amount);
         }
 
+        static float lastDeltaAt = -1f;
+        static string lastDeltaText;
+
         public static void ShowStaminaDelta(Vector3 world, string text, Color color)
         {
-            if (instance != null) instance.SpawnDelta(world, text, color);
-        }
+            if (text == lastDeltaText && Time.unscaledTime - lastDeltaAt < 0.05f) return;
+            lastDeltaText = text;
+            lastDeltaAt = Time.unscaledTime;
+            RectTransform canvasRt = EnsureDeltaCanvas();
+            if (canvasRt == null) return;
 
-        private void SpawnDelta(Vector3 world, string text, Color color)
-        {
-            RectTransform host = pit;
-            if (host == null) return;
-            Vector2 anchor = new Vector2(0.5f, 0.5f);
-            if (battleCam != null)
-            {
-                Vector3 vp = battleCam.WorldToViewportPoint(world);
-                anchor = new Vector2(Mathf.Clamp01(vp.x), Mathf.Clamp01(vp.y));
-            }
+            Vector2 screen = ToScreen(world);
+            Vector2 local;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, screen, null, out local);
 
             GameObject go = new GameObject("StaminaDelta");
-            go.transform.SetParent(host, false);
+            go.transform.SetParent(canvasRt, false);
             go.transform.SetAsLastSibling();
             RectTransform rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = anchor;
-            rt.anchorMax = anchor;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = new Vector2(240f, 90f);
+            rt.anchoredPosition = local;
+            rt.sizeDelta = new Vector2(220f, 56f);
 
-            Text label = go.AddComponent<Text>();
-            Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            label.font = font;
+            TextMeshProUGUI label = go.AddComponent<TextMeshProUGUI>();
+            TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts/Chinese SDF");
+            if (font != null) label.font = font;
             label.text = text;
-            label.fontSize = 72;
-            label.fontStyle = FontStyle.Bold;
-            label.alignment = TextAnchor.MiddleCenter;
+            label.fontSize = 36f;
+            label.fontStyle = FontStyles.Bold;
+            label.alignment = TextAlignmentOptions.Center;
             label.color = color;
             label.raycastTarget = false;
-            Outline outline = go.AddComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
-            outline.effectDistance = new Vector2(3f, -3f);
-            go.AddComponent<HudStaminaDrift>().Begin(0.85f);
+            label.outlineWidth = 0.35f;
+            label.outlineColor = new Color(0f, 0f, 0f, 0.95f);
+            go.AddComponent<HudStaminaDrift>().Begin(1.1f);
+        }
+
+        static RectTransform EnsureDeltaCanvas()
+        {
+            GameObject found = GameObject.Find("StaminaDeltaCanvas");
+            if (found != null) return found.transform as RectTransform;
+            GameObject go = new GameObject("StaminaDeltaCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            Canvas canvas = go.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 500;
+            canvas.overrideSorting = true;
+            CanvasScaler scaler = go.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.matchWidthOrHeight = 1f;
+            GraphicRaycaster raycaster = go.GetComponent<GraphicRaycaster>();
+            if (raycaster != null) raycaster.enabled = false;
+            Object.DontDestroyOnLoad(go);
+            return go.transform as RectTransform;
+        }
+
+        static Vector2 ToScreen(Vector3 world)
+        {
+            if (instance != null && instance.battleCam != null && instance.view != null)
+            {
+                Vector3 vp = instance.battleCam.WorldToViewportPoint(world);
+                Vector3[] corners = new Vector3[4];
+                instance.view.rectTransform.GetWorldCorners(corners);
+                return new Vector2(
+                    Mathf.Lerp(corners[0].x, corners[2].x, Mathf.Clamp01(vp.x)),
+                    Mathf.Lerp(corners[0].y, corners[2].y, Mathf.Clamp01(vp.y)));
+            }
+            Camera cam = instance != null ? instance.battleCam : Camera.main;
+            if (cam != null && cam.targetTexture == null)
+            {
+                Vector3 screen = cam.WorldToScreenPoint(world);
+                return new Vector2(screen.x, screen.y);
+            }
+            return new Vector2(Screen.width * 0.5f, Screen.height * 0.55f);
         }
 
         private void BindBoardFollow()
@@ -471,40 +508,28 @@ private void FitPitToHud()
 
     sealed class HudStaminaDrift : MonoBehaviour
     {
-        float life = 0.85f;
+        float life = 1.1f;
         float age;
         RectTransform rt;
         Vector2 start;
-        Text label;
-        Outline outline;
+        CanvasGroup group;
 
         public void Begin(float duration)
         {
             life = Mathf.Max(0.2f, duration);
             rt = transform as RectTransform;
             start = rt != null ? rt.anchoredPosition : Vector2.zero;
-            label = GetComponent<Text>();
-            outline = GetComponent<Outline>();
+            group = GetComponent<CanvasGroup>();
+            if (group == null) group = gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
         }
 
         private void Update()
         {
             age += Time.deltaTime;
             float t = Mathf.Clamp01(age / life);
-            if (rt != null) rt.anchoredPosition = start + Vector2.up * (110f * t);
-            float alpha = 1f - t;
-            if (label != null)
-            {
-                Color color = label.color;
-                color.a = alpha;
-                label.color = color;
-            }
-            if (outline != null)
-            {
-                Color color = outline.effectColor;
-                color.a = alpha * 0.9f;
-                outline.effectColor = color;
-            }
+            if (rt != null) rt.anchoredPosition = start + Vector2.up * (140f * t);
+            if (group != null) group.alpha = 1f - t;
             if (t >= 1f) Destroy(gameObject);
         }
     }

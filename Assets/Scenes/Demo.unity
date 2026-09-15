@@ -541,7 +541,7 @@ MonoBehaviour:
     rChargeScale: 0.5
     resistSchema: 1
     jumpKnobSchema: 1
-    growPer: 0.16
+    growPer: 0.12
     bugR: 1.8
     sizeScale: 1.3
     sizeT: 6

@@ -77,7 +77,7 @@ namespace DouQuqu
 
         private void AddBabyGrow(MatchKnobs knobs, BabyState baby)
         {
-            if (baby.grow < 6) baby.grow++;
+            if (baby.grow < Rules.GrowMax) baby.grow++;
             baby.score++;
             Rules.RefreshBabyBody(knobs, baby);
         }
