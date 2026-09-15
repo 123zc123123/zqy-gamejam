@@ -10,7 +10,7 @@ namespace DouQuqu.Editor
     public sealed class QualitySpriteImporter : AssetPostprocessor
     {
         private const string Folder = "Assets/Resources/Merge/MergeQualities";
-        private const string PackBgPrefix = "Assets/Resources/HeroSelection/Textures/PackCricketBg-";
+        private const string PackBgPrefix = "Assets/Resources/Common/Textures/PackCricketBg-";
         private const string PackTabPrefix = "Assets/Resources/HeroSelection/Textures/tab";
         private const string PackSelectLine = "Assets/Resources/HeroSelection/Textures/选择线.png";
         private const string PackPanelBg = "Assets/Resources/HeroSelection/Textures/PackBg.png";
@@ -32,6 +32,7 @@ namespace DouQuqu.Editor
         private static void ReimportIfNeeded()
         {
             ReimportFolder(Folder);
+            ReimportFolder("Assets/Resources/Common/Textures");
             ReimportFolder("Assets/Resources/HeroSelection/Textures");
         }
 

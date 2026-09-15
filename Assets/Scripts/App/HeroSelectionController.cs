@@ -252,7 +252,7 @@ namespace DouQuqu
             PlaceScaled(playerFrame as RectTransform, framePos, frameScale);
             PlayerPalette.PaintOutline(zone, LocalPlayerId());
 
-            GameObject packPrefab = Resources.Load<GameObject>("HeroSelection/Prefabs/Parts/PackCricket");
+            GameObject packPrefab = Resources.Load<GameObject>("Common/Prefabs/PackCricket");
             float rightEdge = PackCricketVisual * 0.5f;
             for (int i = 0; i < SlotCount; i++)
             {
@@ -767,7 +767,7 @@ namespace DouQuqu
         private void RefreshSlots()
         {
             if (emptyPackBackground == null)
-                emptyPackBackground = LoadSprite("HeroSelection/Textures/PackCricketBg-unSelected");
+                emptyPackBackground = LoadSprite("Common/Textures/PackCricketBg-unSelected");
             for (int i = 0; i < SlotCount; i++)
             {
                 SlotView slot = slots[i];

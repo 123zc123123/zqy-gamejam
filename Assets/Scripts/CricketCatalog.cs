@@ -160,8 +160,6 @@ namespace DouQuqu
                         string path = "Common/Textures/PackCricketBg-" + q + "-" + t;
                         Sprite sprite = Resources.Load<Sprite>(path);
                         if (sprite == null)
-                            sprite = Resources.Load<Sprite>("HeroSelection/Textures/PackCricketBg-" + q + "-" + t);
-                        if (sprite == null)
                         {
                             Texture2D texture = Resources.Load<Texture2D>(path);
                             if (texture != null)
