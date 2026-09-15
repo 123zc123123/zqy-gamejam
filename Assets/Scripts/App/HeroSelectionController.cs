@@ -554,6 +554,8 @@ namespace DouQuqu
             RefreshAll();
             if (network != null && network.IsBattleStarting)
                 OnBattleReady();
+            else if (AppServices.PendingMatchKind == MatchKind.Training)
+                TryEnterBattle();
         }
 
         private void UnlockReady()

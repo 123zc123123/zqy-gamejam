@@ -118,7 +118,7 @@ namespace DouQuqu
                 if (state.elapsed + 1e-9f >= egg.hatchAt)
                 {
                     egg.alive = false;
-                    BabyState baby = new BabyState(state.nextBabyId++, egg.position, egg.ownerId, state.elapsed + state.knobs.babyLifeT, state.knobs)
+                    BabyState baby = new BabyState(state.nextBabyId++, egg.position, egg.ownerId, state.elapsed + BabyLifeOf(state, egg.ownerId), state.knobs)
                     {
                         velocity = egg.velocity * 0.25f,
                         attackCooldown = 0f,
@@ -156,6 +156,20 @@ namespace DouQuqu
             for (int i = 0; i < state.eggs.Count; i++) if (state.eggs[i].alive) return true;
             for (int i = 0; i < state.babies.Count; i++) if (state.babies[i].alive) return true;
             return false;
+        }
+
+        static float BabyLifeOf(MatchState state, int ownerId)
+        {
+            float life = Mathf.Max(0.1f, state.knobs.babyLifeT);
+            if (state.bugs == null) return life;
+            for (int i = 0; i < state.bugs.Length; i++)
+            {
+                BugState owner = state.bugs[i];
+                if (owner == null || owner.id != ownerId) continue;
+                if (Rules.IsZhuGe(owner)) return life * Rules.ItemPowerMul(state.knobs, owner);
+                return life;
+            }
+            return life;
         }
     }
 

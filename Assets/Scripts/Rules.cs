@@ -56,7 +56,7 @@ namespace DouQuqu
         [InspectorCn("起跳耐力", "每次有效起跳固定加扣；点跳只扣这一笔")]
         public float staminaJump = 0.3f;
         [InspectorCn("耐力恢复", "落地未蓄力时每秒恢复；空中不恢复")]
-        public float staminaRegen = 1f;
+        public float staminaRegen = 0.75f;
         [InspectorCn("蓄力时恢复倍率", "蓄力时恢复 = 耐力恢复 × 该值；默认三分之一")]
         public float staminaRegenCharge = 0.33333334f;
         [InspectorCn("耐力格数", "身周耐力圆环格数")]
@@ -235,7 +235,7 @@ namespace DouQuqu
         [InspectorCn("卵质量", "卵被踢时的质量")]
         public float eggMass = 0.2f;
         [InspectorCn("崽寿命", "秒；孵化起算，出圈也会死")]
-        public float babyLifeT = 12f;
+        public float babyLifeT = 10f;
         [InspectorCn("崽半径倍率", "崽半径 = 开局半径 × 该值")]
         public float babyRScale = 0.4f;
         [InspectorCn("崽质量", "不吃饲主成长")]

@@ -107,34 +107,22 @@ namespace DouQuqu
                     Play("confetti", Vector3.up * 1.2f, burstScale * 1.2f, 4f);
                     break;
                 default:
-                    HandleStealPopup(kind, at);
+                    HandleStealPopup(kind, position);
                     break;
             }
         }
 
-        private void HandleStealPopup(string kind, Vector3 at)
+        private void HandleStealPopup(string kind, Vector3 world)
         {
-            int amount;
-            if (TryParseTagged(kind, "steal-gain:", out amount))
+            if (!string.IsNullOrEmpty(kind) && kind.StartsWith("steal-gain:"))
             {
-                Play("heart", at, 0.4f, 1.6f);
-                SpawnDelta(at, "+" + amount, new Color(1f, 0.45f, 0.72f, 1f));
+                Play("heart", world + Vector3.up * FxHeight, burstScale * 0.7f, 1.2f);
                 return;
             }
-            if (TryParseTagged(kind, "steal-loss:", out amount))
-            {
-                SpawnDelta(at, "-" + amount, new Color(1f, 0.32f, 0.28f, 1f));
+            if (!string.IsNullOrEmpty(kind) && kind.StartsWith("steal-loss:"))
                 return;
-            }
             if (kind == "steal")
-                Play("heart", at, 0.4f, 1.6f);
-        }
-
-        static bool TryParseTagged(string kind, string prefix, out int amount)
-        {
-            amount = 0;
-            if (string.IsNullOrEmpty(kind) || !kind.StartsWith(prefix)) return false;
-            return int.TryParse(kind.Substring(prefix.Length), out amount);
+                Play("heart", world + Vector3.up * FxHeight, burstScale * 0.7f, 1.2f);
         }
 
         private void SpawnDelta(Vector3 position, string text, Color color)
@@ -255,12 +243,11 @@ namespace DouQuqu
             for (int i = 0; i < systems.Length; i++)
             {
                 ParticleSystem.MainModule main = systems[i].main;
-                main.startLifetimeMultiplier = Mathf.Max(main.startLifetimeMultiplier, 2.5f);
-                main.startSizeMultiplier = Mathf.Max(main.startSizeMultiplier, 1.8f);
+                main.simulationSpeed = 6f;
                 main.scalingMode = ParticleSystemScalingMode.Hierarchy;
                 systems[i].Play(true);
             }
-            Destroy(instance, Mathf.Max(0.8f, life));
+            Destroy(instance, Mathf.Max(0.12f, life / 6f));
         }
 
         static Material FallbackParticle()

@@ -22,6 +22,12 @@ namespace DouQuqu
         private MatchController boundMatch;
         private int localPlayerId;
         private RectTransform boardRoot;
+        private static BattleHudBinder instance;
+
+        private void Awake()
+        {
+            instance = this;
+        }
 
         private IEnumerator Start()
         {
@@ -106,7 +112,12 @@ namespace DouQuqu
 
         private void OnDestroy()
         {
-            if (boundMatch != null) boundMatch.ZoneSnapped -= OnZoneSnapped;
+            if (instance == this) instance = null;
+            if (boundMatch != null)
+            {
+                boundMatch.ZoneSnapped -= OnZoneSnapped;
+                boundMatch.GameplayEvent -= OnGameplayEvent;
+            }
             ReleaseTarget();
             Rules.ResetArenaSize();
         }
@@ -116,7 +127,70 @@ namespace DouQuqu
             boundMatch = UnityEngine.Object.FindObjectOfType<MatchController>();
             LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
             localPlayerId = network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
-            if (boundMatch != null) boundMatch.ZoneSnapped += OnZoneSnapped;
+            if (boundMatch != null)
+            {
+                boundMatch.ZoneSnapped += OnZoneSnapped;
+                boundMatch.GameplayEvent -= OnGameplayEvent;
+                boundMatch.GameplayEvent += OnGameplayEvent;
+            }
+        }
+
+        private void OnGameplayEvent(string kind, Vector3 world)
+        {
+            int amount;
+            if (TryParseTagged(kind, "steal-gain:", out amount))
+                ShowStaminaDelta(world, "+" + amount, new Color(1f, 0.42f, 0.74f, 1f));
+            else if (TryParseTagged(kind, "steal-loss:", out amount))
+                ShowStaminaDelta(world, "-" + amount, new Color(1f, 0.28f, 0.22f, 1f));
+        }
+
+        static bool TryParseTagged(string kind, string prefix, out int amount)
+        {
+            amount = 0;
+            if (string.IsNullOrEmpty(kind) || !kind.StartsWith(prefix)) return false;
+            return int.TryParse(kind.Substring(prefix.Length), out amount);
+        }
+
+        public static void ShowStaminaDelta(Vector3 world, string text, Color color)
+        {
+            if (instance != null) instance.SpawnDelta(world, text, color);
+        }
+
+        private void SpawnDelta(Vector3 world, string text, Color color)
+        {
+            RectTransform host = pit;
+            if (host == null) return;
+            Vector2 anchor = new Vector2(0.5f, 0.5f);
+            if (battleCam != null)
+            {
+                Vector3 vp = battleCam.WorldToViewportPoint(world);
+                anchor = new Vector2(Mathf.Clamp01(vp.x), Mathf.Clamp01(vp.y));
+            }
+
+            GameObject go = new GameObject("StaminaDelta");
+            go.transform.SetParent(host, false);
+            go.transform.SetAsLastSibling();
+            RectTransform rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(240f, 90f);
+
+            Text label = go.AddComponent<Text>();
+            Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.font = font;
+            label.text = text;
+            label.fontSize = 72;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = color;
+            label.raycastTarget = false;
+            Outline outline = go.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+            outline.effectDistance = new Vector2(3f, -3f);
+            go.AddComponent<HudStaminaDrift>().Begin(0.85f);
         }
 
         private void BindBoardFollow()
@@ -392,6 +466,46 @@ private void FitPitToHud()
             }
 
             return null;
+        }
+    }
+
+    sealed class HudStaminaDrift : MonoBehaviour
+    {
+        float life = 0.85f;
+        float age;
+        RectTransform rt;
+        Vector2 start;
+        Text label;
+        Outline outline;
+
+        public void Begin(float duration)
+        {
+            life = Mathf.Max(0.2f, duration);
+            rt = transform as RectTransform;
+            start = rt != null ? rt.anchoredPosition : Vector2.zero;
+            label = GetComponent<Text>();
+            outline = GetComponent<Outline>();
+        }
+
+        private void Update()
+        {
+            age += Time.deltaTime;
+            float t = Mathf.Clamp01(age / life);
+            if (rt != null) rt.anchoredPosition = start + Vector2.up * (110f * t);
+            float alpha = 1f - t;
+            if (label != null)
+            {
+                Color color = label.color;
+                color.a = alpha;
+                label.color = color;
+            }
+            if (outline != null)
+            {
+                Color color = outline.effectColor;
+                color.a = alpha * 0.9f;
+                outline.effectColor = color;
+            }
+            if (t >= 1f) Destroy(gameObject);
         }
     }
 }

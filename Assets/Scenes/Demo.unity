@@ -527,7 +527,7 @@ MonoBehaviour:
     staminaMax: 2
     staminaCost: 0.5
     staminaJump: 0.5
-    staminaRegen: 0.25
+    staminaRegen: 0.75
     staminaRegenCharge: 0.33333334
     staminaSlots: 8
     mass: 1
@@ -547,10 +547,17 @@ MonoBehaviour:
     sizeT: 6
     shieldT: 90
     shieldPad: 0.08
+    guanYuRevives: 1
+    guanYuGhostMul: 1.1
+    luBuArmorT: 3
+    luBuArmorStamina: 0.7
+    jiItemPower: 1.7
+    unstoppableMass: 1000000
+    diaochanStealStamina: 3
     aiAttackRange: 14
     aiSafeEdgeMargin: 4
-    regTime: 90
-    otTime: 30
+    regTime: 600
+    otTime: 0
     heartStart: 4
     heartCap: 6
     heartBatch: 6
@@ -580,7 +587,7 @@ MonoBehaviour:
     eggScatterV: 8
     eggR: 0.55
     eggMass: 0.2
-    babyLifeT: 90
+    babyLifeT: 10
     babyRScale: 0.4
     babyMass: 0.5
     babyA1Scale: 0.7
@@ -603,8 +610,9 @@ MonoBehaviour:
     camFollowT: 0.22
     camSettleT: 0.8
     zoneFadeT: 0.5
-    zoneSchedule: 1
+    zoneSchedule: 0
     zoneCamSchema: 1
+    zoneSnapSchema: 2
 --- !u!4 &772734990
 Transform:
   m_ObjectHideFlags: 0
