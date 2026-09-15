@@ -24,6 +24,7 @@ namespace DouQuqu
         [SerializeField] Button dimButton;
 
         static ActivityPopup instance;
+        static System.Action pendingClose;
         static Catalog catalog;
 
         const string DefaultClose = "知道了";
@@ -62,20 +63,37 @@ namespace DouQuqu
 
         public static void ShowMessage(string titleText, string bodyText)
         {
-            ShowMessage(titleText, bodyText, DefaultClose);
+            ShowMessage(titleText, bodyText, DefaultClose, null);
         }
 
         public static void ShowMessage(string titleText, string bodyText, string closeText)
         {
+            ShowMessage(titleText, bodyText, closeText, null);
+        }
+
+        public static void ShowMessage(string titleText, string bodyText, System.Action onClose)
+        {
+            ShowMessage(titleText, bodyText, DefaultClose, onClose);
+        }
+
+        public static void ShowMessage(string titleText, string bodyText, string closeText, System.Action onClose)
+        {
+            pendingClose = onClose;
             ActivityPopup popup = Ensure();
             if (popup == null) return;
             popup.Apply(titleText, bodyText, closeText);
+            Canvas canvas = popup.GetComponent<Canvas>();
+            if (canvas == null) canvas = popup.GetComponentInParent<Canvas>();
+            if (canvas != null) canvas.sortingOrder = onClose != null ? 420 : 250;
             popup.gameObject.SetActive(true);
         }
 
         public static void Hide()
         {
             if (instance != null) instance.gameObject.SetActive(false);
+            System.Action close = pendingClose;
+            pendingClose = null;
+            if (close != null) close.Invoke();
         }
 
         void Awake()

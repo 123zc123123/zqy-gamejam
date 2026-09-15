@@ -238,18 +238,24 @@ namespace DouQuqu
             return EggPlace[place - 1];
         }
 
-        /// <summary>随机匹配 / 好友组队按名次和本局击杀分发放。调用方保证同一局只调一次。</summary>
+        /// <summary>本局可兑金币 / 可加进账号的积分 = 排名积分 + 局内击杀积分。</summary>
+        public static int MatchRewardGold(int place, int killScore)
+        {
+            return Mathf.Max(0, PointsForPlace(place)) + Mathf.Max(0, killScore);
+        }
+
+        /// <summary>随机匹配 / 好友组队：账号积分和金币都按排名积分 + 局内积分发放。调用方保证同一局只调一次。</summary>
         public static bool AwardMatchRewards(int place, int killScore)
         {
             if (CurrentPlayer == null || place < 1 || place > 4) return false;
-            int points = PointsForPlace(place) + Mathf.Max(0, killScore);
-            int gold = GoldForPlace(place);
+            int points = MatchRewardGold(place, killScore);
             int eggs = EggsForPlace(place);
-            if (points == 0 && gold == 0 && eggs == 0) return false;
+            if (points == 0 && eggs == 0) return false;
             if (points != 0)
+            {
                 CurrentPlayer.score = Mathf.Clamp(CurrentPlayer.score + points, 0, ScoreCap);
-            if (gold != 0)
-                CurrentPlayer.gold = Mathf.Clamp(CurrentPlayer.gold + gold, 0, GoldCap);
+                CurrentPlayer.gold = Mathf.Clamp(CurrentPlayer.gold + points, 0, GoldCap);
+            }
             if (eggs != 0)
                 CurrentPlayer.eggs = Mathf.Clamp(CurrentPlayer.eggs + eggs, 0, EggCap);
             return CommitEconomy();

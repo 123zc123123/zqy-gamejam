@@ -24,6 +24,8 @@ namespace DouQuqu
         private bool resultShown;
         private bool eliminationShown;
         private bool awardedThisMatch;
+        private bool goldGrantedThisMatch;
+        private bool leavingAfterReward;
 
         private void Awake()
         {
@@ -447,13 +449,40 @@ namespace DouQuqu
             if (matchKind != MatchKind.Random && matchKind != MatchKind.Friend) return;
             int place = match.Place(LocalPlayerId());
             if (place <= 0) return;
-            PlayerDataService.AwardPlaceRewards(place);
+            PlayerDataService.AwardMatchRewards(place, match.MatchScore(LocalPlayerId()));
             awardedThisMatch = true;
+            goldGrantedThisMatch = true;
         }
 
         private void ReturnToBattleEntrance()
         {
+            if (leavingAfterReward)
+            {
+                FinishLeaveBattle();
+                return;
+            }
             AwardIfLeavingEarly();
+            int gold = LeaveRewardGold();
+            if (!goldGrantedThisMatch)
+            {
+                goldGrantedThisMatch = true;
+                if (gold > 0) PlayerDataService.AddGold(gold);
+            }
+            leavingAfterReward = true;
+            ActivityPopup.ShowMessage("对局奖励", "积分 +" + gold + "\n金币 +" + gold, FinishLeaveBattle);
+        }
+
+        private int LeaveRewardGold()
+        {
+            if (match == null) return 0;
+            int place = match.Place(LocalPlayerId());
+            int kill = match.MatchScore(LocalPlayerId());
+            return PlayerDataService.MatchRewardGold(place, kill);
+        }
+
+        private void FinishLeaveBattle()
+        {
+            leavingAfterReward = false;
             bool keepHostAuthority = network != null && network.DetachMatchControllerForSceneTransition();
             if (network != null && !keepHostAuthority) network.Stop();
             Lobby.Show(Lobby.Page.BattleEnter);

@@ -85,12 +85,24 @@ function starterPlayer(name) {
 let db = loadDb();
 
 const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url || "/", "http://127.0.0.1");
+  const ip = (req.socket && req.socket.remoteAddress) || "";
+  process.stdout.write(new Date().toISOString() + " " + ip + " " + req.method + " " + url.pathname + "\n");
   if (req.method === "OPTIONS") {
     sendJson(res, 204, {});
     return;
   }
-  const url = new URL(req.url || "/", "http://127.0.0.1");
   try {
+    if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
+      const html =
+        "<!doctype html><meta charset=utf-8><title>账本正常</title>" +
+        "<h1>账本正常</h1><p>ok: true</p><p>玩家数: " +
+        db.players.length +
+        "</p><p>必须用 http:// 打开，不要用 https://</p>";
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(html);
+      return;
+    }
     if (req.method === "GET" && url.pathname === "/health") {
       sendJson(res, 200, { ok: true, players: db.players.length });
       return;

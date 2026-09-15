@@ -160,14 +160,18 @@ namespace DouQuqu
                 SetStatus("正在连展会账本…");
                 bool done = false;
                 PlayerProfile remote = null;
-                string remoteError = null;
-                yield return venue.Login(nameInput.text, (player, error) =>
+                StartCoroutine(venue.Login(nameInput.text, (player, error) =>
                 {
                     remote = player;
-                    remoteError = error;
                     done = true;
-                });
-                while (!done) yield return null;
+                }));
+                float wait = 0f;
+                while (!done && wait < 2f)
+                {
+                    wait += Time.unscaledDeltaTime;
+                    yield return null;
+                }
+                if (!done) venue.AbortLogin();
                 if (remote != null)
                 {
                     PlayerDataService.AdoptRemote(remote);
@@ -175,7 +179,7 @@ namespace DouQuqu
                     SceneNames.Load(SceneNames.MainMenu);
                     yield break;
                 }
-                if (!string.IsNullOrEmpty(remoteError)) SetStatus(remoteError + "，改用本机");
+                SetStatus("改用本机存档");
             }
 
             string errorLocal;

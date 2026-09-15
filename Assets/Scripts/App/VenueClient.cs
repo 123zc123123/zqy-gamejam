@@ -33,6 +33,7 @@ namespace DouQuqu
 
         UdpClient socket;
         float listenUntil;
+        UnityWebRequest activeLogin;
 
         public static VenueClient Ensure()
         {
@@ -106,6 +107,13 @@ namespace DouQuqu
             }
         }
 
+        public void AbortLogin()
+        {
+            if (activeLogin == null) return;
+            activeLogin.Abort();
+            activeLogin = null;
+        }
+
         public IEnumerator Login(string playerName, Action<PlayerProfile, string> done)
         {
             if (!HasServer)
@@ -120,20 +128,29 @@ namespace DouQuqu
                 req.uploadHandler = new UploadHandlerRaw(body);
                 req.downloadHandler = new DownloadHandlerBuffer();
                 req.SetRequestHeader("Content-Type", "application/json");
-                req.timeout = 4;
+                req.timeout = 2;
+                activeLogin = req;
                 yield return req.SendWebRequest();
+                if (activeLogin == req) activeLogin = null;
                 if (req.result != UnityWebRequest.Result.Success)
                 {
                     if (done != null) done(null, "连不上展会账本，改用本机存档");
                     yield break;
                 }
-                LoginResponse parsed = JsonUtility.FromJson<LoginResponse>(req.downloadHandler.text);
-                if (parsed == null || parsed.player == null)
+                try
                 {
-                    if (done != null) done(null, parsed != null ? parsed.error : "登录失败");
-                    yield break;
+                    LoginResponse parsed = JsonUtility.FromJson<LoginResponse>(req.downloadHandler.text);
+                    if (parsed == null || parsed.player == null)
+                    {
+                        if (done != null) done(null, parsed != null ? parsed.error : "登录失败");
+                        yield break;
+                    }
+                    if (done != null) done(parsed.player, null);
                 }
-                if (done != null) done(parsed.player, null);
+                catch
+                {
+                    if (done != null) done(null, "登录失败");
+                }
             }
         }
 
