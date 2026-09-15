@@ -264,16 +264,14 @@ namespace DouQuqu
             if (pageRoot == null) return;
             Transform root = pageRoot.transform;
 
-            GameObject match = FindGo(root, "StartMatchButton");
-            if (match == null) match = FindGo(root, "随机匹配");
-            if (match == null) match = FindGo(root, "开始匹配");
-            if (match != null) BindButton(match, EnterRandomMatch);
+            GameObject match = FindMatchCard(root);
+            if (match != null) BindCard(match, EnterRandomMatch);
             else Debug.LogWarning("[DouQuqu] 进战页没有随机匹配按钮");
 
             Transform team = FindNamed(root, "好友组队");
             if (team != null)
             {
-                Transform confirm = FindNamed(team, "确认");
+                Transform confirm = FindDirect(team, "确认");
                 if (confirm != null) BindButton(confirm.gameObject, EnterFriendRoom);
             }
 
@@ -287,7 +285,34 @@ namespace DouQuqu
             if (rules != null) BindButton(rules, ActivityPopup.ShowRules);
 
             GameObject training = FindGo(root, "训练营");
-            if (training != null) BindButton(training, OpenTrainingCamp);
+            if (training != null) BindCard(training, OpenTrainingCamp);
+        }
+
+        /// <summary>
+        /// 进战卡改版后根节点叫 MatchBtn-random，真正挡点击的是底部「确认」。
+        /// 两处都要绑，否则点卡片或点确认条都会落到空 Button 上。
+        /// </summary>
+        private static GameObject FindMatchCard(Transform root)
+        {
+            GameObject match = FindGo(root, "MatchBtn-random");
+            if (match == null) match = FindGo(root, "StartMatchButton");
+            if (match == null) match = FindGo(root, "随机匹配");
+            if (match != null) return match;
+
+            Transform startLabel = FindNamed(root, "开始匹配");
+            if (startLabel == null) return null;
+            Transform parent = startLabel.parent;
+            if (parent != null && parent.name == "确认" && parent.parent != null)
+                return parent.parent.gameObject;
+            return parent != null ? parent.gameObject : startLabel.gameObject;
+        }
+
+        private static void BindCard(GameObject card, UnityEngine.Events.UnityAction clicked)
+        {
+            if (card == null) return;
+            BindButton(card, clicked);
+            Transform confirm = FindDirect(card.transform, "确认");
+            if (confirm != null) BindButton(confirm.gameObject, clicked);
         }
 
         private static void OpenTrainingCamp()

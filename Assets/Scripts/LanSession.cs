@@ -284,7 +284,7 @@ namespace DouQuqu
             if (IsHost)
             {
                 if (battlePrepared) return;
-                match.Configure(MatchRunMode.Host, roomCapacity);
+                match.Configure(MatchRunMode.Host, roomCapacity, CompetitiveMatch.WithDuration(match.Knobs));
                 match.ResetMatch(roomCapacity, matchSeed);
                 for (int i = 0; i < roomCapacity && i < slots.Length; i++)
                     match.SetPlayerHuman(i, slots[i].connected && !slots[i].isBot);
@@ -295,7 +295,7 @@ namespace DouQuqu
             else
             {
                 int playerCount = pendingWelcomePlayerCount > 0 ? pendingWelcomePlayerCount : roomCapacity;
-                match.Configure(MatchRunMode.Client, playerCount);
+                match.Configure(MatchRunMode.Client, playerCount, CompetitiveMatch.WithDuration(match.Knobs));
                 if (LocalPlayerId >= 0) match.SetPlayerHuman(LocalPlayerId, true);
                 if (pendingSnapshot != null)
                 {

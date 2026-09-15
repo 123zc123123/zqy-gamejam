@@ -53,6 +53,27 @@ namespace DouQuqu
         }
     }
 
+    /// <summary>
+    /// 随机匹配 / 好友房：单局 2 分钟，1:30 狂暴并收口，开局全景再落到己方角。
+    /// Demo 场景 Inspector 可能留着训练营的 10 分钟和无缩圈，进局时必须盖掉。
+    /// </summary>
+    public static class CompetitiveMatch
+    {
+        public const float RegTime = 90f;
+        public const float OtTime = 30f;
+
+        public static MatchKnobs WithDuration(MatchKnobs source)
+        {
+            MatchKnobs knobs = source != null
+                ? JsonUtility.FromJson<MatchKnobs>(JsonUtility.ToJson(source))
+                : Rules.DefaultKnobs();
+            knobs.regTime = RegTime;
+            knobs.otTime = OtTime;
+            knobs.zoneSchedule = true;
+            return knobs;
+        }
+    }
+
     public enum MatchKind
     {
         None = 0,

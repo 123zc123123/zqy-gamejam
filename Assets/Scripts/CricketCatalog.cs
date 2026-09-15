@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace DouQuqu
 {
@@ -171,6 +172,36 @@ namespace DouQuqu
 
             int index = (Mathf.Clamp(quality, 1, 4) - 1) * 4 + (Mathf.Clamp(temperament, 1, 4) - 1);
             return packBackgrounds[index];
+        }
+
+        /// <summary>
+        /// 立绘坐到 288 地盘内圈上。方形图不能沿用关羽那套 191×328 竖槽，否则虫会偏小、偏上。
+        /// </summary>
+        public static void FitPackPortrait(Image portrait)
+        {
+            if (portrait == null) return;
+            RectTransform rect = portrait.rectTransform;
+            if (rect == null) return;
+            portrait.preserveAspect = true;
+            portrait.color = Color.white;
+            LayoutElement layout = portrait.GetComponent<LayoutElement>();
+            if (layout != null) layout.ignoreLayout = true;
+            Sprite sprite = portrait.sprite;
+            if (sprite == null) return;
+            float aspect = sprite.rect.width / Mathf.Max(1f, sprite.rect.height);
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.localScale = Vector3.one;
+            rect.localRotation = Quaternion.identity;
+            if (aspect >= 0.75f)
+            {
+                rect.sizeDelta = new Vector2(248f, 248f);
+                rect.anchoredPosition = new Vector2(0f, 28f);
+            }
+            else
+            {
+                rect.sizeDelta = new Vector2(191f, 328f);
+                rect.anchoredPosition = new Vector2(4f, 46f);
+            }
         }
 
         public static string Idiom(int temperament)

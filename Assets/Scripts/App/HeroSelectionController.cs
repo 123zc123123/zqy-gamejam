@@ -183,9 +183,40 @@ namespace DouQuqu
             }
 
             if (backpackRoot != null) BindBackpack(backpackRoot);
+            EnsureBackgroundDimBelowBackpack(root);
 
             EnsureGreenBox();
             return timerText != null && matchButton != null;
+        }
+
+        private void EnsureBackgroundDimBelowBackpack(Transform root)
+        {
+            Transform layers = backpackRoot != null ? backpackRoot.parent : FindNamed(root, "Layers");
+            if (layers == null) return;
+
+            Transform dim = FindNamed(root, "BackgroundDim");
+            if (dim == null)
+            {
+                GameObject go = new GameObject("BackgroundDim", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                dim = go.transform;
+                dim.SetParent(layers, false);
+                RectTransform rect = dim as RectTransform;
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                Image image = go.GetComponent<Image>();
+                image.color = new Color(0f, 0f, 0f, 0.5882353f);
+                image.raycastTarget = false;
+            }
+            else dim.gameObject.SetActive(true);
+
+            Transform scenery = layers.Find("arena-background-scenery");
+            int index = scenery != null ? scenery.GetSiblingIndex() + 1 : 0;
+            dim.SetSiblingIndex(index);
+            if (backpackRoot != null && backpackRoot.GetSiblingIndex() <= dim.GetSiblingIndex())
+                backpackRoot.SetSiblingIndex(dim.GetSiblingIndex() + 1);
         }
 
         private void BindOwnZone(Transform zone)
@@ -755,9 +786,8 @@ namespace DouQuqu
                     if (filled)
                     {
                         slot.portrait.enabled = true;
-                        slot.portrait.preserveAspect = true;
                         slot.portrait.sprite = CricketCatalog.Portrait(entry.quality, entry.temperament);
-                        slot.portrait.color = Color.white;
+                        CricketCatalog.FitPackPortrait(slot.portrait);
                     }
                 }
             }
@@ -801,7 +831,7 @@ namespace DouQuqu
                 {
                     card.root.SetActive(false);
                     card.instanceId = null;
-                    if (card.selectedMask != null) card.selectedMask.SetActive(false);
+                    ApplyPickedVisual(card, false);
                     continue;
                 }
                 CricketBackpackEntry entry = entries[i];
@@ -821,12 +851,9 @@ namespace DouQuqu
                 {
                     card.portrait.sprite = SpriteFor(entry.quality, entry.temperament);
                     card.portrait.enabled = card.portrait.sprite != null;
-                    card.portrait.preserveAspect = true;
-                    card.portrait.color = Color.white;
+                    CricketCatalog.FitPackPortrait(card.portrait);
                 }
-                bool picked = SlotIndexOf(entry.instanceId) >= 0;
-                if (card.group != null) card.group.alpha = picked ? 0.45f : 1f;
-                if (card.selectedMask != null) card.selectedMask.SetActive(picked);
+                ApplyPickedVisual(card, SlotIndexOf(entry.instanceId) >= 0);
                 string id = entry.instanceId;
                 BindClick(card.root, () => OnCardClicked(id));
             }
@@ -1103,10 +1130,31 @@ namespace DouQuqu
             Transform bg = FindNamed(root.transform, "背景") ?? FindNamed(root.transform, "Rectangle 11");
             card.background = bg != null ? bg.GetComponent<Image>() : null;
             Transform selectedMask = FindNamed(root.transform, "选中的蛐蛐遮罩");
-            card.selectedMask = selectedMask != null ? selectedMask.gameObject : null;
+            if (selectedMask != null)
+            {
+                selectedMask.SetAsFirstSibling();
+                selectedMask.gameObject.SetActive(false);
+                card.selectedMask = selectedMask.gameObject;
+            }
             card.group = root.GetComponent<CanvasGroup>();
             if (card.group == null) card.group = root.AddComponent<CanvasGroup>();
             return card;
+        }
+
+        /// <summary>选中垫在地盘下面，不盖蛐蛐，也不再整卡半透明。</summary>
+        private static void ApplyPickedVisual(CardView card, bool picked)
+        {
+            if (card == null) return;
+            if (card.selectedMask != null)
+            {
+                card.selectedMask.transform.SetAsFirstSibling();
+                card.selectedMask.SetActive(picked);
+                Image maskImage = card.selectedMask.GetComponent<Image>();
+                if (maskImage != null) maskImage.color = Color.white;
+                if (card.group != null) card.group.alpha = 1f;
+                return;
+            }
+            if (card.group != null) card.group.alpha = picked ? 0.45f : 1f;
         }
 
         private void PlaceCard(RectTransform rect, int index)

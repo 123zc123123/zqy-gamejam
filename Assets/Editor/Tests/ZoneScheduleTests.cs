@@ -218,6 +218,27 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
+        public void Z18_CompetitiveMatchOverridesDemoTrainingKnobs()
+        {
+            MatchKnobs demo = Rules.DefaultKnobs();
+            demo.regTime = 600f;
+            demo.otTime = 0f;
+            demo.zoneSchedule = false;
+
+            MatchKnobs ranked = CompetitiveMatch.WithDuration(demo);
+            Assert.AreEqual(90f, ranked.regTime, 1e-4f);
+            Assert.AreEqual(30f, ranked.otTime, 1e-4f);
+            Assert.AreEqual(120f, Rules.HardStop(ranked), 1e-4f);
+            Assert.IsTrue(ranked.zoneSchedule);
+            Assert.AreEqual("2:00", Rules.FormatClock(Rules.RemainingClock(ranked, 0f, false)));
+
+            MatchKnobs training = TrainingCamp.WithDuration(demo);
+            Assert.AreEqual(600f, training.regTime, 1e-4f);
+            Assert.AreEqual(0f, training.otTime, 1e-4f);
+            Assert.IsFalse(training.zoneSchedule);
+        }
+
+        [Test]
         public void Z16_OldFourTierMigratesToTwoSnaps()
         {
             MatchKnobs knobs = new MatchKnobs();

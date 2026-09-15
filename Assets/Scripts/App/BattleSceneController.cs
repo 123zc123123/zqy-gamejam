@@ -38,22 +38,27 @@ namespace DouQuqu
 
             network = AppServices.Instance.Network;
             matchKind = AppServices.TakePendingMatchKind();
+            MatchKnobs runtime = matchKind == MatchKind.Training
+                ? TrainingCamp.WithDuration(match != null ? match.Knobs : null)
+                : CompetitiveMatch.WithDuration(match != null ? match.Knobs : null);
             bool lanBattle = network != null && network.IsRunning
                 && (network.IsMatchReady || network.IsHost || network.LocalPlayerId >= 0);
             if (lanBattle)
             {
+                if (matchKind == MatchKind.None) matchKind = MatchKind.Friend;
+                if (match != null)
+                    match.Configure(
+                        network.IsHost ? MatchRunMode.Host : MatchRunMode.Client,
+                        MatchController.MaxPlayers,
+                        runtime);
                 if (!network.IsMatchReady) network.PrepareBattle();
                 network.BindMatchController(match);
-                if (matchKind == MatchKind.None) matchKind = MatchKind.Friend;
                 CricketPick[] lanPicks = AppServices.TakePendingLocalPicks();
                 int localId = network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
                 if (lanPicks != null && match != null) match.SetRoster(localId, lanPicks);
             }
             else if (match != null)
             {
-                MatchKnobs runtime = matchKind == MatchKind.Training
-                    ? TrainingCamp.WithDuration(match.Knobs)
-                    : null;
                 match.Configure(MatchRunMode.Offline, MatchController.MaxPlayers, runtime);
                 ApplyPendingRosters(match, matchKind);
                 match.ResetMatch(MatchController.MaxPlayers, System.Environment.TickCount);
@@ -263,6 +268,14 @@ namespace DouQuqu
                 image.raycastTarget = true;
                 button.targetGraphic = image;
             }
+            // Figma 的 btn-ready 把 TMP 字放在子节点且 raycastTarget=1。
+            // 字体套上后文字矩形会盖住父 Button，点击就进不了 onClick。
+            UnityEngine.UI.Graphic[] graphics = found.GetComponentsInChildren<UnityEngine.UI.Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                if (graphics[i] == null || graphics[i].gameObject == found.gameObject) continue;
+                graphics[i].raycastTarget = false;
+            }
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(clicked);
             return true;
@@ -318,7 +331,7 @@ namespace DouQuqu
         {
             AwardIfLeavingEarly();
             if (network != null) network.Stop();
-            SceneNames.Load(SceneNames.BattleEntrance);
+            Lobby.Show(Lobby.Page.BattleEnter);
         }
 
         private static void ApplyPendingRosters(MatchController match, MatchKind kind)

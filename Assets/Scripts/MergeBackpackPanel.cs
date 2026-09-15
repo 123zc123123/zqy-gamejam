@@ -103,6 +103,7 @@ namespace DouQuqu
             GameObject bag = Instantiate(prefab, overlayRect, false);
             bag.name = "选择名角背包";
             backpackRoot = bag.transform;
+            bag.transform.SetAsLastSibling();
             RectTransform bagRect = bag.GetComponent<RectTransform>();
             if (bagRect != null)
             {
@@ -274,8 +275,7 @@ namespace DouQuqu
                 {
                     card.portrait.sprite = SpriteFor(entry.quality, entry.temperament);
                     card.portrait.enabled = card.portrait.sprite != null;
-                    card.portrait.preserveAspect = true;
-                    card.portrait.color = Color.white;
+                    CricketCatalog.FitPackPortrait(card.portrait);
                 }
                 CricketBackpackEntry captured = entry;
                 BindClick(card.root, () =>
