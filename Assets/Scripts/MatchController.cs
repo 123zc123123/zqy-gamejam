@@ -615,9 +615,13 @@ namespace DouQuqu
                 Emit("solo-pullback", bug.position);
                 return;
             }
-            if (Rules.TryGuanYuRevive(knobs, bug))
+            if (Rules.ConsumeGuanYuRevive(bug))
             {
-                bug.slideMu = Rules.GripOf(knobs, bug);
+                int reviveLeft = bug.guanYuReviveLeft;
+                RecycleBug(bug, SpawnPoint(bug.id));
+                ApplyPickToBug(bug, bug.id, CricketIndex(bug.id));
+                bug.guanYuReviveLeft = reviveLeft;
+                Rules.EnterGuanYuGhost(knobs, bug);
                 Emit("revive", bug.position);
                 return;
             }

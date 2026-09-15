@@ -13,6 +13,7 @@ namespace DouQuqu
         [SerializeField] private Color okColor = new Color(0.48f, 0.84f, 0.64f, 0.95f);
         [SerializeField] private Color warnColor = new Color(0.90f, 0.70f, 0.31f, 0.95f);
         [SerializeField] private Color lowColor = new Color(0.88f, 0.35f, 0.27f, 0.95f);
+        [SerializeField] private Color hotColor = new Color(1f, 0.38f, 0.12f, 0.95f);
         [SerializeField] private Color trackColor = new Color(0.08f, 0.12f, 0.11f, 0.72f);
         [SerializeField] private Color plateColor = new Color(0.05f, 0.07f, 0.07f, 0.55f);
         [SerializeField] private float widthScale = 2.2f;
@@ -27,6 +28,7 @@ namespace DouQuqu
         [SerializeField] private SpriteRenderer plate;
         [SerializeField] private SpriteRenderer[] tracks = new SpriteRenderer[MaxSlots];
         [SerializeField] private SpriteRenderer[] fills = new SpriteRenderer[MaxSlots];
+        [SerializeField] private SpriteRenderer[] hotFills = new SpriteRenderer[MaxSlots];
         [SerializeField] private SpriteRenderer[] previews = new SpriteRenderer[MaxSlots];
         [SerializeField] private float bakedWidth;
         [SerializeField] private float bakedThickness;
@@ -37,7 +39,7 @@ namespace DouQuqu
         /// <summary>
         /// 实心 = 当前耐力。蓄力时 pendingRatio 是本次将扣的比例，画在当前值往回的半透明段。
         /// </summary>
-        public void Apply(float currentRatio, int slots, Vector3 worldCenter, float bugRadius, float pendingRatio = 0f)
+        public void Apply(float currentRatio, int slots, Vector3 worldCenter, float bugRadius, float pendingRatio = 0f, float hotGate = 0f)
         {
             EnsureReady();
             gameObject.SetActive(true);
@@ -46,7 +48,7 @@ namespace DouQuqu
             float below = Mathf.Max(minBelow, bugRadius * belowScale);
             transform.position = worldCenter + Vector3.up * heightOffset + Vector3.back * below;
             transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            LayoutSlots(currentRatio, slots, pendingRatio, width, thickness);
+            LayoutSlots(currentRatio, slots, pendingRatio, width, thickness, hotGate);
         }
 
         /// <summary>按碰撞半径把格子烘焙进子物体，不改本节点 Transform。</summary>
@@ -55,16 +57,16 @@ namespace DouQuqu
             EnsureReady();
             bakedWidth = Mathf.Max(minWidth, bugRadius * widthScale);
             bakedThickness = Mathf.Max(minThickness, bugRadius * thicknessScale);
-            LayoutSlots(1f, 5, 0f, bakedWidth, bakedThickness);
+            LayoutSlots(1f, 5, 0f, bakedWidth, bakedThickness, 0f);
         }
 
         /// <summary>只刷新格数和填充，位置大小跟预制体。</summary>
-        public void ApplyFill(float currentRatio, int slots, float pendingRatio = 0f)
+        public void ApplyFill(float currentRatio, int slots, float pendingRatio = 0f, float hotGate = 0f)
         {
             EnsureReady();
             gameObject.SetActive(true);
             if (bakedWidth < 0.05f) Bake(1.8f);
-            LayoutSlots(currentRatio, slots, pendingRatio, bakedWidth, bakedThickness);
+            LayoutSlots(currentRatio, slots, pendingRatio, bakedWidth, bakedThickness, hotGate);
         }
 
         public void ShowAuthored()
@@ -72,15 +74,16 @@ namespace DouQuqu
             EnsureReady();
             gameObject.SetActive(true);
             if (bakedWidth < 0.05f) Bake(1.8f);
-            else LayoutSlots(1f, 5, 0f, bakedWidth, bakedThickness);
+            else LayoutSlots(1f, 5, 0f, bakedWidth, bakedThickness, 0f);
         }
 
-        private void LayoutSlots(float currentRatio, int slots, float pendingRatio, float width, float thickness)
+        private void LayoutSlots(float currentRatio, int slots, float pendingRatio, float width, float thickness, float hotGate)
         {
             currentRatio = Mathf.Clamp01(currentRatio);
             pendingRatio = Mathf.Clamp(pendingRatio, 0f, currentRatio);
             float remainRatio = Mathf.Max(0f, currentRatio - pendingRatio);
             slots = Mathf.Clamp(slots, 3, MaxSlots);
+            hotGate = Mathf.Clamp01(hotGate);
 
             Color color = currentRatio <= 0.2f ? lowColor : (currentRatio <= 0.4f ? warnColor : okColor);
             Color ghost = new Color(color.r, color.g, color.b, color.a * pendingAlpha);
@@ -94,6 +97,7 @@ namespace DouQuqu
                 bool on = i < slots;
                 if (tracks[i] != null) tracks[i].enabled = on;
                 if (fills[i] != null) fills[i].enabled = false;
+                if (hotFills != null && hotFills[i] != null) hotFills[i].enabled = false;
                 if (previews[i] != null) previews[i].enabled = false;
                 if (!on) continue;
 
@@ -109,11 +113,24 @@ namespace DouQuqu
                     float pendingX = left + slotW * remainFill + pendingW * 0.5f;
                     Layout(previews[i], new Vector3(pendingX, 0f, 0f), new Vector2(pendingW, thickness), ghost, 30);
                 }
-                if (remainFill > 0.001f)
+                if (remainFill <= 0.001f) continue;
+
+                float slotStart = (float)i / slots;
+                float filledEnd = slotStart + remainFill / slots;
+                float normalEnd = hotGate > 0.001f ? Mathf.Min(filledEnd, Mathf.Max(slotStart, hotGate)) : filledEnd;
+                float normalFill = Mathf.Clamp01((normalEnd - slotStart) * slots);
+                if (normalFill > 0.001f)
                 {
-                    float fillW = slotW * remainFill;
+                    float fillW = slotW * normalFill;
                     float fillX = left + fillW * 0.5f;
                     Layout(fills[i], new Vector3(fillX, 0f, 0f), new Vector2(fillW, thickness), color, 31);
+                }
+                float hotFill = Mathf.Clamp01(remainFill - normalFill);
+                if (hotFill > 0.001f && hotFills != null && hotFills[i] != null)
+                {
+                    float hotW = slotW * hotFill;
+                    float hotX = left + slotW * normalFill + hotW * 0.5f;
+                    Layout(hotFills[i], new Vector3(hotX, 0f, 0f), new Vector2(hotW, thickness), hotColor, 32);
                 }
             }
         }
@@ -128,6 +145,7 @@ namespace DouQuqu
         {
             if (tracks == null || tracks.Length != MaxSlots) tracks = new SpriteRenderer[MaxSlots];
             if (fills == null || fills.Length != MaxSlots) fills = new SpriteRenderer[MaxSlots];
+            if (hotFills == null || hotFills.Length != MaxSlots) hotFills = new SpriteRenderer[MaxSlots];
             if (previews == null || previews.Length != MaxSlots) previews = new SpriteRenderer[MaxSlots];
             if (plate == null) plate = CreateSprite("Plate", 28);
             for (int i = 0; i < MaxSlots; i++)
@@ -135,6 +153,7 @@ namespace DouQuqu
                 if (tracks[i] == null) tracks[i] = CreateSprite("Track_" + i, 29);
                 if (previews[i] == null) previews[i] = CreateSprite("Preview_" + i, 30);
                 if (fills[i] == null) fills[i] = CreateSprite("Fill_" + i, 31);
+                if (hotFills[i] == null) hotFills[i] = CreateSprite("HotFill_" + i, 32);
             }
         }
 

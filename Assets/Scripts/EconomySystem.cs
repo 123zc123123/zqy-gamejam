@@ -101,8 +101,8 @@ namespace DouQuqu
             List<string> due = Rules.DueItemSpawns(state.knobs, state.elapsed, ref state.nextItemIndex, ref state.lastItemKind, live, stateRandom(state));
             for (int i = 0; i < due.Count; i++)
             {
-                string kind = Rules.IsRage(state.knobs, state.elapsed) ? "shield" : due[i];
-                if (kind == "size") kind = "shield";
+                string kind = due[i];
+                if (kind != "shield") kind = "shield";
                 PickupState pickup = new PickupState(state.nextPickupId++, PlacePoint(state, state.knobs.itemMinEdge, true), kind);
                 state.pickups.Add(pickup);
                 emit?.Invoke("item-spawn:" + kind, pickup.position);

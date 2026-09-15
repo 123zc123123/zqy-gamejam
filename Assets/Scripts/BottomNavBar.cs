@@ -33,6 +33,7 @@ namespace DouQuqu
             if (existing != null)
             {
                 HideLegacyCarousels(canvasRoot, existing.transform);
+                ApplyLayout(existing.transform as RectTransform);
                 return existing;
             }
 
@@ -46,25 +47,15 @@ namespace DouQuqu
             RectTransform legacy = FindLegacyCarousel(canvasRoot);
             GameObject instance = Object.Instantiate(prefab, canvasRoot, false);
             instance.name = "BottomEventCarousel";
-            RectTransform rect = instance.GetComponent<RectTransform>();
-            if (legacy != null)
-            {
-                CopyRect(legacy, rect);
-                // 旧页面底栏可能保留横屏锚点；公共底栏统一重新锁到竖屏底部。
-                LockToBottom(rect);
-                legacy.gameObject.SetActive(false);
-            }
-            else
-            {
-                PlaceAtBottom(rect);
-            }
-
+            if (legacy != null) legacy.gameObject.SetActive(false);
+            ApplyLayout(instance.GetComponent<RectTransform>());
             HideLegacyCarousels(canvasRoot, instance.transform);
             return instance.GetComponent<BottomNavBar>();
         }
 
         private void Awake()
         {
+            ApplyLayout(transform as RectTransform);
             Bind();
         }
 
@@ -323,37 +314,49 @@ namespace DouQuqu
             }
         }
 
-        private static void CopyRect(RectTransform source, RectTransform dest)
-        {
-            if (source == null || dest == null) return;
-            dest.anchorMin = source.anchorMin;
-            dest.anchorMax = source.anchorMax;
-            dest.pivot = source.pivot;
-            dest.anchoredPosition = source.anchoredPosition;
-            dest.sizeDelta = source.sizeDelta;
-            dest.localRotation = source.localRotation;
-            dest.localScale = Vector3.one;
-        }
+        // 设计稿 1080 宽：返回钮左边距 24，Tab 视口左 174、右留 31.4。
+        private const float BarHeight = 200f;
+        private const float BackSize = 150f;
+        private const float BackLeftMargin = 24f;
+        private const float BackCenterY = 12f;
+        private const float ViewportLeft = 174f;
+        private const float ViewportRightMargin = 31.4f;
+        private const float ViewportCenterY = 17.9343f;
+        private const float ViewportHeight = 145.5313f;
 
-        private const float BottomNavHorizontalOffset = 40f;
-
-        /// <summary>把公共底栏固定在竖屏底部，并保留一点右移作为安全边距。</summary>
-        private static void LockToBottom(RectTransform rect)
+        /// <summary>底栏拉满父级宽度；返回按钮按设计钉在左边，窄屏不再被居中裁掉。</summary>
+        private static void ApplyLayout(RectTransform rect)
         {
             if (rect == null) return;
-            rect.anchorMin = new Vector2(0.5f, 0f);
-            rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
             rect.pivot = new Vector2(0.5f, 0f);
-            rect.anchoredPosition = new Vector2(BottomNavHorizontalOffset, 0f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(0f, BarHeight);
             rect.localRotation = Quaternion.identity;
             rect.localScale = Vector3.one;
-        }
 
-        private static void PlaceAtBottom(RectTransform rect)
-        {
-            if (rect == null) return;
-            rect.sizeDelta = new Vector2(1080f, 200f);
-            LockToBottom(rect);
+            Transform back = FindNamed(rect, "返回icon");
+            if (back == null) back = FindNamed(rect, "BackIcon");
+            RectTransform backRect = back as RectTransform;
+            if (backRect != null)
+            {
+                backRect.anchorMin = new Vector2(0f, 0.5f);
+                backRect.anchorMax = new Vector2(0f, 0.5f);
+                backRect.pivot = new Vector2(0.5f, 0.5f);
+                backRect.sizeDelta = new Vector2(BackSize, BackSize);
+                backRect.anchoredPosition = new Vector2(BackLeftMargin + BackSize * 0.5f, BackCenterY);
+                backRect.localScale = Vector3.one;
+            }
+
+            RectTransform viewport = FindNamed(rect, "TabViewport") as RectTransform;
+            if (viewport == null) return;
+            viewport.anchorMin = new Vector2(0f, 0.5f);
+            viewport.anchorMax = new Vector2(1f, 0.5f);
+            viewport.pivot = new Vector2(0.5f, 0.5f);
+            viewport.anchoredPosition = new Vector2((ViewportLeft - ViewportRightMargin) * 0.5f, ViewportCenterY);
+            viewport.sizeDelta = new Vector2(-(ViewportLeft + ViewportRightMargin), ViewportHeight);
+            viewport.localScale = Vector3.one;
         }
     }
 }

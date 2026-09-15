@@ -15,10 +15,13 @@ namespace DouQuqu
         private GameObject resultPanel;
         private TMP_Text resultText;
         private SettlementPage settlementPage;
-        private UnityEngine.UI.Button returnButton;
+        private GameObject eliminationPanel;
+        private EliminationPage eliminationPage;
+        private TouchInput touchInput;
         private MatchKind matchKind;
         private bool resultShown;
-        private bool localEliminated;
+        private bool eliminationShown;
+        private bool awardedThisMatch;
 
         private void Awake()
         {
@@ -61,10 +64,10 @@ namespace DouQuqu
                 }
             }
 
-            TouchInput touchInput = GetComponent<TouchInput>();
+            touchInput = GetComponent<TouchInput>();
             if (touchInput != null)
             {
-                int localPlayerId = network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
+                int localPlayerId = LocalPlayerId();
                 touchInput.BindRuntime(match, network, localPlayerId);
             }
         }
@@ -72,7 +75,6 @@ namespace DouQuqu
         private void OnEnable()
         {
             if (match != null) match.StateChanged += OnStateChanged;
-            if (match != null) match.PlayerEliminated += OnPlayerEliminated;
         }
 
         private void Start()
@@ -85,7 +87,6 @@ namespace DouQuqu
         private void OnDisable()
         {
             if (match != null) match.StateChanged -= OnStateChanged;
-            if (match != null) match.PlayerEliminated -= OnPlayerEliminated;
         }
 
         private void HideMergeUi()
@@ -98,7 +99,9 @@ namespace DouQuqu
 
         private void BuildResultUi()
         {
-            if (TryBuildArtResult()) return;
+            bool art = TryBuildArtResult();
+            TryBuildEliminationUi();
+            if (art) return;
 
             RectTransform root = UiFactory.CreateScreen("BattleResultCanvas");
             root.GetComponent<Canvas>().sortingOrder = 100;
@@ -115,7 +118,7 @@ namespace DouQuqu
             resultPanel = panel.gameObject;
             resultText = UiFactory.CreateText(panel, "ResultTMP", "对局结束", 52f,
                 new Vector2(0.08f, 0.48f), new Vector2(0.92f, 0.84f), Vector2.zero, Vector2.zero);
-            returnButton = UiFactory.CreateButton(panel, "ReturnButton", "返回", ReturnToBattleEntrance,
+            UiFactory.CreateButton(panel, "ReturnButton", "返回", ReturnToBattleEntrance,
                 new Vector2(0.20f, 0.16f), new Vector2(0.80f, 0.36f), Vector2.zero, Vector2.zero);
             resultPanel.SetActive(false);
         }
@@ -146,53 +149,70 @@ namespace DouQuqu
             if (title == null) title = page.transform.Find("Banner/Title");
             resultText = title != null ? title.GetComponent<TMP_Text>() : overlay.GetComponentInChildren<TMP_Text>(true);
 
-            BindOrCreateReturnButton(overlay);
+            BindSettlementButtons(overlay);
             resultPanel.SetActive(false);
+            return true;
+        }
+
+        private bool TryBuildEliminationUi()
+        {
+            GameObject prefab = Resources.Load<GameObject>("Settlement/Prefabs/Chuju");
+            if (prefab == null) return false;
+
+            RectTransform overlay = UiFactory.CreateOverlay("BattleEliminatedCanvas", 250);
+            GameObject page = Instantiate(prefab, overlay, false);
+            page.name = "Chuju";
+            RectTransform pageRect = page.GetComponent<RectTransform>();
+            if (pageRect != null)
+            {
+                pageRect.anchorMin = new Vector2(0.5f, 0.5f);
+                pageRect.anchorMax = new Vector2(0.5f, 0.5f);
+                pageRect.pivot = new Vector2(0.5f, 0.5f);
+                pageRect.anchoredPosition = Vector2.zero;
+                pageRect.sizeDelta = new Vector2(1080f, 1920f);
+                pageRect.localScale = Vector3.one;
+            }
+
+            eliminationPanel = overlay.gameObject;
+            eliminationPage = page.GetComponent<EliminationPage>();
+            if (eliminationPage == null) eliminationPage = page.AddComponent<EliminationPage>();
+            BindNamedButton(overlay, "退出", ReturnToBattleEntrance);
+            BindNamedButton(overlay, "观战", SpectateBattlefield);
+            UnityEngine.UI.Image overlayImage = overlay.GetComponent<UnityEngine.UI.Image>();
+            if (overlayImage != null)
+            {
+                overlayImage.color = Color.clear;
+                overlayImage.raycastTarget = false;
+            }
+            eliminationPanel.SetActive(false);
             return true;
         }
 
         private void OnStateChanged(MatchState state)
         {
             if (state == null) return;
-            bool eliminated = IsLocalEliminated(state);
-            if (!resultShown && eliminated)
+            if (state.over)
             {
-                ShowResult(state, true);
+                HideElimination();
+                ShowResult(state);
                 return;
             }
-
-            if (!state.over) return;
-            if (!resultShown)
-            {
-                ShowResult(state, false);
-                return;
-            }
-
-            // 本地淘汰后已经进入即时结算；最终帧到达时只补全最终名次。
-            if (localEliminated && resultText != null) resultText.text = "结算完成\n你已淘汰";
-            SetReturnInteractable(true);
+            ShowEliminationIfNeeded();
         }
 
-        private void OnPlayerEliminated(int playerId)
+        private void ShowResult(MatchState state)
         {
-            if (playerId != LocalPlayerId() || match == null || match.State == null || resultShown) return;
-            ShowResult(match.State, true);
-        }
-
-        private void ShowResult(MatchState state, bool eliminated)
-        {
+            if (resultShown || resultPanel == null) return;
             resultShown = true;
-            localEliminated |= eliminated;
             int localPlayerId = LocalPlayerId();
             if (settlementPage != null)
             {
                 settlementPage.Bind(match, matchKind, localPlayerId);
+                awardedThisMatch = true;
             }
-            if (resultText != null)
+            else if (resultText != null)
             {
-                if (eliminated)
-                    resultText.text = "结算完成\n你已淘汰";
-                else if (state.winnerId < 0)
+                if (state.winnerId < 0)
                     resultText.text = "对局结束\n本局没有存活玩家";
                 else
                     resultText.text = state.winnerId == localPlayerId
@@ -200,9 +220,83 @@ namespace DouQuqu
                         : "对局结束\n获胜者：玩家 " + (state.winnerId + 1);
             }
             resultPanel.SetActive(true);
-            SetInputLocked();
-            // 输掉的玩家立即拥有返回权限；普通房主会在返回前把权威模拟交给持久对象。
-            SetReturnInteractable(true);
+            DisableLocalInput();
+        }
+
+        private void ShowEliminationIfNeeded()
+        {
+            if (eliminationShown || eliminationPanel == null || match == null) return;
+            if (matchKind != MatchKind.Random && matchKind != MatchKind.Friend && matchKind != MatchKind.Training)
+                return;
+            int localPlayerId = LocalPlayerId();
+            if (match.PlayerStillIn(localPlayerId)) return;
+            if (match.Place(localPlayerId) <= 0) return;
+            if (eliminationPage != null) eliminationPage.Bind(match, localPlayerId);
+            eliminationPanel.SetActive(true);
+            eliminationShown = true;
+            DisableLocalInput();
+        }
+
+        private void BindSettlementButtons(RectTransform overlay)
+        {
+            if (BindNamedButton(overlay, "退出", ReturnToBattleEntrance)
+                | BindNamedButton(overlay, "返回", ReturnToBattleEntrance)
+                | BindNamedButton(overlay, "ReturnButton", ReturnToBattleEntrance))
+            {
+                BindNamedButton(overlay, "观战", SpectateBattlefield);
+                return;
+            }
+
+            UiFactory.CreateButton(overlay, "ReturnButton", "退出", ReturnToBattleEntrance,
+                new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
+        }
+
+        private static bool BindNamedButton(Transform root, string objectName, UnityEngine.Events.UnityAction clicked)
+        {
+            Transform found = FindNamed(root, objectName);
+            if (found == null) return false;
+            UnityEngine.UI.Button button = found.GetComponent<UnityEngine.UI.Button>();
+            if (button == null) button = found.gameObject.AddComponent<UnityEngine.UI.Button>();
+            UnityEngine.UI.Image image = found.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                image.raycastTarget = true;
+                button.targetGraphic = image;
+            }
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(clicked);
+            return true;
+        }
+
+        private static Transform FindNamed(Transform root, string objectName)
+        {
+            if (root == null) return null;
+            if (root.name == objectName) return root;
+            Transform direct = root.Find(objectName);
+            if (direct != null) return direct;
+            Transform[] transforms = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < transforms.Length; i++)
+            {
+                if (transforms[i].name == objectName) return transforms[i];
+            }
+            return null;
+        }
+
+        private void SpectateBattlefield()
+        {
+            HideElimination();
+            if (settlementPage != null) settlementPage.HideForSpectate();
+            DisableLocalInput();
+        }
+
+        private void HideElimination()
+        {
+            if (eliminationPanel != null) eliminationPanel.SetActive(false);
+        }
+
+        private void DisableLocalInput()
+        {
+            if (touchInput != null) touchInput.enabled = false;
         }
 
         private int LocalPlayerId()
@@ -210,79 +304,20 @@ namespace DouQuqu
             return network != null && network.LocalPlayerId >= 0 ? network.LocalPlayerId : 0;
         }
 
-        private bool IsLocalEliminated(MatchState state)
+        private void AwardIfLeavingEarly()
         {
-            int id = LocalPlayerId();
-            return state.playerIn != null && id >= 0 && id < state.playerIn.Length && !state.playerIn[id];
-        }
-
-        private void SetReturnInteractable(bool interactable)
-        {
-            if (returnButton != null) returnButton.interactable = interactable;
-        }
-
-        private void SetInputLocked()
-        {
-            TouchInput[] touchInputs = FindObjectsOfType<TouchInput>(true);
-            for (int i = 0; i < touchInputs.Length; i++)
-                if (touchInputs[i] != null) touchInputs[i].enabled = false;
-
-            HudStick[] sticks = FindObjectsOfType<HudStick>(true);
-            for (int i = 0; i < sticks.Length; i++)
-                if (sticks[i] != null) sticks[i].enabled = false;
-
-            KeyboardInput[] keyboards = FindObjectsOfType<KeyboardInput>(true);
-            for (int i = 0; i < keyboards.Length; i++)
-                if (keyboards[i] != null) keyboards[i].enabled = false;
-        }
-
-        private void BindOrCreateReturnButton(RectTransform overlay)
-        {
-            UnityEngine.UI.Button existing = FindReturnButton(overlay);
-            if (existing != null)
-            {
-                returnButton = existing;
-                existing.onClick.RemoveAllListeners();
-                existing.onClick.AddListener(ReturnToBattleEntrance);
-                return;
-            }
-
-            returnButton = UiFactory.CreateButton(overlay, "ReturnButton", "返回", ReturnToBattleEntrance,
-                new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);
-        }
-
-        private static UnityEngine.UI.Button FindReturnButton(Transform root)
-        {
-            if (root == null) return null;
-            Transform[] transforms = root.GetComponentsInChildren<Transform>(true);
-            for (int i = 0; i < transforms.Length; i++)
-            {
-                Transform t = transforms[i];
-                if (t.name != "ReturnButton" && t.name != "返回" && t.name != "返回按钮") continue;
-                UnityEngine.UI.Button button = t.GetComponent<UnityEngine.UI.Button>();
-                if (button != null) return button;
-            }
-            return null;
+            if (awardedThisMatch || match == null) return;
+            if (matchKind != MatchKind.Random && matchKind != MatchKind.Friend) return;
+            int place = match.Place(LocalPlayerId());
+            if (place <= 0) return;
+            PlayerDataService.AwardPlaceRewards(place);
+            awardedThisMatch = true;
         }
 
         private void ReturnToBattleEntrance()
         {
-            bool matchOver = match != null && match.IsOver;
-            bool ordinaryHostStillSimulating = network != null && network.IsHost
-                && !network.IsDedicatedServer && !matchOver;
-            if (ordinaryHostStillSimulating)
-            {
-                // 房主退出表现层前保留一份无界面的权威模拟，其他设备仍能收到后续快照。
-                if (!network.DetachMatchControllerForSceneTransition())
-                {
-                    Debug.LogWarning("[DouQuqu] 无法保留房主权威模拟，结束当前局域网会话。");
-                    network.Stop();
-                }
-            }
-            else if (network != null)
-            {
-                network.Stop();
-            }
+            AwardIfLeavingEarly();
+            if (network != null) network.Stop();
             SceneNames.Load(SceneNames.BattleEntrance);
         }
 

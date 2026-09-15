@@ -79,6 +79,7 @@ namespace DouQuqu
             LoadPremiumBugSprites();
             EnsureBattleCamera();
             EnsureRoots();
+            if (GetComponent<BattleFx>() == null) gameObject.AddComponent<BattleFx>();
         }
 
         /// <summary>
@@ -110,6 +111,8 @@ namespace DouQuqu
         private void OnEnable()
         {
             if (match != null) match.StateChanged += OnStateChanged;
+            BattleFx fx = GetComponent<BattleFx>();
+            if (fx != null) fx.Bind(match);
         }
 
         private void Start()
@@ -159,6 +162,8 @@ namespace DouQuqu
             if (isActiveAndEnabled && match != null) match.StateChanged -= OnStateChanged;
             match = controller;
             if (isActiveAndEnabled && match != null) match.StateChanged += OnStateChanged;
+            BattleFx fx = GetComponent<BattleFx>();
+            if (fx != null) fx.Bind(match);
         }
 
         /// <summary>创建运行时容器，保证表现对象不会散落在场景根节点。</summary>
@@ -626,8 +631,9 @@ namespace DouQuqu
             float pending = bug.charging ? Rules.JumpStaminaCost(knobs, bug) : 0f;
             float ratio = current / max;
             float pendingRatio = pending / max;
-            if (BarOfUnit(bug.id) != null) bar.ApplyFill(ratio, slots, pendingRatio);
-            else bar.Apply(ratio, slots, bug.position + Vector3.up * bug.height, bug.radius, pendingRatio);
+            float hotGate = Rules.IsLuBu(bug) ? Mathf.Clamp01(knobs.luBuArmorStamina) : 0f;
+            if (BarOfUnit(bug.id) != null) bar.ApplyFill(ratio, slots, pendingRatio, hotGate);
+            else bar.Apply(ratio, slots, bug.position + Vector3.up * bug.height, bug.radius, pendingRatio, hotGate);
         }
 
         private static GameObject BodyOf(GameObject view)
@@ -738,16 +744,14 @@ namespace DouQuqu
         private GameObject PrefabForPickup(string kind)
         {
             if (kind == "size") return sizePrefab;
-            if (kind == "shield") return shieldPrefab;
-            if (kind == "charge") return chargePrefab;
+            if (kind == "shield" || kind == "charge") return shieldPrefab;
             return heartPrefab;
         }
 
         private static Color PickupColor(string kind)
         {
             if (kind == "size") return new Color(1f, 0.38f, 0.9f);
-            if (kind == "shield") return new Color(0.25f, 0.85f, 1f);
-            if (kind == "charge") return new Color(1f, 0.58f, 0.12f);
+            if (kind == "shield" || kind == "charge") return new Color(0.25f, 0.85f, 1f);
             return new Color(1f, 0.22f, 0.32f);
         }
 

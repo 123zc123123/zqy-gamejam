@@ -8,16 +8,27 @@ namespace DouQuqu
     public sealed class SettlementPage : MonoBehaviour
     {
         const int RowCount = 4;
+        const string RowPrefabPath = "Settlement/Prefabs/Parts/PlayerRow";
+        const string RankTextureFolder = "Settlement/Textures/";
         static readonly string[] RankLabels = { "第1名", "第2名", "第3名", "第4名" };
+        static readonly Vector2[] DefaultRowPositions =
+        {
+            new Vector2(1.5f, 353f),
+            new Vector2(1.5f, 79f),
+            new Vector2(1.5f, -195f),
+            new Vector2(1.5f, -469f)
+        };
 
         private void Awake()
         {
+            EnsureRows();
             UiFonts.ApplyTree(transform);
         }
 
         public void Bind(MatchController match, MatchKind kind, int localPlayerId)
         {
             if (match == null) return;
+            EnsureRows();
             UiFonts.ApplyTree(transform);
             int playerCount = Mathf.Clamp(match.ConfiguredPlayers, 0, RowCount);
             int[] order = SortByPlace(match, playerCount);
@@ -43,14 +54,21 @@ namespace DouQuqu
                 SetText(row, "Name", DisplayName(match, playerId, localPlayerId));
                 SetText(row, "PlaceScore", placeScore.ToString());
                 SetText(row, "KillScore", killScore.ToString());
-                Transform rank = row.Find("Rank");
-                if (rank != null)
-                    SetText(rank, "RankText", RankLabels[Mathf.Clamp(place - 1, 0, RankLabels.Length - 1)]);
+                BindRank(row, place);
                 BindAvatar(row, match, playerId);
 
                 if (award && playerId == localPlayerId)
                     PlayerDataService.AwardPlaceRewards(place);
             }
+        }
+
+        public void HideForSpectate()
+        {
+            HideNamed("BlackBackground");
+            HideNamed("Banner");
+            for (int i = 0; i < RowCount; i++)
+                HideNamed("PlayerRow" + (i + 1));
+            HideNamed("观战");
         }
 
         static int[] SortByPlace(MatchController match, int playerCount)
@@ -70,16 +88,78 @@ namespace DouQuqu
             return order;
         }
 
+        void EnsureRows()
+        {
+            bool missing = false;
+            for (int i = 0; i < RowCount; i++)
+            {
+                if (transform.Find("PlayerRow" + (i + 1)) == null)
+                {
+                    missing = true;
+                    break;
+                }
+            }
+
+            if (!missing) return;
+
+            GameObject prefab = Resources.Load<GameObject>(RowPrefabPath);
+            if (prefab == null) return;
+
+            Transform footer = transform.Find("观战");
+            if (footer == null) footer = transform.Find("退出");
+            if (footer == null) footer = transform.Find("返回");
+            int insertAt = footer != null ? footer.GetSiblingIndex() : transform.childCount;
+            for (int i = 0; i < RowCount; i++)
+            {
+                string rowName = "PlayerRow" + (i + 1);
+                Transform existing = transform.Find(rowName);
+                if (existing != null) continue;
+
+                GameObject row = Instantiate(prefab, transform, false);
+                row.name = rowName;
+                row.transform.SetSiblingIndex(insertAt + i);
+                RectTransform rect = row.GetComponent<RectTransform>();
+                if (rect == null) continue;
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = DefaultRowPositions[i];
+                rect.localScale = Vector3.one;
+            }
+        }
+
+        static void BindRank(Transform row, int place)
+        {
+            int clamped = Mathf.Clamp(place, 1, RowCount);
+            Sprite bg = Resources.Load<Sprite>(RankTextureFolder + "rank" + clamped + "-bg");
+            Sprite icon = Resources.Load<Sprite>(RankTextureFolder + "rank" + clamped + "-icon");
+
+            Image rowImage = row.GetComponent<Image>();
+            if (rowImage != null && bg != null) rowImage.sprite = bg;
+
+            Transform rank = FindNamed(row, "Rank");
+            if (rank != null)
+            {
+                Image rankImage = rank.GetComponent<Image>();
+                if (rankImage != null && icon != null)
+                {
+                    rankImage.sprite = icon;
+                    rankImage.preserveAspect = true;
+                }
+                SetText(rank, "RankText", RankLabels[clamped - 1]);
+            }
+        }
+
         static void BindAvatar(Transform row, MatchController match, int playerId)
         {
-            Transform avatar = row.Find("Avatar");
-            if (avatar == null) return;
-            Image image = avatar.GetComponentInChildren<Image>(true);
+            Transform portrait = FindNamed(row, "头像贴图");
+            if (portrait == null) portrait = FindNamed(row, "Avatar");
+            if (portrait == null) return;
+            Image image = portrait.GetComponent<Image>();
+            if (image == null) image = portrait.GetComponentInChildren<Image>(true);
             if (image == null) return;
             int slot = match.CricketIndex(playerId);
             CricketPick pick = match.RosterPick(playerId, slot);
-            Sprite portrait = pick != null ? CricketCatalog.Portrait(pick.quality, pick.temperament) : null;
-            if (portrait != null) image.sprite = portrait;
+            Sprite sprite = pick != null ? CricketCatalog.Portrait(pick.quality, pick.temperament) : null;
+            if (sprite != null) image.sprite = sprite;
             image.preserveAspect = true;
         }
 
@@ -113,10 +193,30 @@ namespace DouQuqu
 
         static void SetText(Transform root, string name, string value)
         {
-            Transform t = root.Find(name);
+            Transform t = FindNamed(root, name);
             if (t == null) return;
             TMP_Text tmp = t.GetComponent<TMP_Text>();
             if (tmp != null) tmp.text = value;
+        }
+
+        void HideNamed(string objectName)
+        {
+            Transform found = transform.Find(objectName);
+            if (found != null) found.gameObject.SetActive(false);
+        }
+
+        static Transform FindNamed(Transform root, string objectName)
+        {
+            if (root == null) return null;
+            if (root.name == objectName) return root;
+            Transform direct = root.Find(objectName);
+            if (direct != null) return direct;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform nested = FindNamed(root.GetChild(i), objectName);
+                if (nested != null) return nested;
+            }
+            return null;
         }
     }
 }

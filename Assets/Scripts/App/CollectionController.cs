@@ -100,6 +100,8 @@ namespace DouQuqu
             int capturedTemperament = temperament;
             button.onClick.AddListener(() => OpenDetail(capturedQuality, capturedTemperament));
 
+            ApplyCardLabels(root.transform, quality, temperament);
+
             return new CardSlot
             {
                 quality = quality,
@@ -107,6 +109,30 @@ namespace DouQuqu
                 group = group,
                 button = button
             };
+        }
+
+        static void ApplyCardLabels(Transform root, int quality, int temperament)
+        {
+            SetNamedText(root, "名字", CricketCatalog.CricketName(quality, temperament));
+            SetNamedChildText(root, "品级", CricketCatalog.QualityName(quality));
+            SetNamedChildText(root, "性格", CricketCatalog.TemperamentName(temperament));
+        }
+
+        static void SetNamedText(Transform root, string objectName, string value)
+        {
+            Transform node = FindNamed(root, objectName);
+            if (node == null) return;
+            TMP_Text text = node.GetComponent<TMP_Text>();
+            if (text == null) text = node.GetComponentInChildren<TMP_Text>(true);
+            if (text != null) text.text = value;
+        }
+
+        static void SetNamedChildText(Transform root, string objectName, string value)
+        {
+            Transform node = FindNamed(root, objectName);
+            if (node == null) return;
+            TMP_Text text = node.GetComponentInChildren<TMP_Text>(true);
+            if (text != null) text.text = value;
         }
 
         private void OpenDetail(int quality, int temperament)

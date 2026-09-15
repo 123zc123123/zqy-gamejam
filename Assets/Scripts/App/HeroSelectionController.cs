@@ -14,6 +14,8 @@ namespace DouQuqu
         private const string StatusConfirmed = "已确定";
         private const string LabelConfirm = "确定";
         private const string LabelCancel = "取消选择";
+        private const float DesignWidth = 1080f;
+        private const float DesignHeight = 1920f;
         private const float OwnRowWidth = 983f;
         private const float OwnRowHeight = 258f;
         private const float PlayerFrameNative = 260f;
@@ -70,6 +72,7 @@ namespace DouQuqu
         private Vector2 matchButtonHome;
         private bool homesCaptured;
         private bool bound;
+        private float lastPageWidth = -1f;
         private bool sessionActive;
         private bool ready;
         private bool selectionClosed;
@@ -84,12 +87,14 @@ namespace DouQuqu
             if (root == null) return;
             pageRoot = root;
             bound = true;
+            lastPageWidth = -1f;
             BottomNavBar.SuppressEmbedded(root.transform);
             if (!TryBindArt(root.transform))
                 BuildOverlay(root.transform);
             CaptureHomes();
             LoadQualitySprites();
             LoadButtonSprites();
+            ApplyAspectLayout();
         }
 
         public void BeginSession()
@@ -105,6 +110,8 @@ namespace DouQuqu
             deadlineUnscaled = Time.unscaledTime + SelectSeconds;
             ApplyBattleDefer();
             ApplyCollapsed();
+            lastPageWidth = -1f;
+            ApplyAspectLayout();
             ApplyOtherZones();
             HookBattleReady();
             HookLobby();
@@ -128,6 +135,8 @@ namespace DouQuqu
 
         private void Update()
         {
+            if (bound && pageRoot != null && pageRoot.activeInHierarchy)
+                ApplyAspectLayout();
             if (!sessionActive || timerText == null) return;
             int remain = Mathf.Max(0, Mathf.CeilToInt(deadlineUnscaled - Time.unscaledTime));
             timerText.text = remain.ToString();
@@ -198,17 +207,19 @@ namespace DouQuqu
 
         private void LayoutOwnRow(Transform zone)
         {
-            SizeOwnRow(zone as RectTransform);
             HideOwnRowLegacy(zone);
 
             float frameScale = PlayerFrameVisual / PlayerFrameNative;
             float packScale = PackCricketVisual / PackCricketNative;
+            float spacingScale = Mathf.Max(1f, PageWidthRatio());
             Vector2 framePos = PsdToLocal(PlayerFramePsd, PlayerFrameVisual);
+            Vector2 firstSlot = PsdToLocal(SlotPsd[0], PackCricketVisual);
 
             Transform playerFrame = EnsureChildPrefab(zone, "PlayerFrame", "Common/Prefabs/PlayerFrame");
             PlaceScaled(playerFrame as RectTransform, framePos, frameScale);
 
             GameObject packPrefab = Resources.Load<GameObject>("HeroSelection/Prefabs/Parts/PackCricket");
+            float rightEdge = PackCricketVisual * 0.5f;
             for (int i = 0; i < SlotCount; i++)
             {
                 string slotName = "PackCricket_" + i;
@@ -220,36 +231,34 @@ namespace DouQuqu
                     slotRoot = go.transform;
                 }
                 if (slotRoot == null) continue;
-                PlaceScaled(slotRoot as RectTransform, PsdToLocal(SlotPsd[i], PackCricketVisual), packScale);
+                Vector2 slotPos = PsdToLocal(SlotPsd[i], PackCricketVisual);
+                slotPos.x = firstSlot.x + (slotPos.x - firstSlot.x) * spacingScale;
+                PlaceScaled(slotRoot as RectTransform, slotPos, packScale);
+                rightEdge = Mathf.Max(rightEdge, slotPos.x + PackCricketVisual * 0.5f);
                 slots[i] = ReadSlot(slotRoot);
                 int captured = i;
                 BindClick(slotRoot.gameObject, () => OnSlotClicked(captured));
             }
 
+            SizeOwnRow(zone as RectTransform, Mathf.Max(OwnRowWidth, rightEdge * 2f));
+
             if (readyBadge is RectTransform badge)
                 PlaceScaled(badge, new Vector2(framePos.x, framePos.y - 70f), 1f);
 
             RefreshSlots();
+            RefreshGreenBox();
         }
 
-        private static void SizeOwnRow(RectTransform zone)
+        private static void SizeOwnRow(RectTransform zone, float width)
         {
             if (zone == null) return;
-            float oldW = zone.rect.width;
-            float oldH = zone.rect.height;
-            if (oldW <= 1f) oldW = zone.sizeDelta.x;
-            if (oldH <= 1f) oldH = zone.sizeDelta.y;
-            Vector2 pos = zone.anchoredPosition;
-            pos.x += (OwnRowWidth - oldW) * zone.pivot.x;
-            pos.y += (OwnRowHeight - oldH) * zone.pivot.y;
-            zone.anchoredPosition = pos;
-            zone.sizeDelta = new Vector2(OwnRowWidth, OwnRowHeight);
+            zone.sizeDelta = new Vector2(width, OwnRowHeight);
             LayoutElement[] layouts = zone.GetComponents<LayoutElement>();
             for (int i = 0; i < layouts.Length; i++)
             {
-                layouts[i].minWidth = OwnRowWidth;
+                layouts[i].minWidth = width;
                 layouts[i].minHeight = OwnRowHeight;
-                layouts[i].preferredWidth = OwnRowWidth;
+                layouts[i].preferredWidth = width;
                 layouts[i].preferredHeight = OwnRowHeight;
             }
         }
@@ -368,6 +377,58 @@ namespace DouQuqu
                 if (child.name != "极品_1" && child.name.IndexOf("极品") < 0) continue;
                 cards.Add(ReadCard(child.gameObject));
             }
+        }
+
+        private void ApplyAspectLayout()
+        {
+            if (!bound) return;
+            float pageWidth = ReadPageWidth();
+            if (pageWidth <= 1f) return;
+            if (Mathf.Abs(pageWidth - lastPageWidth) < 0.5f) return;
+            lastPageWidth = pageWidth;
+            ApplyBackpackAspect(pageWidth / DesignWidth);
+            if (ownZone != null) LayoutOwnRow(ownZone);
+            RefreshCards();
+        }
+
+        private void ApplyBackpackAspect(float widthRatio)
+        {
+            RectTransform bag = backpackRoot as RectTransform;
+            if (bag == null) return;
+            float xScale = Mathf.Min(1f, widthRatio);
+            Vector3 scale = bag.localScale;
+            bag.localScale = new Vector3(xScale, scale.y == 0f ? 1f : scale.y, 1f);
+            Vector2 size = bag.sizeDelta;
+            size.x = DesignWidth * Mathf.Max(1f, widthRatio);
+            bag.sizeDelta = size;
+            LayoutElement layout = bag.GetComponent<LayoutElement>();
+            if (layout != null)
+            {
+                layout.minWidth = size.x;
+                layout.preferredWidth = size.x;
+            }
+        }
+
+        private float PageWidthRatio()
+        {
+            float width = ReadPageWidth();
+            if (width <= 1f) return 1f;
+            return width / DesignWidth;
+        }
+
+        private float ReadPageWidth()
+        {
+            if (pageRoot != null)
+            {
+                RectTransform rect = pageRoot.transform as RectTransform;
+                if (rect != null && rect.rect.width > 1f) return rect.rect.width;
+                Canvas canvas = pageRoot.GetComponent<Canvas>();
+                if (canvas == null) canvas = pageRoot.GetComponentInParent<Canvas>();
+                if (canvas != null && canvas.scaleFactor > 0.01f && canvas.pixelRect.width > 1f)
+                    return canvas.pixelRect.width / canvas.scaleFactor;
+            }
+            if (Screen.height > 0) return DesignHeight * Screen.width / (float)Screen.height;
+            return DesignWidth;
         }
 
         private void CaptureHomes()
@@ -734,6 +795,7 @@ namespace DouQuqu
                 {
                     card.root.SetActive(false);
                     card.instanceId = null;
+                    if (card.selectedMask != null) card.selectedMask.SetActive(false);
                     continue;
                 }
                 CricketBackpackEntry entry = entries[i];
@@ -758,6 +820,7 @@ namespace DouQuqu
                 }
                 bool picked = SlotIndexOf(entry.instanceId) >= 0;
                 if (card.group != null) card.group.alpha = picked ? 0.45f : 1f;
+                if (card.selectedMask != null) card.selectedMask.SetActive(picked);
                 string id = entry.instanceId;
                 BindClick(card.root, () => OnCardClicked(id));
             }
@@ -1018,26 +1081,28 @@ namespace DouQuqu
             card.portrait = portrait != null ? portrait.GetComponent<Image>() : null;
             Transform bg = FindNamed(root.transform, "背景") ?? FindNamed(root.transform, "Rectangle 11");
             card.background = bg != null ? bg.GetComponent<Image>() : null;
+            Transform selectedMask = FindNamed(root.transform, "选中的蛐蛐遮罩");
+            card.selectedMask = selectedMask != null ? selectedMask.gameObject : null;
             card.group = root.GetComponent<CanvasGroup>();
             if (card.group == null) card.group = root.AddComponent<CanvasGroup>();
             return card;
         }
 
-        private static void PlaceCard(RectTransform rect, int index)
+        private void PlaceCard(RectTransform rect, int index)
         {
             if (rect == null) return;
-            const int cols = 3;
             const float card = 288f;
             const float topPad = 66f;
             const float vGap = 21f;
-            int col = index % cols;
-            int row = index / cols;
+            int col = index % 3;
+            int row = index / 3;
             float left = col == 0 ? 67f : col == 1 ? 396f : 705f;
+            float spacingScale = Mathf.Max(1f, PageWidthRatio());
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = new Vector2(card, card);
-            float x = left + card * 0.5f;
+            float x = (left + card * 0.5f) * spacingScale;
             float y = -(topPad + card * 0.5f + row * (card + vGap));
             rect.anchoredPosition = new Vector2(x, y);
         }
@@ -1167,6 +1232,7 @@ namespace DouQuqu
             public Image portrait;
             public TMP_Text quality;
             public TMP_Text name;
+            public GameObject selectedMask;
             public CanvasGroup group;
             public string instanceId;
         }

@@ -41,9 +41,9 @@ namespace DouQuqu
         public float vRate = 40f;
         [InspectorCn("起跳仰角", "度；与摩擦一起定空中匀速占比")]
         public float theta = 15f;
-        [InspectorCn("蓄力强化倍率", "拾取与狂暴共用。加快蓄满、点跳变大；未强化满蓄距离不变")]
+        [HideInInspector]
         public float chargeScale = 1.25f;
-        [InspectorCn("蓄力强化持续", "秒；仅拾取，狂暴不读")]
+        [HideInInspector]
         public float chargeBuffT = 5f;
         [InspectorCn("狂暴加成", "1:30 起全员蓄力速度、耐力恢复同乘；不变大")]
         public float rageBoost = 1.25f;
@@ -160,8 +160,8 @@ namespace DouQuqu
         public float jiItemPower = 1.7f;
         [InspectorCn("无穷质量", "吕布霸体碰撞用的质量")]
         public float unstoppableMass = 1000000f;
-        [InspectorCn("貂蝉偷耐力", "满蓄撞到第一个人时扣对方、加给自己的量")]
-        public float diaochanStealStamina = 1.5f;
+        [InspectorCn("貂蝉偷耐力", "满蓄撞人时扣对方、加给自己的格数。1 格 = 1")]
+        public float diaochanStealStamina = 3f;
 
         [Header("人机")]
         [InspectorCn("人机攻击距离", "人机主动起跳的攻击距离")]
@@ -296,7 +296,7 @@ namespace DouQuqu
         public static float ArenaHalfWidth = DefaultArenaHalfWidth;
         public static float ArenaHalfDepth = DefaultArenaHalfDepth;
         public static float ArenaCorner = DefaultArenaCorner;
-        public static readonly string[] ItemKinds = { "shield", "charge" };
+        public static readonly string[] ItemKinds = { "shield" };
         public const int KillScoreBase = 10;
 
         public static readonly Vector2[] CornerSigns =
@@ -564,17 +564,44 @@ namespace DouQuqu
             return bug.chargeTime + 1e-4f >= EffectiveChargeTime(knobs, bug);
         }
 
-        /// <summary>满蓄跳出去撞到的第一个人：对方扣到 0 为止，貂蝉加配置值到自己上限。</summary>
+        /// <summary>1 格耐力 = staminaMax / staminaSlots。玩家看到的 +3 就是 3 格。</summary>
+        public static float StaminaSlotSize(MatchKnobs knobs)
+        {
+            int slots = knobs == null ? 3 : Mathf.Max(1, knobs.staminaSlots);
+            float max = knobs == null ? 3f : Mathf.Max(0.01f, knobs.staminaMax);
+            return max / slots;
+        }
+
+        public static float StealAmount(MatchKnobs knobs)
+        {
+            float slots = knobs == null ? 3f : Mathf.Max(0f, knobs.diaochanStealStamina);
+            return slots * StaminaSlotSize(knobs);
+        }
+
+        /// <summary>满蓄跳出去撞到的第一个人：对方扣到 0 为止，貂蝉加配置格数到自己上限。</summary>
         public static bool TryDiaoChanSteal(MatchKnobs knobs, BugState diao, BugState victim)
         {
+            float gained;
+            float lost;
+            return TryDiaoChanSteal(knobs, diao, victim, out gained, out lost);
+        }
+
+        public static bool TryDiaoChanSteal(MatchKnobs knobs, BugState diao, BugState victim, out float gained, out float lost)
+        {
+            gained = 0f;
+            lost = 0f;
             if (!IsDiaoChan(diao) || diao == null || !diao.diaochanStealArmed || victim == null || diao == victim)
                 return false;
             if (!victim.alive) return false;
             diao.diaochanStealArmed = false;
-            float amount = knobs != null ? Mathf.Max(0f, knobs.diaochanStealStamina) : 1.5f;
+            float amount = StealAmount(knobs);
+            float beforeVictim = victim.stamina;
+            float beforeDiao = diao.stamina;
             victim.stamina = Mathf.Max(0f, victim.stamina - amount);
             float max = StaminaMaxOf(knobs, diao);
             diao.stamina = Mathf.Min(max, diao.stamina + amount);
+            gained = diao.stamina - beforeDiao;
+            lost = beforeVictim - victim.stamina;
             BreakLuBuArmorIfBelowGate(knobs, victim);
             return true;
         }
@@ -602,28 +629,12 @@ namespace DouQuqu
             return bug.stamina + 1e-6f >= max * Mathf.Clamp01(knobs.luBuArmorStamina);
         }
 
-        /// <summary>关羽第一次出圈立刻拉回。护盾已经处理过才走到这里。</summary>
-        public static bool TryGuanYuRevive(MatchKnobs knobs, BugState bug)
+        /// <summary>关羽还有额外命。真正入场点、清成长由对局按换虫那套走。</summary>
+        public static bool ConsumeGuanYuRevive(BugState bug)
         {
             if (bug == null || bug.guanYuReviveLeft <= 0) return false;
+            if (!IsGuanYu(bug)) return false;
             bug.guanYuReviveLeft--;
-            float pad = bug.radius + (knobs != null ? Mathf.Max(0f, knobs.shieldPad) : 0.08f);
-            bug.position = ClampInsideArena(bug.position, pad);
-            bug.previousPosition = bug.position;
-            bug.velocity = Vector3.zero;
-            ClearLaunch(bug);
-            bug.height = 0f;
-            bug.verticalVelocity = 0f;
-            bug.airborne = false;
-            bug.charging = false;
-            bug.holding = false;
-            bug.pendingCharge = false;
-            bug.chargeTime = 0f;
-            bug.luBuArmorT = 0f;
-            bug.diaochanStealArmed = false;
-            bug.hitTier = HitTier.None;
-            bug.lastHitId = -1;
-            EnterGuanYuGhost(knobs, bug);
             return true;
         }
 
@@ -1115,13 +1126,9 @@ namespace DouQuqu
                 if (!bug.rageSize) bug.buffSizeT = knobs.sizeT * power;
                 RefreshBody(knobs, bug);
             }
-            else if (kind == "shield")
+            else if (kind == "shield" || kind == "charge")
             {
                 bug.buffShieldT = knobs.shieldT * power;
-            }
-            else if (kind == "charge" && !bug.rageCharge)
-            {
-                bug.buffChargeT = knobs.chargeBuffT * power;
             }
         }
 
@@ -1134,8 +1141,7 @@ namespace DouQuqu
                 baby.buffSizeT = knobs.sizeT;
                 RefreshBabyBody(knobs, baby);
             }
-            else if (kind == "shield") baby.buffShieldT = knobs.shieldT;
-            else if (kind == "charge") baby.buffChargeT = knobs.chargeBuffT;
+            else if (kind == "shield" || kind == "charge") baby.buffShieldT = knobs.shieldT;
         }
 
         /// <summary>递减蟋蟀的限时增益，并在增大结束时恢复体型。</summary>
@@ -1192,11 +1198,7 @@ namespace DouQuqu
         /// <summary>选择与上一种不同的道具类型，并更新类型游标。</summary>
         public static string PickItemKind(ref string lastKind, float roll)
         {
-            int selected = 0;
-            if (lastKind == "shield") selected = 1;
-            else if (lastKind == "charge") selected = 0;
-            else selected = Mathf.Clamp(Mathf.FloorToInt(roll * ItemKinds.Length), 0, ItemKinds.Length - 1);
-            lastKind = ItemKinds[selected];
+            lastKind = "shield";
             return lastKind;
         }
 

@@ -10,6 +10,7 @@ namespace DouQuqu
     public sealed class AppServices : MonoBehaviour
     {
         private static AppServices instance;
+        private static bool createAllowed = true;
 
         public static AppServices Instance
         {
@@ -42,15 +43,32 @@ namespace DouQuqu
             return kind;
         }
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            instance = null;
+            createAllowed = true;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void CreateBeforeFirstScene()
         {
             EnsureCreated();
         }
 
+        private static bool CanCreate()
+        {
+            if (!createAllowed || !Application.isPlaying) return false;
+#if UNITY_EDITOR
+            if (!UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) return false;
+#endif
+            return true;
+        }
+
         private static void EnsureCreated()
         {
             if (instance != null) return;
+            if (!CanCreate()) return;
             AppServices existing = FindObjectOfType<AppServices>();
             if (existing != null)
             {
@@ -77,7 +95,15 @@ namespace DouQuqu
 
         private void OnApplicationQuit()
         {
+            createAllowed = false;
             if (Network != null) Network.Stop();
+        }
+
+        private void OnDestroy()
+        {
+            if (instance != this) return;
+            instance = null;
+            createAllowed = false;
         }
     }
 }
