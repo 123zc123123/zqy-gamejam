@@ -18,6 +18,7 @@ namespace DouQuqu
         static readonly Color DeadColor = new Color(0.32f, 0.32f, 0.32f, 0.82f);
         static readonly Color DeadMarkColor = new Color(0.92f, 0.22f, 0.18f, 0.92f);
         static readonly Color CurrentOutline = new Color(1f, 0.86f, 0.28f, 0.95f);
+        static readonly Color ScoreGold = new Color(1f, 0.93f, 0.68f, 1f);
 
         MatchController match;
         readonly CardView[] cards = new CardView[PlayerCount];
@@ -77,11 +78,7 @@ namespace DouQuqu
 
                 int score = match != null ? match.MatchScore(i) : 0;
                 int streak = match != null ? match.KillStreak(i) : 0;
-                if (card.score != null && (force || score != lastScore[i]))
-                {
-                    card.score.text = score.ToString();
-                    lastScore[i] = score;
-                }
+                PaintScore(card, i, score, force);
 
                 if (card.streak != null && (force || streak != lastStreak[i]))
                 {
@@ -99,6 +96,51 @@ namespace DouQuqu
                 PaintSlots(card, i, current, inMatch, currentAlive, force);
                 if (card.group != null) card.group.alpha = inMatch ? 1f : 0.55f;
             }
+        }
+
+        void PaintScore(CardView card, int playerId, int score, bool force)
+        {
+            if (card.score == null) return;
+            card.score.color = ScoreGold;
+            if (!force && score == lastScore[playerId]) return;
+            int prev = lastScore[playerId];
+            card.score.text = score.ToString();
+            lastScore[playerId] = score;
+            if (!force && prev >= 0 && score > prev)
+                SpawnScorePop(card.score, score - prev);
+        }
+
+        static void SpawnScorePop(TMP_Text score, int delta)
+        {
+            if (score == null) return;
+            GameObject go = new GameObject("ScorePop");
+            go.transform.SetParent(score.transform, false);
+            RectTransform rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, 6f);
+            rt.sizeDelta = new Vector2(180f, 44f);
+            rt.localScale = Vector3.one;
+
+            TextMeshProUGUI label = go.AddComponent<TextMeshProUGUI>();
+            if (score.font != null)
+            {
+                label.font = score.font;
+                if (score.fontSharedMaterial != null)
+                    label.fontSharedMaterial = score.fontSharedMaterial;
+            }
+            label.text = "+" + delta;
+            label.fontSize = Mathf.Max(30f, score.fontSize + 4f);
+            label.fontStyle = FontStyles.Bold;
+            label.alignment = TextAlignmentOptions.Center;
+            label.color = ScoreGold;
+            label.raycastTarget = false;
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.outlineWidth = 0.2f;
+            label.outlineColor = new Color(0.28f, 0.16f, 0.04f, 0.95f);
+            go.AddComponent<ScorePopDrift>().Begin(1.7f);
         }
 
         void BindNames()
@@ -371,6 +413,34 @@ namespace DouQuqu
             outline.effectColor = new Color(0.15f, 0.08f, 0f, 0.9f);
             outline.effectDistance = new Vector2(1.2f, -1.2f);
             return text;
+        }
+
+        sealed class ScorePopDrift : MonoBehaviour
+        {
+            float life = 1.7f;
+            float age;
+            RectTransform rt;
+            Vector2 start;
+            CanvasGroup group;
+
+            public void Begin(float duration)
+            {
+                life = Mathf.Max(0.4f, duration);
+                rt = transform as RectTransform;
+                start = rt != null ? rt.anchoredPosition : Vector2.zero;
+                group = gameObject.GetComponent<CanvasGroup>();
+                if (group == null) group = gameObject.AddComponent<CanvasGroup>();
+                group.blocksRaycasts = false;
+            }
+
+            void Update()
+            {
+                age += Time.deltaTime;
+                float t = Mathf.Clamp01(age / life);
+                if (rt != null) rt.anchoredPosition = start + Vector2.up * (36f * t);
+                if (group != null) group.alpha = t < 0.55f ? 1f : 1f - (t - 0.55f) / 0.45f;
+                if (t >= 1f) Destroy(gameObject);
+            }
         }
 
         static Transform FindPlayerCard(Transform root, int playerNumber)
