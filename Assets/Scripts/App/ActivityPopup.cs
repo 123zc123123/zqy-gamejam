@@ -1,47 +1,76 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>主界面「活动介绍」与进战页「玩法规则」共用同一形式的说明弹层。</summary>
+    /// <summary>
+    /// 通用说明弹层：一份 Prefab，文案按 id 从 JSON 填入。
+    /// 主界面活动介绍、进战玩法规则、育虫盘规则都走这里。
+    /// </summary>
     public sealed class ActivityPopup : MonoBehaviour
     {
-        public const string ActivityPrefabPath = "Common/Prefabs/活动介绍";
-        public const string RulesPrefabPath = "Common/Prefabs/玩法介绍";
+        public const string PrefabPath = "Common/Prefabs/InfoPopup";
+        public const string CatalogPath = "Common/Text/info-popups";
+        public const string ActivityId = "activity";
+        public const string RulesId = "rules";
+        public const string MergeId = "merge";
 
         [SerializeField] TMP_Text title;
         [SerializeField] TMP_Text body;
+        [SerializeField] TMP_Text closeLabel;
         [SerializeField] Button closeButton;
         [SerializeField] Button dimButton;
 
         static ActivityPopup instance;
-        static string loadedPath;
+        static Catalog catalog;
 
-        const string ActivityBody =
-            "一戳一蹦跶 · 斗蛐蛐\n\n把对手撞出圈即胜。\n一局 2 分钟；1:30 末口并全员狂暴。\n\n停稳后才能蓄力；蓄不满松手会取消。\n空中不能转向。护盾只挡一次出圈。";
-
-        const string RulesBody =
-            "四人同场，把对手撞出圈即胜。\n一局 2 分钟；1:30 末口并全员狂暴。\n\n停稳后才能蓄力；蓄不满松手会取消。\n空中不能转向。护盾只挡一次出圈。\n\n随机匹配与好友组队各开一房，满员后进入准备。";
+        const string DefaultClose = "知道了";
 
         public static void Show()
         {
-            ShowActivity();
+            ShowId(ActivityId);
         }
 
         public static void ShowActivity()
         {
-            Show(ActivityPrefabPath, "活动介绍", ActivityBody);
+            ShowId(ActivityId);
         }
 
         public static void ShowRules()
         {
-            Show(RulesPrefabPath, "玩法规则", RulesBody);
+            ShowId(RulesId);
+        }
+
+        public static void ShowMerge()
+        {
+            ShowId(MergeId);
+        }
+
+        public static void ShowId(string id)
+        {
+            Entry entry = LoadCatalog().Find(id);
+            if (entry == null)
+            {
+                Debug.LogWarning("[DouQuqu] 没有说明文案 " + id);
+                return;
+            }
+
+            ShowMessage(entry.title, entry.Body, entry.Close);
         }
 
         public static void ShowMessage(string titleText, string bodyText)
         {
-            Show(ActivityPrefabPath, titleText, bodyText);
+            ShowMessage(titleText, bodyText, DefaultClose);
+        }
+
+        public static void ShowMessage(string titleText, string bodyText, string closeText)
+        {
+            ActivityPopup popup = Ensure();
+            if (popup == null) return;
+            popup.Apply(titleText, bodyText, closeText);
+            popup.gameObject.SetActive(true);
         }
 
         public static void Hide()
@@ -81,12 +110,23 @@ namespace DouQuqu
                 Transform found = transform.Find("Dim");
                 if (found != null) dimButton = found.GetComponent<Button>();
             }
+
+            if (closeLabel == null && closeButton != null)
+                closeLabel = closeButton.GetComponentInChildren<TMP_Text>(true);
         }
 
         void BindButtons()
         {
             Wire(dimButton, Hide);
             Wire(closeButton, Hide);
+        }
+
+        void Apply(string titleText, string bodyText, string closeText)
+        {
+            ResolveRefs();
+            if (title != null) title.text = titleText ?? string.Empty;
+            if (body != null) body.text = bodyText ?? string.Empty;
+            if (closeLabel != null) closeLabel.text = string.IsNullOrEmpty(closeText) ? DefaultClose : closeText;
         }
 
         static void Wire(Button button, UnityEngine.Events.UnityAction clicked)
@@ -96,48 +136,43 @@ namespace DouQuqu
             button.onClick.AddListener(clicked);
         }
 
-        static void Show(string prefabPath, string titleText, string bodyText)
+        static ActivityPopup Ensure()
         {
-            ActivityPopup popup = Ensure(prefabPath);
-            if (popup == null) return;
-            popup.ResolveRefs();
-            if (popup.title != null) popup.title.text = titleText;
-            if (popup.body != null) popup.body.text = bodyText;
-            popup.gameObject.SetActive(true);
-        }
+            if (instance != null) return instance;
 
-        static ActivityPopup Ensure(string prefabPath)
-        {
-            if (instance != null && loadedPath == prefabPath)
-                return instance;
-
-            if (instance != null)
-            {
-                instance.gameObject.SetActive(false);
-                Object.Destroy(instance.gameObject);
-                instance = null;
-                loadedPath = null;
-            }
-
-            GameObject prefab = Resources.Load<GameObject>(prefabPath);
+            GameObject prefab = Resources.Load<GameObject>(PrefabPath);
             if (prefab != null)
             {
-                GameObject go = Object.Instantiate(prefab);
+                GameObject go = Instantiate(prefab);
                 go.name = prefab.name;
                 instance = go.GetComponent<ActivityPopup>();
                 if (instance == null) instance = go.AddComponent<ActivityPopup>();
-                loadedPath = prefabPath;
                 return instance;
             }
 
             instance = CreateRuntime();
-            loadedPath = prefabPath;
             return instance;
+        }
+
+        static Catalog LoadCatalog()
+        {
+            if (catalog != null) return catalog;
+
+            catalog = new Catalog();
+            TextAsset asset = Resources.Load<TextAsset>(CatalogPath);
+            if (asset != null && !string.IsNullOrEmpty(asset.text))
+            {
+                CatalogDto dto = JsonUtility.FromJson<CatalogDto>(asset.text);
+                catalog.Add(dto);
+            }
+
+            if (catalog.Count == 0) catalog.AddFallback();
+            return catalog;
         }
 
         static ActivityPopup CreateRuntime()
         {
-            GameObject canvasObject = new GameObject("ActivityPopupCanvas",
+            GameObject canvasObject = new GameObject("InfoPopup",
                 typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -148,11 +183,12 @@ namespace DouQuqu
             scaler.matchWidthOrHeight = 1f;
 
             ActivityPopup popup = canvasObject.AddComponent<ActivityPopup>();
-            BuildVisual(canvasObject.transform, popup, "活动介绍", ActivityBody);
+            BuildVisual(canvasObject.transform, popup);
+            canvasObject.SetActive(false);
             return popup;
         }
 
-        internal static void BuildVisual(Transform root, ActivityPopup popup, string titleText, string bodyText)
+        static void BuildVisual(Transform root, ActivityPopup popup)
         {
             Image dim = MakeImage(root, "Dim", new Color(0.05f, 0.03f, 0.02f, 0.62f));
             Stretch(dim.rectTransform);
@@ -169,11 +205,11 @@ namespace DouQuqu
             outline.effectColor = new Color(0.55f, 0.38f, 0.16f, 1f);
             outline.effectDistance = new Vector2(5f, -5f);
 
-            TMP_Text title = MakeLabel(panelRect, "Title", titleText, 58f,
+            TMP_Text title = MakeLabel(panelRect, "Title", string.Empty, 58f,
                 new Vector2(0.08f, 0.78f), new Vector2(0.92f, 0.94f),
                 new Color(0.45f, 0.18f, 0.12f, 1f), TextAlignmentOptions.Center);
 
-            TMP_Text body = MakeLabel(panelRect, "Body", bodyText, 34f,
+            TMP_Text body = MakeLabel(panelRect, "Body", string.Empty, 34f,
                 new Vector2(0.10f, 0.24f), new Vector2(0.90f, 0.76f),
                 new Color(0.28f, 0.16f, 0.10f, 1f), TextAlignmentOptions.TopLeft);
 
@@ -183,6 +219,7 @@ namespace DouQuqu
             popup.title = title;
             popup.body = body;
             popup.closeButton = close;
+            popup.closeLabel = close.GetComponentInChildren<TMP_Text>(true);
             popup.dimButton = dimButton;
         }
 
@@ -223,13 +260,13 @@ namespace DouQuqu
             GameObject go;
             if (prefab != null)
             {
-                go = Object.Instantiate(prefab, parent, false);
+                go = Instantiate(prefab, parent, false);
             }
             else
             {
                 go = new GameObject("CloseButton", typeof(RectTransform), typeof(Image), typeof(Button));
                 go.transform.SetParent(parent, false);
-                MakeLabel(go.transform, "Label", "知道了", 56f, Vector2.zero, Vector2.one,
+                MakeLabel(go.transform, "Label", DefaultClose, 56f, Vector2.zero, Vector2.one,
                     Color.white, TextAlignmentOptions.Center);
             }
 
@@ -252,7 +289,7 @@ namespace DouQuqu
             TMP_Text tmp = go.GetComponentInChildren<TMP_Text>(true);
             if (tmp != null)
             {
-                tmp.text = "知道了";
+                tmp.text = DefaultClose;
                 tmp.color = Color.white;
                 tmp.raycastTarget = false;
             }
@@ -274,6 +311,121 @@ namespace DouQuqu
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+        }
+
+        sealed class Catalog
+        {
+            readonly Entry[] buffer = new Entry[8];
+            int count;
+
+            public int Count { get { return count; } }
+
+            public void Add(CatalogDto dto)
+            {
+                if (dto == null || dto.entries == null) return;
+                for (int i = 0; i < dto.entries.Length; i++)
+                {
+                    EntryDto raw = dto.entries[i];
+                    if (raw == null || string.IsNullOrEmpty(raw.id)) continue;
+                    Add(new Entry(raw.id, raw.title, raw.close, raw.lines));
+                }
+            }
+
+            public void AddFallback()
+            {
+                Add(new Entry(ActivityId, "活动介绍", DefaultClose, new[]
+                {
+                    "一戳一蹦跶 · 斗蛐蛐",
+                    "",
+                    "把对手撞出圈即胜。",
+                    "一局 2 分钟；1:30 末口并全员狂暴。",
+                    "",
+                    "停稳后才能蓄力；蓄不满松手会取消。",
+                    "空中不能转向。护盾只挡一次出圈。"
+                }));
+                Add(new Entry(RulesId, "玩法规则", DefaultClose, new[]
+                {
+                    "四人同场，把对手撞出圈即胜。",
+                    "一局 2 分钟；1:30 末口并全员狂暴。",
+                    "",
+                    "停稳后才能蓄力；蓄不满松手会取消。",
+                    "空中不能转向。护盾只挡一次出圈。",
+                    "",
+                    "随机匹配与好友组队各开一房，满员后进入准备。"
+                }));
+            }
+
+            public Entry Find(string id)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    if (buffer[i].id == id) return buffer[i];
+                }
+
+                return null;
+            }
+
+            void Add(Entry entry)
+            {
+                if (entry == null || count >= buffer.Length) return;
+                for (int i = 0; i < count; i++)
+                {
+                    if (buffer[i].id == entry.id)
+                    {
+                        buffer[i] = entry;
+                        return;
+                    }
+                }
+
+                buffer[count++] = entry;
+            }
+        }
+
+        sealed class Entry
+        {
+            public readonly string id;
+            public readonly string title;
+            readonly string close;
+            readonly string body;
+
+            public Entry(string id, string title, string close, string[] lines)
+            {
+                this.id = id;
+                this.title = title ?? string.Empty;
+                this.close = close;
+                body = JoinLines(lines);
+            }
+
+            public string Close
+            {
+                get { return string.IsNullOrEmpty(close) ? DefaultClose : close; }
+            }
+
+            public string Body
+            {
+                get { return body; }
+            }
+
+            static string JoinLines(string[] lines)
+            {
+                if (lines == null || lines.Length == 0) return string.Empty;
+                return string.Join("\n", lines);
+            }
+        }
+
+        [Serializable]
+        sealed class CatalogDto
+        {
+            public EntryDto[] entries;
+        }
+
+        [Serializable]
+        sealed class EntryDto
+        {
+            public string id;
+            public string title;
+            public string close;
+            public string[] lines;
         }
     }
 }

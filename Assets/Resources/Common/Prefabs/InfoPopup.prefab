@@ -65,7 +65,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u6D3B\u52A8\u4ECB\u7ECD"
+  m_text: "\u6807\u9898"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
   m_sharedMaterial: {fileID: 2100000, guid: 4da42015485c09a45a04258c9b2e7424, type: 2}
@@ -242,12 +242,12 @@ GameObject:
   - component: {fileID: 6009200540737646313}
   - component: {fileID: 6627864512874782360}
   m_Layer: 5
-  m_Name: "\u6D3B\u52A8\u4ECB\u7ECD"
+  m_Name: InfoPopup
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2887435984439737024
 RectTransform:
   m_ObjectHideFlags: 0
@@ -346,6 +346,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   title: {fileID: 4940488767140279260}
   body: {fileID: 7436178611006640866}
+  closeLabel: {fileID: 7860468449366440288}
   closeButton: {fileID: 3920151401928530358}
   dimButton: {fileID: 6699161800690840883}
 --- !u!1 &7026099956952724880
@@ -533,8 +534,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u4E00\u6233\u4E00\u8E66\u8DF6 \xB7 \u6597\u86D0\u86D0\n\n\u628A\u5BF9\u624B\u649E\u51FA\u5708\u5373\u80DC\u3002\n\u4E00\u5C40
-    2 \u5206\u949F\uFF1B1:30 \u672B\u53E3\u5E76\u5168\u5458\u72C2\u66B4\u3002\n\n\u505C\u7A33\u540E\u624D\u80FD\u84C4\u529B\uFF1B\u84C4\u4E0D\u6EE1\u677E\u624B\u4F1A\u53D6\u6D88\u3002\n\u7A7A\u4E2D\u4E0D\u80FD\u8F6C\u5411\u3002\u62A4\u76FE\u53EA\u6321\u4E00\u6B21\u51FA\u5708\u3002"
+  m_text: "\u6B63\u6587"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
   m_sharedMaterial: {fileID: -1070561013298322078, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
@@ -780,3 +780,14 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7860468449366440288 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2127690620035395355, guid: bb1cb999ee7aafd449add35c88997fa9, type: 3}
+  m_PrefabInstance: {fileID: 8111806673347483259}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
