@@ -391,6 +391,7 @@ private void FitPitToHud()
             {
                 if (images[i] == null) continue;
                 if (images[i].GetComponent<HudStick>() != null) continue;
+                if (images[i].GetComponentInParent<EliminationPage>() != null) continue;
                 images[i].raycastTarget = false;
             }
 

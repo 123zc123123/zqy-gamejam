@@ -274,6 +274,11 @@ namespace DouQuqu
                 if (state.bugs[i].chargeDirection.sqrMagnitude < 0.01f) state.bugs[i].chargeDirection = Vector2.up;
                 state.bugs[i].slideMu = Rules.GripOf(knobs, state.bugs[i]);
                 ApplyPickToBug(state.bugs[i], i, 0);
+                if (!Rules.InsideArena(state.bugs[i].position, state.bugs[i].radius))
+                {
+                    state.bugs[i].position = Rules.ClampInsideArena(state.bugs[i].position, state.bugs[i].radius);
+                    state.bugs[i].previousPosition = state.bugs[i].position;
+                }
                 // 客户端不推进本地模拟；主机和离线模式只保留本地真人槽位，其余交给确定性 AI。
                 state.humanPlayers[i] = runMode == MatchRunMode.Client || i < offlineHumanPlayers;
             }
