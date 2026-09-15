@@ -173,12 +173,6 @@ namespace DouQuqu
             SetNamedAny(row, "第" + rank + "名", RankTitleNodes);
             PlayerPalette.BindAvatar(row, true);
             ApplyChrome(row, rank, mine);
-            TMP_Text[] labels = row.GetComponentsInChildren<TMP_Text>(true);
-            for (int i = 0; i < labels.Length; i++)
-            {
-                if (labels[i] == null) continue;
-                labels[i].fontStyle = mine ? FontStyles.Bold : FontStyles.Normal;
-            }
         }
 
         private static bool IsPodiumRow(Transform row)

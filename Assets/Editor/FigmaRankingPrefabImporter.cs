@@ -269,7 +269,6 @@ public static class FigmaRankingPrefabImporter
         text.raycastTarget = false;
         text.richText = false;
         text.margin = Vector4.zero;
-        if (fontSize >= 48f) text.fontStyle = FontStyles.Bold;
     }
 
     static void SetChildText(GameObject instance, string childName, string value)
