@@ -19,7 +19,6 @@ namespace DouQuqu
         private EliminationPage eliminationPage;
         private GameObject trainingExitRoot;
         private GameObject spectateLeaveRoot;
-        private bool spectating;
         private TouchInput touchInput;
         private MatchKind matchKind;
         private bool resultShown;
@@ -360,7 +359,6 @@ namespace DouQuqu
 
         private void SpectateBattlefield()
         {
-            spectating = true;
             HideElimination();
             if (settlementPage != null) settlementPage.HideForSpectate();
             DisableLocalInput();

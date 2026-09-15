@@ -98,7 +98,6 @@ namespace DouQuqu
         private bool battleStarting;
         private bool battleStartEventRaised;
         private int matchSeed;
-        private bool battlePrepared;
         private float startBroadcastRemaining;
         private float startBroadcastTick;
         private string finalSnapshotBody;
@@ -239,7 +238,6 @@ namespace DouQuqu
             matchReadyEventRaised = false;
             battleStarting = false;
             battleStartEventRaised = false;
-            battlePrepared = false;
             matchSeed = 0;
             startBroadcastRemaining = 0f;
             pendingSelectionReadyRequest = false;
@@ -288,7 +286,6 @@ namespace DouQuqu
                 for (int i = 0; i < roomCapacity && i < slots.Length; i++)
                     match.SetPlayerHuman(i, slots[i].connected && !slots[i].isBot);
                 match.StartMatch();
-                battlePrepared = true;
                 BroadcastSnapshot();
             }
             else
@@ -456,7 +453,6 @@ namespace DouQuqu
                 matchReadyEventRaised = false;
                 battleStarting = false;
                 battleStartEventRaised = false;
-                battlePrepared = false;
                 matchSeed = 0;
                 startBroadcastRemaining = 0f;
                 pendingSnapshot = null;
@@ -557,7 +553,6 @@ namespace DouQuqu
             battleStarting = false;
             battleStartEventRaised = false;
             matchSeed = 0;
-            battlePrepared = false;
             startBroadcastRemaining = 0f;
             startBroadcastTick = 0f;
             finalSnapshotBody = null;
