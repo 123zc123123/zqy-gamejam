@@ -169,7 +169,8 @@ namespace DouQuqu
                 CollectExistingCards(cardGrid);
             }
 
-            Transform group = FindNamed(backpack, "Group 7");
+            Transform group = FindNamed(backpack, "tab");
+            if (group == null) group = FindNamed(backpack, "Group 7");
             if (group != null) BindFilterTabs(group);
         }
 
@@ -180,8 +181,14 @@ namespace DouQuqu
             for (int i = 0; i < group.childCount; i++)
             {
                 Transform child = group.GetChild(i);
-                if (child.name.StartsWith("Frame") || child.name.IndexOf("PackPersonalitySwitchTab") >= 0)
+                string n = child.name;
+                if (n.StartsWith("Frame") || n.StartsWith("tab") || n.IndexOf("PackPersonalitySwitchTab") >= 0)
                     frames.Add(child);
+            }
+            if (frames.Count == 0)
+            {
+                for (int i = 0; i < group.childCount; i++)
+                    frames.Add(group.GetChild(i));
             }
             frames.Sort((a, b) =>
             {
@@ -206,6 +213,7 @@ namespace DouQuqu
                 };
                 filterTabs.Add(tab);
                 int captured = i;
+                frame.SetAsLastSibling();
                 BindClick(frame.gameObject, () =>
                 {
                     filterTemperament = captured;
