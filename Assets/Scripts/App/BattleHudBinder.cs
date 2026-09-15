@@ -140,9 +140,9 @@ namespace DouQuqu
         {
             int amount;
             if (TryParseTagged(kind, "steal-gain:", out amount))
-                ShowStaminaDelta(world, "耐力+" + amount, new Color(1f, 0.42f, 0.74f, 1f));
+                ShowStaminaDelta(world, "耐力+" + amount, new Color(1f, 0.35f, 0.82f, 1f));
             else if (TryParseTagged(kind, "steal-loss:", out amount))
-                ShowStaminaDelta(world, "耐力-" + amount, new Color(1f, 0.28f, 0.22f, 1f));
+                ShowStaminaDelta(world, "耐力-" + amount, new Color(1f, 0.18f, 0.16f, 1f));
         }
 
         static bool TryParseTagged(string kind, string prefix, out int amount)
@@ -184,11 +184,17 @@ namespace DouQuqu
             label.fontSize = 36f;
             label.fontStyle = FontStyles.Bold;
             label.alignment = TextAlignmentOptions.Center;
-            label.color = color;
             label.raycastTarget = false;
-            label.outlineWidth = 0.35f;
-            label.outlineColor = new Color(0f, 0f, 0f, 0.95f);
-            go.AddComponent<HudStaminaDrift>().Begin(1.1f);
+            if (font != null)
+            {
+                label.fontMaterial = new Material(font.material);
+                label.fontMaterial.SetColor("_FaceColor", Color.white);
+            }
+            label.color = color;
+            label.faceColor = color;
+            label.outlineWidth = 0.2f;
+            label.outlineColor = new Color(0f, 0f, 0f, 0.9f);
+            go.AddComponent<HudStaminaDrift>().Begin(2.2f);
         }
 
         static RectTransform EnsureDeltaCanvas()
@@ -528,8 +534,8 @@ private void FitPitToHud()
         {
             age += Time.deltaTime;
             float t = Mathf.Clamp01(age / life);
-            if (rt != null) rt.anchoredPosition = start + Vector2.up * (140f * t);
-            if (group != null) group.alpha = 1f - t;
+            if (rt != null) rt.anchoredPosition = start + Vector2.up * (28f * t);
+            if (group != null) group.alpha = t < 0.7f ? 1f : 1f - (t - 0.7f) / 0.3f;
             if (t >= 1f) Destroy(gameObject);
         }
     }

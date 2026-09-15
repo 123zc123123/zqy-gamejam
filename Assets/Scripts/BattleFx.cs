@@ -118,12 +118,12 @@ namespace DouQuqu
             if (TryParseTagged(kind, "steal-gain:", out amount))
             {
                 Play("heart", world + Vector3.up * FxHeight, burstScale * 0.7f, 1.2f);
-                BattleHudBinder.ShowStaminaDelta(world, "耐力+" + amount, new Color(1f, 0.42f, 0.74f, 1f));
+                BattleHudBinder.ShowStaminaDelta(world, "耐力+" + amount, new Color(1f, 0.35f, 0.82f, 1f));
                 return;
             }
             if (TryParseTagged(kind, "steal-loss:", out amount))
             {
-                BattleHudBinder.ShowStaminaDelta(world, "耐力-" + amount, new Color(1f, 0.28f, 0.22f, 1f));
+                BattleHudBinder.ShowStaminaDelta(world, "耐力-" + amount, new Color(1f, 0.18f, 0.16f, 1f));
                 return;
             }
             if (kind == "steal")
