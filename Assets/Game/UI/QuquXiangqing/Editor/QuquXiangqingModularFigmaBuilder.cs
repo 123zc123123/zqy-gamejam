@@ -148,7 +148,9 @@ namespace ZqyGameJam.UI.QuquXiangqing.Editor
         static GameObject BuildDescription()
         {
             GameObject copy=TextNode("古典描述","龟形鹤项虾脊梁，头如蚕嘴肚如琴\n识者若逢此促织，这般号作大将军",new Vector2(844,116),32,Ink,false);
-            copy.GetComponent<TextMeshProUGUI>().lineSpacing=12;
+            TextMeshProUGUI copyText=copy.GetComponent<TextMeshProUGUI>();
+            copyText.lineSpacing=12;
+            copyText.enableWordWrapping=true;
             GameObject copyPrefab=SavePart(copy,"DescriptionText.prefab");
             GameObject group=Rect("classical-description",new Vector2(876,72),At(48,563,876,72));
             Nest(group,copyPrefab,Inside(16,0,844,116,876,72));

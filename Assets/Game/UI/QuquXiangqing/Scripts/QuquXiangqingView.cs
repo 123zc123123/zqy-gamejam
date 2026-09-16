@@ -161,6 +161,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
             Write(descriptionText, description ?? "");
             if (descriptionText != null)
             {
+                FitDescription(descriptionText);
                 if (!descriptionHomeCaptured)
                 {
                     descriptionHome = descriptionText.color;
@@ -276,6 +277,22 @@ namespace ZqyGameJam.UI.QuquXiangqing
         {
             if (label == null) return;
             label.text = value;
+            label.ForceMeshUpdate();
+        }
+
+        /// <summary>技能备注比占位诗句更长，打开换行并按框收缩，避免吕布那句画出卡片。</summary>
+        static void FitDescription(TMP_Text label)
+        {
+            label.enableWordWrapping = true;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.alignment = TextAlignmentOptions.Center;
+            float max = label.fontSize > 0f ? label.fontSize : 36f;
+            label.enableAutoSizing = true;
+            label.fontSizeMax = max;
+            label.fontSizeMin = Mathf.Min(22f, max);
+            RectTransform rect = label.rectTransform;
+            if (rect != null && rect.rect.height < 100f)
+                rect.sizeDelta = new Vector2(Mathf.Max(rect.sizeDelta.x, 844f), 116f);
             label.ForceMeshUpdate();
         }
 
