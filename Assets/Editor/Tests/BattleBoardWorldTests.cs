@@ -214,34 +214,16 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void NarrowParentFillsDesignWithoutLetterbox()
-        {
-            RectTransform parent;
-            RectTransform design;
-            CreateDesign(720f, 1920f, out parent, out design);
-            BattleHudBinder.FitDesignToParent(design);
-            AssertDesignFillsParent(parent, design);
-            Object.DestroyImmediate(parent.gameObject);
-        }
-
-        [Test]
-        public void TallParentFillsDesignWithoutLetterbox()
+        public void DesignSizeStaysPrefab1080By1920()
         {
             RectTransform parent;
             RectTransform design;
             CreateDesign(1080f, 2400f, out parent, out design);
             BattleHudBinder.FitDesignToParent(design);
-            AssertDesignFillsParent(parent, design);
-            Object.DestroyImmediate(parent.gameObject);
-        }
-
-        static void AssertDesignFillsParent(RectTransform parent, RectTransform design)
-        {
+            Assert.AreEqual(1080f, design.sizeDelta.x, 0.05f);
+            Assert.AreEqual(1920f, design.sizeDelta.y, 0.05f);
             Assert.AreEqual(1f, design.localScale.x, 1e-4f);
-            Assert.AreEqual(1f, design.localScale.y, 1e-4f);
-            Assert.AreEqual(1f, design.localScale.z, 1e-4f);
-            Assert.AreEqual(parent.rect.width, design.rect.width, 0.05f);
-            Assert.AreEqual(parent.rect.height, design.rect.height, 0.05f);
+            Object.DestroyImmediate(parent.gameObject);
         }
 
         static void CreateDesign(float parentW, float parentH, out RectTransform parent, out RectTransform design)
@@ -278,6 +260,22 @@ namespace DouQuqu.Editor.Tests
             cam.UseDesignFrame(1080f, 2400f);
             cam.FrameOpeningPanorama();
             Assert.AreEqual(halfD, cam.Cam.orthographicSize, 1e-3f);
+        }
+
+        [Test]
+        public void PlayViewUsesDesignWidthNotField2()
+        {
+            BattleCamera cam = CreateCam();
+            cam.UseDesignFrame(1080f, 1920f);
+            cam.UsePlayDesign(1080f, 1920f);
+            cam.FollowLocalPlayer(null, 0);
+            Vector2 last = Rules.ZoneHalfExtents(null, Rules.LastZoneTier);
+            Vector2 view = Rules.DesignViewHalfExtents(1080f, 1920f);
+            Assert.Greater(view.x, last.x);
+            Assert.AreEqual(last.x * 1080f / Rules.FieldRulerWidth, view.x, 1e-4f);
+            float aspect = 1080f / 1920f;
+            float expectedSize = Mathf.Max(view.y, view.x / aspect);
+            Assert.AreEqual(expectedSize, cam.Cam.orthographicSize, 1e-3f);
         }
 
         [Test]

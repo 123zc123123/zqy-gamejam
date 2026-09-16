@@ -44,6 +44,8 @@ namespace DouQuqu
         private bool hasPanorama;
         private float designAspect = 1080f / 1920f;
         private bool hasDesignAspect;
+        private float playDesignW = 1080f;
+        private float playDesignH = 1920f;
 
         public Camera Cam
         {
@@ -145,6 +147,13 @@ namespace DouQuqu
             designAspect = Mathf.Max(0.01f, width) / Mathf.Max(0.01f, height);
             hasDesignAspect = true;
             Fit();
+        }
+
+        /// <summary>局内窗口用预制体设计尺寸，不按 field-2 铺满。</summary>
+        public void UsePlayDesign(float width, float height)
+        {
+            playDesignW = Mathf.Max(0.01f, width);
+            playDesignH = Mathf.Max(0.01f, height);
         }
 
         public void FrameWorld(Vector3 center, float halfW, float halfD, float duration)
@@ -257,7 +266,7 @@ namespace DouQuqu
             FrameWorld(Vector3.zero, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, 0f);
         }
 
-        /// <summary>对局中软跟随自己的虫；窗口锁成最后一档大小。</summary>
+        /// <summary>对局中软跟随自己的虫；窗口按预制体设计尺寸，1080 铺满时 field-2 留边。</summary>
         public void FollowLocalPlayer(MatchController match, int playerId)
         {
             godView = false;
@@ -268,9 +277,9 @@ namespace DouQuqu
             snapPullElapsed = 1f;
             fillView = false;
             padding = 0f;
-            Vector2 last = Rules.ZoneHalfExtents(match != null ? match.Knobs : null, Rules.LastZoneTier);
-            targetHalfW = Mathf.Max(0.01f, last.x);
-            targetHalfD = Mathf.Max(0.01f, last.y);
+            Vector2 view = Rules.DesignViewHalfExtents(playDesignW, playDesignH);
+            targetHalfW = Mathf.Max(0.01f, view.x);
+            targetHalfD = Mathf.Max(0.01f, view.y);
             hasFrame = true;
             toSize = ComputeSize();
             ApplySize(toSize);

@@ -299,6 +299,19 @@ namespace DouQuqu
         /// <summary>当初 field-2 的宽，对应世界半宽 21.2。比例尺锁在这，不随以后改 field 重算。</summary>
         public const float FieldRulerWidth = 920f;
         public const float MetersPerFieldUnit = (DefaultArenaHalfWidth * 2f) / FieldRulerWidth;
+
+        /// <summary>
+        /// 局内镜头窗口：预制体设计框（默认 1080×1920）按 field 尺换成世界半宽/半深。
+        /// 920 的 field-2 比 1080 窄，所以这个窗口比最后一档有效区大，1080 铺满时 field-2 留边。
+        /// </summary>
+        public static Vector2 DesignViewHalfExtents(float designW, float designH)
+        {
+            float ruler = Mathf.Max(0.01f, FieldRulerWidth);
+            float half = DefaultArenaHalfWidth;
+            return new Vector2(
+                half * Mathf.Max(0.01f, designW) / ruler,
+                half * Mathf.Max(0.01f, designH) / ruler);
+        }
         public static float ArenaHalfWidth = DefaultArenaHalfWidth;
         public static float ArenaHalfDepth = DefaultArenaHalfDepth;
         public static float ArenaCorner = DefaultArenaCorner;

@@ -417,40 +417,57 @@ namespace DouQuqu
         public const float DesignHeight = 1920f;
 
         /// <summary>
-        /// 设计框铺满父节点，背景不再被 1080×1920 letterbox 裁掉。
-        /// 镜头仍按这块框的实际宽高比 contain。
+        /// defaultDesignSize 保持预制体 1080×1920，当镜头尺子。
+        /// Battlefield 铺满画布，背景不被 letterbox 裁掉。
         /// </summary>
         private void FitDesignSize()
         {
             if (designRoot == null)
                 designRoot = FindNamed(transform, "defaultDesignSize") as RectTransform;
             RectTransform design = designRoot;
-            if (design == null) return;
-            FitDesignToParent(design);
-            if (pit != null && pit.parent == design)
+            if (design != null)
+                FitDesignToParent(design);
+            FillPlayView();
+            if (fitter != null)
             {
-                pit.anchorMin = Vector2.zero;
-                pit.anchorMax = Vector2.one;
-                pit.pivot = new Vector2(0.5f, 0.5f);
-                pit.offsetMin = Vector2.zero;
-                pit.offsetMax = Vector2.zero;
-                pit.localScale = Vector3.one;
-                pit.localRotation = Quaternion.identity;
+                Vector2 size = DesignSize();
+                fitter.UsePlayDesign(size.x, size.y);
             }
-
-            if (fitter != null && design.rect.width > 1f && design.rect.height > 1f)
-                fitter.UseDesignFrame(design.rect.width, design.rect.height);
         }
 
-        /// <returns>铺满父节点时缩放为 1。</returns>
+        Vector2 DesignSize()
+        {
+            if (designRoot != null && designRoot.sizeDelta.x > 1f && designRoot.sizeDelta.y > 1f)
+                return designRoot.sizeDelta;
+            return new Vector2(DesignWidth, DesignHeight);
+        }
+
+        void FillPlayView()
+        {
+            if (pit == null) return;
+            RectTransform host = transform as RectTransform;
+            if (host == null) return;
+            if (pit.parent != host)
+                pit.SetParent(host, false);
+            pit.SetAsFirstSibling();
+            pit.anchorMin = Vector2.zero;
+            pit.anchorMax = Vector2.one;
+            pit.pivot = new Vector2(0.5f, 0.5f);
+            pit.offsetMin = Vector2.zero;
+            pit.offsetMax = Vector2.zero;
+            pit.localScale = Vector3.one;
+            pit.localRotation = Quaternion.identity;
+        }
+
+        /// <returns>设计框保持预制体尺寸时缩放为 1。</returns>
         public static float FitDesignToParent(RectTransform design, float designWidth = DesignWidth, float designHeight = DesignHeight)
         {
             if (design == null) return 1f;
-            design.anchorMin = Vector2.zero;
-            design.anchorMax = Vector2.one;
-            design.pivot = new Vector2(0.5f, 0.5f);
+            designWidth = Mathf.Max(1f, designWidth);
+            designHeight = Mathf.Max(1f, designHeight);
+            design.anchorMin = design.anchorMax = design.pivot = new Vector2(0.5f, 0.5f);
             design.anchoredPosition = Vector2.zero;
-            design.sizeDelta = Vector2.zero;
+            design.sizeDelta = new Vector2(designWidth, designHeight);
             design.localRotation = Quaternion.identity;
             design.localScale = Vector3.one;
             return 1f;
@@ -485,9 +502,8 @@ namespace DouQuqu
 
             fitter = battleCam.GetComponent<BattleCamera>();
             if (fitter == null) fitter = battleCam.gameObject.AddComponent<BattleCamera>();
-            RectTransform design = FindNamed(transform, "defaultDesignSize") as RectTransform;
-            if (design != null) fitter.UseDesignFrame(design.rect.width, design.rect.height);
-            else fitter.UseDesignFrame(DesignWidth, DesignHeight);
+            Vector2 design = DesignSize();
+            fitter.UsePlayDesign(design.x, design.y);
             fitter.UseHudFill();
 
             battleCam.transform.position = new Vector3(0f, 50f, 0f);

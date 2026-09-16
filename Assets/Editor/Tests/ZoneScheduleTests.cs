@@ -304,6 +304,9 @@ namespace DouQuqu.Editor.Tests
             Assert.AreEqual(42.4f, open.x, 1e-3f);
             Assert.AreEqual(2740f * Rules.MetersPerFieldUnit * 0.5f, open.y, 1e-3f);
             Assert.AreEqual(21.2f, last.x, 1e-3f);
+            Vector2 design = Rules.DesignViewHalfExtents(1080f, 1920f);
+            Assert.AreEqual(last.x * 1080f / Rules.FieldRulerWidth, design.x, 1e-4f);
+            Assert.Greater(design.x, last.x);
             Rules.ApplyZoneTier(knobs, 0);
             Assert.AreEqual(open.x, Rules.ArenaHalfWidth, 1e-3f);
             Assert.AreEqual(open.y, Rules.ArenaHalfDepth, 1e-3f);
