@@ -25,7 +25,7 @@ namespace DouQuqu
         private bool friendRoom;
         private bool matching;
 
-        private const float RandomMatchTimeout = 10f;
+        private const float RandomMatchTimeout = 30f;
 
         public bool InRoom { get; private set; }
 

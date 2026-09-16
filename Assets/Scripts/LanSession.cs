@@ -99,7 +99,7 @@ namespace DouQuqu
         private bool automaticMatchmaking;
         private float automaticElapsed;
         private float hostPromotionDelay;
-        private float automaticTimeout = 10f;
+        private float automaticTimeout = 30f;
         private bool matchReady;
         private bool matchReadyEventRaised;
         private bool battleStarting;
@@ -227,9 +227,9 @@ namespace DouQuqu
 
         /// <summary>
         /// 开始一键匹配。先查找局域网房间，短时间没有响应则自动创建主机；
-        /// 房间满四人立即开始，否则总等待十秒后用机器人补齐。
+        /// 房间满四人立即开始，否则总等待三十秒后用机器人补齐。
         /// </summary>
-        public void StartAutomaticMatchmaking(string playerName, float timeoutSeconds = 10f)
+        public void StartAutomaticMatchmaking(string playerName, float timeoutSeconds = 30f)
         {
             SetLocalPlayerName(playerName);
             StartClient();
@@ -430,7 +430,7 @@ namespace DouQuqu
         /// 服务器只推进 MatchController，不显示战斗界面；手机端作为四个客户端加入。
         /// </summary>
         public void StartDedicatedServer(MatchController serverMatch, int players = MatchController.MaxPlayers,
-            float matchmakingTimeout = 10f)
+            float matchmakingTimeout = 30f)
         {
             Stop();
             dedicatedServer = true;
