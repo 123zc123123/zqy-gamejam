@@ -212,7 +212,7 @@ namespace DouQuqu
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (!enabled) return;
+            if (!enabled || DialogueBoxView.IsPlaying) return;
             SummonTo(eventData.position, eventData.pressEventCamera);
             summoned = true;
             holding = true;
@@ -225,7 +225,7 @@ namespace DouQuqu
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (!enabled || !holding) return;
+            if (!enabled || !holding || DialogueBoxView.IsPlaying) return;
             UpdateDrag(eventData);
         }
 

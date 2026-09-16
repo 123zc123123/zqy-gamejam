@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.battle_bound
+title: 新手 · 第一场出圈
+---
+
+## 1. 老头 · 出边
+> mood: warm
+> avatar: oldman
+
+老头：看见桌子沿了吗？身体出了这条边就算出局。
+
+## 2. 老头 · 一条命
+> mood: warm
+> avatar: oldman
+
+老头：这场每人一条命，出去就没了。

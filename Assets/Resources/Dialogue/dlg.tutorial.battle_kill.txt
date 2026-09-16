@@ -1,0 +1,22 @@
+---
+id: dlg.tutorial.battle_kill
+title: 新手 · 第一场击杀
+---
+
+## 1. 老头 · 得分
+> mood: warm
+> avatar: oldman
+
+老头：最后一下把别人撞出边，你就得分。
+
+## 2. 老头 · 训练营
+> mood: warm
+> avatar: oldman
+
+老头：训练营只记本局击杀分，不加进账号。
+
+## 3. 老头 · 去撞
+> mood: warm
+> avatar: oldman
+
+老头：以后去匹配、组队才会进账号。你把前面这只撞出去。

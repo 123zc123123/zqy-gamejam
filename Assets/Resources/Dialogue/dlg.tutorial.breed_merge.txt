@@ -1,0 +1,10 @@
+---
+id: dlg.tutorial.breed_merge
+title: 新手 · 拖合成
+---
+
+## 1. 老头 · 拖一起
+> mood: warm
+> avatar: oldman
+
+老头：把两只幼虫拖到一起。

@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.battle_shield
+title: 新手 · 第一场护盾
+---
+
+## 1. 老头 · 护罩
+> mood: warm
+> avatar: oldman
+
+老头：这个是护罩，碰到就套上。
+
+## 2. 老头 · 碎掉
+> mood: warm
+> avatar: oldman
+
+老头：要是被撞出边，护罩会把你拉回来一次，然后碎掉。

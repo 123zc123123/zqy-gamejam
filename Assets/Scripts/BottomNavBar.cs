@@ -127,6 +127,52 @@ namespace DouQuqu
             Highlight(BottomNavTab.NavModule.Battle, false);
         }
 
+        public BottomNavTab FindTab(BottomNavTab.NavModule module)
+        {
+            BottomNavTab[] tabs = GetComponentsInChildren<BottomNavTab>(true);
+            for (int i = 0; i < tabs.Length; i++)
+                if (tabs[i] != null && tabs[i].ModuleId == module) return tabs[i];
+            return null;
+        }
+
+        public ScrollRect Scroll
+        {
+            get { return GetComponentInChildren<ScrollRect>(true); }
+        }
+
+        public float NormalizedToReveal(RectTransform tab)
+        {
+            ScrollRect scroll = Scroll;
+            if (scroll == null || scroll.content == null || tab == null)
+                return 0f;
+
+            Canvas.ForceUpdateCanvases();
+            RectTransform viewport = scroll.viewport != null ? scroll.viewport : scroll.transform as RectTransform;
+            if (viewport == null) return scroll.horizontalNormalizedPosition;
+
+            float viewW = viewport.rect.width;
+            float contentW = scroll.content.rect.width;
+            if (contentW <= viewW + 1f) return 0f;
+
+            Vector3[] tabCorners = new Vector3[4];
+            Vector3[] viewCorners = new Vector3[4];
+            tab.GetWorldCorners(tabCorners);
+            viewport.GetWorldCorners(viewCorners);
+            float tabLeft = scroll.content.InverseTransformPoint(tabCorners[0]).x;
+            float tabRight = scroll.content.InverseTransformPoint(tabCorners[2]).x;
+            float viewLeft = scroll.content.InverseTransformPoint(viewCorners[0]).x;
+            float viewRight = scroll.content.InverseTransformPoint(viewCorners[2]).x;
+
+            float shift = 0f;
+            if (tabLeft < viewLeft) shift = tabLeft - viewLeft;
+            else if (tabRight > viewRight) shift = tabRight - viewRight;
+            if (Mathf.Abs(shift) < 1f) return scroll.horizontalNormalizedPosition;
+
+            float maxScroll = contentW - viewW;
+            float next = Mathf.Clamp(scroll.horizontalNormalizedPosition * maxScroll + shift, 0f, maxScroll);
+            return next / maxScroll;
+        }
+
         private void EnsureTabVisible(RectTransform tab)
         {
             if (tab == null) return;

@@ -103,6 +103,8 @@ namespace DouQuqu
             BindScoreHud();
             GroundMarker.SyncFromHud(transform);
             StartMatchIfNeeded();
+            if (TutorialDirector.NeedsBattleLesson)
+                yield return TutorialBattleDirector.Play(boundMatch, localPlayerId, transform);
         }
 
         private void LateUpdate()
