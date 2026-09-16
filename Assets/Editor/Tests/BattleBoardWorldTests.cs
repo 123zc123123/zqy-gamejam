@@ -214,34 +214,34 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void NarrowParentScalesDesignUniformly()
+        public void NarrowParentFillsDesignWithoutLetterbox()
         {
             RectTransform parent;
             RectTransform design;
             CreateDesign(720f, 1920f, out parent, out design);
-            float scale = BattleHudBinder.FitDesignToParent(design);
-            Assert.AreEqual(720f / 1080f, scale, 1e-4f);
-            Assert.AreEqual(scale, design.localScale.x, 1e-4f);
-            Assert.AreEqual(scale, design.localScale.y, 1e-4f);
-            Assert.AreEqual(scale, design.localScale.z, 1e-4f);
-            Assert.AreEqual(1080f, design.sizeDelta.x, 0.05f);
-            Assert.AreEqual(1920f, design.sizeDelta.y, 0.05f);
+            BattleHudBinder.FitDesignToParent(design);
+            AssertDesignFillsParent(parent, design);
             Object.DestroyImmediate(parent.gameObject);
         }
 
         [Test]
-        public void TallParentDoesNotStretchDesign()
+        public void TallParentFillsDesignWithoutLetterbox()
         {
             RectTransform parent;
             RectTransform design;
             CreateDesign(1080f, 2400f, out parent, out design);
-            float scale = BattleHudBinder.FitDesignToParent(design);
-            Assert.AreEqual(1f, scale, 1e-4f);
+            BattleHudBinder.FitDesignToParent(design);
+            AssertDesignFillsParent(parent, design);
+            Object.DestroyImmediate(parent.gameObject);
+        }
+
+        static void AssertDesignFillsParent(RectTransform parent, RectTransform design)
+        {
             Assert.AreEqual(1f, design.localScale.x, 1e-4f);
             Assert.AreEqual(1f, design.localScale.y, 1e-4f);
-            Assert.AreEqual(1080f, design.sizeDelta.x, 0.05f);
-            Assert.AreEqual(1920f, design.sizeDelta.y, 0.05f);
-            Object.DestroyImmediate(parent.gameObject);
+            Assert.AreEqual(1f, design.localScale.z, 1e-4f);
+            Assert.AreEqual(parent.rect.width, design.rect.width, 0.05f);
+            Assert.AreEqual(parent.rect.height, design.rect.height, 0.05f);
         }
 
         static void CreateDesign(float parentW, float parentH, out RectTransform parent, out RectTransform design)
@@ -253,6 +253,64 @@ namespace DouQuqu.Editor.Tests
             GameObject designGo = new GameObject("defaultDesignSize", typeof(RectTransform));
             design = designGo.GetComponent<RectTransform>();
             design.SetParent(parent, false);
+        }
+    }
+
+    [TestFixture]
+    public sealed class BattleCameraOpeningTests
+    {
+        GameObject camGo;
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (camGo != null) Object.DestroyImmediate(camGo);
+            camGo = null;
+        }
+
+        [Test]
+        public void OpeningPanoramaFitsSkinnyScreenByHeight()
+        {
+            BattleCamera cam = CreateCam();
+            float halfW;
+            float halfD;
+            BindPanorama(cam, 20f, 40f, out halfW, out halfD);
+            cam.UseDesignFrame(1080f, 2400f);
+            cam.FrameOpeningPanorama();
+            Assert.AreEqual(halfD, cam.Cam.orthographicSize, 1e-3f);
+        }
+
+        [Test]
+        public void OpeningPanoramaFitsFatScreenByWidth()
+        {
+            BattleCamera cam = CreateCam();
+            float halfW;
+            float halfD;
+            BindPanorama(cam, 20f, 40f, out halfW, out halfD);
+            cam.UseDesignFrame(1080f, 1440f);
+            cam.FrameOpeningPanorama();
+            float aspect = 1080f / 1440f;
+            Assert.AreEqual(halfW / aspect, cam.Cam.orthographicSize, 1e-3f);
+        }
+
+        BattleCamera CreateCam()
+        {
+            camGo = new GameObject("BattleCam");
+            Camera unityCam = camGo.AddComponent<Camera>();
+            unityCam.orthographic = true;
+            return camGo.AddComponent<BattleCamera>();
+        }
+
+        static void BindPanorama(BattleCamera cam, float halfW, float halfD, out float outW, out float outD)
+        {
+            float tableW = Rules.DefaultArenaHalfWidth * 2f;
+            float tableH = Rules.DefaultArenaHalfDepth * 2f;
+            cam.UsePanoramaArt(
+                new Vector2(tableW, tableH),
+                new Vector2(tableW * (halfW / Rules.DefaultArenaHalfWidth), tableH * (halfD / Rules.DefaultArenaHalfDepth)),
+                Vector2.zero);
+            outW = halfW;
+            outD = halfD;
         }
     }
 }

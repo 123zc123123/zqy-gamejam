@@ -138,9 +138,9 @@ namespace DouQuqu
                 return;
             }
 
-            float warn = Mathf.Max(0.0001f, knobs.zoneWarnT);
-            float progress = 1f - (snaps[current] - boundMatch.Elapsed) / warn;
-            tableShrink.SetWarn(next, Mathf.Clamp01(progress));
+            float remaining = snaps[current] - boundMatch.Elapsed;
+            float warnElapsed = Mathf.Max(0.0001f, knobs.zoneWarnT) - remaining;
+            tableShrink.SetWarn(next, Mathf.Clamp01(warnElapsed / BattleTableShrink.LiewenFillT));
         }
 
         private void OnDestroy()
@@ -330,16 +330,16 @@ namespace DouQuqu
         }
 
         /// <summary>
-        /// 开场全景按预制体里 bg 相对桌子的尺寸框。field / bg 的相对大小不改。
+        /// 开场全景按 ArenaBackgroundScenery 相对桌子的尺寸框。节点尺寸不改。
         /// </summary>
         private void BindIntroPanorama()
         {
             if (fitter == null) return;
             Transform host = boardRoot != null ? boardRoot : transform;
             RectTransform table = FindNamed(host, "BattleTable") as RectTransform;
-            RectTransform bg = FindNamed(host, "bg") as RectTransform;
+            RectTransform bg = FindNamed(host, "ArenaBackgroundScenery") as RectTransform;
+            if (bg == null) bg = FindNamed(host, "bg") as RectTransform;
             if (bg == null) bg = FindNamed(host, "bigBg") as RectTransform;
-            if (bg == null) bg = FindNamed(host, "ArenaBackgroundScenery") as RectTransform;
             if (table == null || bg == null) return;
             Vector2 tableSize = BattleBoardWorld.PlanarSpan(table);
             Vector2 bgSize = BattleBoardWorld.PlanarSpan(bg);
@@ -417,8 +417,8 @@ namespace DouQuqu
         public const float DesignHeight = 1920f;
 
         /// <summary>
-        /// 1080×1920 设计框：窄屏按宽度等比例缩小，短屏按高度等比例缩小，不拉变形。
-        /// 镜头宽高比和世界显示尺都从这块框来。
+        /// 设计框铺满父节点，背景不再被 1080×1920 letterbox 裁掉。
+        /// 镜头仍按这块框的实际宽高比 contain。
         /// </summary>
         private void FitDesignSize()
         {
@@ -437,32 +437,23 @@ namespace DouQuqu
                 pit.localScale = Vector3.one;
                 pit.localRotation = Quaternion.identity;
             }
+
+            if (fitter != null && design.rect.width > 1f && design.rect.height > 1f)
+                fitter.UseDesignFrame(design.rect.width, design.rect.height);
         }
 
-        /// <returns>设计框的统一缩放。窄于 1080 时 = 父宽度 / 1080。</returns>
+        /// <returns>铺满父节点时缩放为 1。</returns>
         public static float FitDesignToParent(RectTransform design, float designWidth = DesignWidth, float designHeight = DesignHeight)
         {
             if (design == null) return 1f;
-            designWidth = Mathf.Max(1f, designWidth);
-            designHeight = Mathf.Max(1f, designHeight);
-            design.anchorMin = design.anchorMax = design.pivot = new Vector2(0.5f, 0.5f);
+            design.anchorMin = Vector2.zero;
+            design.anchorMax = Vector2.one;
+            design.pivot = new Vector2(0.5f, 0.5f);
             design.anchoredPosition = Vector2.zero;
-            design.sizeDelta = new Vector2(designWidth, designHeight);
+            design.sizeDelta = Vector2.zero;
             design.localRotation = Quaternion.identity;
-
-            float scale = 1f;
-            RectTransform parent = design.parent as RectTransform;
-            if (parent != null)
-            {
-                float parentW = parent.rect.width;
-                float parentH = parent.rect.height;
-                if (parentW > 1f) scale = Mathf.Min(scale, parentW / designWidth);
-                if (parentH > 1f) scale = Mathf.Min(scale, parentH / designHeight);
-            }
-
-            scale = Mathf.Max(0.01f, scale);
-            design.localScale = new Vector3(scale, scale, scale);
-            return scale;
+            design.localScale = Vector3.one;
+            return 1f;
         }
 
         private static IEnumerator LoadDemoIfNeeded()
@@ -543,8 +534,9 @@ namespace DouQuqu
         private static void StartMatchIfNeeded()
         {
             MatchController match = UnityEngine.Object.FindObjectOfType<MatchController>();
-            if (match != null && !match.IsStarted)
-                match.StartMatch();
+            if (match == null || match.IsStarted) return;
+            if (match.RunMode == MatchRunMode.Client) return;
+            match.StartMatch();
         }
 
         private void BindMatchClock()

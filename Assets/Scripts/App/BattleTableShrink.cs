@@ -12,6 +12,7 @@ namespace DouQuqu
     public sealed class BattleTableShrink : MonoBehaviour
     {
         const float OutlineShrinkT = 0.15f;
+        public const float LiewenFillT = 3f;
         const string RevealShader = "DouQuqu/UI/LiewenReveal";
 
         RectTransform table;
@@ -83,7 +84,7 @@ namespace DouQuqu
             fadeCo = StartCoroutine(FadeExcess(Mathf.Max(0f, fadeT)));
         }
 
-        /// <summary>预告倒计时：裂纹从外沿往内填满当前档到下一档之间的塌陷环带。</summary>
+        /// <summary>预告倒计时：裂纹从外沿往内填满当前档到下一档之间的塌陷环带。填满固定 LiewenFillT，与预告时长无关。</summary>
         public void SetWarn(int nextTier, float progress)
         {
             Ensure();

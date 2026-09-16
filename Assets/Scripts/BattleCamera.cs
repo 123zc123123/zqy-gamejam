@@ -220,7 +220,8 @@ namespace DouQuqu
             float halfD = hasPanorama
                 ? introPanoramaHalfD
                 : (hasIntroScales ? introOpenHalfD : Rules.ArenaHalfDepth);
-            fillView = false;
+            // 铺满 ArenaBackgroundScenery：瘦屏按高度、胖屏按宽度（cover）。
+            fillView = true;
             padding = 0f;
             FrameWorld(hasPanorama ? introPanoramaCenter : Vector3.zero, halfW, halfD, 0f);
         }

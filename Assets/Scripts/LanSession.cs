@@ -302,6 +302,8 @@ namespace DouQuqu
         /// <summary>
         /// 战斗场景加载后把新场景中的权威控制器接到持久网络会话。
         /// 主机创建四槽状态并标记真人/机器人，客户端等待并应用主机快照。
+        /// 有 HUD 的进场要等 3-2-1 / 开罐结束后才 StartMatch，避免 AI 在准备期起跳。
+        /// 独立服务器没有 intro，绑定后立刻开赛。
         /// </summary>
         public void BindMatchController(MatchController matchController)
         {
@@ -327,7 +329,7 @@ namespace DouQuqu
                     match.SetRoster(i, roster ?? TrainingCamp.PicksForBot(i));
                     match.SetPlayerHuman(i, slots[i].connected && !slots[i].isBot);
                 }
-                match.StartMatch();
+                if (dedicatedServer) match.StartMatch();
                 BroadcastSnapshot();
             }
             else
