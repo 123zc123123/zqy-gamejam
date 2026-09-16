@@ -526,7 +526,9 @@ namespace DouQuqu
             if (image == null || piece == null) return;
             Sprite sprite = SpriteForLevel(piece.level);
             image.preserveAspect = true;
-            if (piece.level >= 4 && piece.isDrawResult)
+            bool finest = piece.level >= 4 && piece.isDrawResult;
+            FitBoardIcon(image, finest);
+            if (finest)
             {
                 Sprite portrait = SpriteForQuality(piece.drawA, piece.drawB);
                 bool hasPortrait = portrait != null;
@@ -689,7 +691,8 @@ namespace DouQuqu
             if (sourceCell >= 0 && cells[sourceCell] != null)
             {
                 Rect cellRect = cells[sourceCell].rect;
-                ghostSize = new Vector2(Mathf.Max(80f, cellRect.width * 0.72f), Mathf.Max(80f, cellRect.height * 0.72f));
+                float mul = piece.level >= 4 && piece.isDrawResult ? 1.05f : 0.72f;
+                ghostSize = new Vector2(Mathf.Max(80f, cellRect.width * mul), Mathf.Max(80f, cellRect.height * mul));
             }
             dragGhost.rectTransform.sizeDelta = ghostSize;
             dragGhost.gameObject.SetActive(true);
@@ -728,6 +731,26 @@ namespace DouQuqu
             image.raycastTarget = false;
             image.preserveAspect = true;
             return image;
+        }
+
+        static void FitBoardIcon(Image image, bool finest)
+        {
+            if (image == null) return;
+            RectTransform rect = image.rectTransform;
+            if (rect == null) return;
+            if (Mathf.Abs(rect.anchorMin.x - rect.anchorMax.x) < 0.01f) return;
+            if (finest)
+            {
+                rect.anchorMin = new Vector2(-0.08f, -0.04f);
+                rect.anchorMax = new Vector2(1.08f, 1.16f);
+            }
+            else
+            {
+                rect.anchorMin = new Vector2(0.12f, 0.12f);
+                rect.anchorMax = new Vector2(0.88f, 0.88f);
+            }
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
 
         private static Text EnsureChildText(RectTransform parent, string childName)

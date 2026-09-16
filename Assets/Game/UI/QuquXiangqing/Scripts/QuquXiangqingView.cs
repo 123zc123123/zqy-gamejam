@@ -451,7 +451,7 @@ namespace ZqyGameJam.UI.QuquXiangqing
             rect.anchorMin = new Vector2(1f, 1f);
             rect.anchorMax = new Vector2(1f, 1f);
             rect.pivot = new Vector2(1f, 1f);
-            rect.anchoredPosition = new Vector2(-28f, -28f);
+            rect.anchoredPosition = new Vector2(-52f, -28f);
             rect.sizeDelta = new Vector2(72f, 72f);
             rect.localScale = Vector3.one;
 
