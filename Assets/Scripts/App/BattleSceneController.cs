@@ -26,6 +26,7 @@ namespace DouQuqu
         private bool awardedThisMatch;
         private bool goldGrantedThisMatch;
         private bool leavingAfterReward;
+        private bool battleCounted;
 
         private void Awake()
         {
@@ -201,6 +202,11 @@ namespace DouQuqu
         private void OnStateChanged(MatchState state)
         {
             if (state == null) return;
+            if (state.started && !battleCounted)
+            {
+                battleCounted = true;
+                PlayerDataService.RecordBattlePlayed();
+            }
             if (state.over)
             {
                 HideElimination();

@@ -16,6 +16,7 @@ namespace DouQuqu
         public const string ActivityId = "activity";
         public const string RulesId = "rules";
         public const string MergeId = "merge";
+        public const string QuestId = "quest";
 
         [SerializeField] TMP_Text title;
         [SerializeField] TMP_Text body;
@@ -47,6 +48,17 @@ namespace DouQuqu
         public static void ShowMerge()
         {
             ShowId(MergeId);
+        }
+
+        public static void ShowQuest()
+        {
+            ShowId(QuestId);
+        }
+
+        public static string GetBody(string id)
+        {
+            Entry entry = LoadCatalog().Find(id);
+            return entry == null ? string.Empty : entry.Body;
         }
 
         public static void ShowId(string id)
@@ -370,6 +382,11 @@ namespace DouQuqu
                     "空中不能转向。护盾只挡一次出圈。",
                     "",
                     "随机匹配与好友组队各开一房，满员后进入准备。"
+                }));
+                Add(new Entry(QuestId, "任务说明", DefaultClose, new[]
+                {
+                    "参与任意对局（好友组队、随机匹配、训练）均局数+1。",
+                    "对局2次、4次均可自选神级蛐蛐。"
                 }));
             }
 

@@ -37,6 +37,9 @@ namespace DouQuqu
         public List<CricketCollectionEntry> crickets = new List<CricketCollectionEntry>();
         public List<CricketBackpackEntry> backpack = new List<CricketBackpackEntry>();
         public int tutorialStep;
+        public int battleCount;
+        public bool questChest1Claimed;
+        public bool questChest2Claimed;
     }
 
     [Serializable]
@@ -77,6 +80,9 @@ namespace DouQuqu
         public static int Gold => CurrentPlayer == null ? 0 : CurrentPlayer.gold;
         public static int Eggs => CurrentPlayer == null ? 0 : CurrentPlayer.eggs;
         public static int TutorialStep => CurrentPlayer == null ? 0 : CurrentPlayer.tutorialStep;
+        public static int BattleCount => CurrentPlayer == null ? 0 : CurrentPlayer.battleCount;
+        public static bool QuestChest1Claimed => CurrentPlayer != null && CurrentPlayer.questChest1Claimed;
+        public static bool QuestChest2Claimed => CurrentPlayer != null && CurrentPlayer.questChest2Claimed;
         public static event Action PlayerDataChanged;
 
         /// <summary>本机积分大于 0 的玩家，按账号积分从高到低；同分先登录的在前。</summary>
@@ -438,6 +444,38 @@ namespace DouQuqu
             CurrentPlayer.tutorialStep = step;
             CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
             SaveDatabase();
+        }
+
+        public static bool RecordBattlePlayed()
+        {
+            if (CurrentPlayer == null) return false;
+            CurrentPlayer.battleCount++;
+            CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
+            bool saved = SaveDatabase();
+            PlayerDataChanged?.Invoke();
+            return saved;
+        }
+
+        public static bool ClaimQuestChest(int chestIndex)
+        {
+            if (CurrentPlayer == null) return false;
+            if (chestIndex == 1)
+            {
+                if (CurrentPlayer.questChest1Claimed) return false;
+                if (CurrentPlayer.battleCount < BattleEntranceQuestHud.Chest1Battles) return false;
+                CurrentPlayer.questChest1Claimed = true;
+            }
+            else if (chestIndex == 2)
+            {
+                if (CurrentPlayer.questChest2Claimed) return false;
+                if (CurrentPlayer.battleCount < BattleEntranceQuestHud.Chest2Battles) return false;
+                CurrentPlayer.questChest2Claimed = true;
+            }
+            else return false;
+            CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
+            bool saved = SaveDatabase();
+            PlayerDataChanged?.Invoke();
+            return saved;
         }
 
         public static int BackpackCount()

@@ -49,6 +49,8 @@ namespace DouQuqu
             BindButtons();
             HookLobby();
             ApplyVisual();
+            BattleEntranceQuestHud questHud = root.GetComponentInChildren<BattleEntranceQuestHud>(true);
+            if (questHud != null) questHud.RefreshChests();
         }
 
         private void OnEnable()
@@ -970,13 +972,20 @@ namespace DouQuqu
         {
             if (go == null) return;
             Image image = go.GetComponent<Image>();
-            if (image == null) image = go.AddComponent<Image>();
+            if (image == null)
+            {
+                image = go.AddComponent<Image>();
+                image.color = new Color(1f, 1f, 1f, 0.01f);
+            }
             if (image != null)
             {
-                image.enabled = true;
                 image.raycastTarget = true;
-                if (image.color.a <= 0.01f && image.sprite == null)
-                    image.color = new Color(1f, 1f, 1f, 0.01f);
+                if (!HasVisibleSprite(image))
+                {
+                    image.enabled = true;
+                    Color color = image.color;
+                    image.color = new Color(color.r, color.g, color.b, 0.01f);
+                }
             }
 
             Button button = go.GetComponent<Button>();
@@ -999,6 +1008,13 @@ namespace DouQuqu
                 nested.onClick.RemoveAllListeners();
                 nested.onClick.AddListener(clicked);
             }
+        }
+
+        static bool HasVisibleSprite(Image image)
+        {
+            if (image == null || image.sprite == null) return false;
+            string name = image.sprite.name;
+            return name != "UISprite" && name != "Background" && name != "Knob";
         }
 
         private static GameObject FindGo(Transform root, string objectName)
