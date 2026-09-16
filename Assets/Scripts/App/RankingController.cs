@@ -28,8 +28,9 @@ namespace DouQuqu
             BottomNavBar.SuppressEmbedded(root.transform);
             UiFonts.ApplyTree(root.transform);
             if (!PlayerDataService.RequireLogin()) return;
-            if (VenueClient.Instance != null && VenueClient.Instance.HasServer)
-                VenueClient.Instance.StartCoroutine(VenueClient.Instance.RefreshRanking(Refresh));
+            VenueClient venue = VenueClient.Instance;
+            if (venue != null && venue.HasServer)
+                venue.StartCoroutine(venue.RefreshRanking(_ => Refresh()));
             else
                 Refresh();
         }
@@ -49,10 +50,11 @@ namespace DouQuqu
         {
             if (pageRoot == null) return;
             List<PlayerProfile> source = PlayerDataService.GetRankingSnapshot();
-            if (VenueClient.Instance != null && VenueClient.Instance.CachedRanking != null
-                && VenueClient.Instance.CachedRanking.Length > 0)
+            VenueClient venue = VenueClient.Instance;
+            if (venue != null && venue.CachedRanking != null
+                && venue.CachedRanking.Length > 0)
             {
-                source = new List<PlayerProfile>(VenueClient.Instance.CachedRanking);
+                source = new List<PlayerProfile>(venue.CachedRanking);
             }
 
             // 服务端榜单也在客户端统一过滤和排序，避免零分或乱序数据破坏界面名次。
