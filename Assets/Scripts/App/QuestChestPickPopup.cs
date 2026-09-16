@@ -1,17 +1,20 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using ZqyGameJam.UI.QuquXiangqing;
 
 namespace DouQuqu
 {
     /// <summary>
     /// 开宝箱自选一只极品：任务说明底图、「任选一只」、四只 PackCricket、底部确认。
+    /// 每只下面有详情放大镜，点开只读蛐蛐详情。
     /// </summary>
     public sealed class QuestChestPickPopup : MonoBehaviour
     {
         public const string PackPrefabPath = "Common/Prefabs/PackCricket";
         public const string HelpPrefabPath = "BattleEntrance/Prefabs/Parts/QuestHelp";
         public const string ReadyPrefabPath = "Common/Prefabs/btn-ready";
+        public const string InspectIconPath = "Collection/Textures/StatHelpIcon";
         public const int Quality = 4;
 
         System.Action<int> confirmed;
@@ -19,6 +22,7 @@ namespace DouQuqu
         Button confirmButton;
         Image confirmImage;
         readonly GameObject[] packs = new GameObject[4];
+        QuquXiangqingView detailView;
 
         public static QuestChestPickPopup Show(System.Action<int> onConfirmed)
         {
@@ -36,6 +40,11 @@ namespace DouQuqu
 
         public void Close()
         {
+            if (detailView != null)
+            {
+                Destroy(detailView.gameObject);
+                detailView = null;
+            }
             if (gameObject != null) Destroy(gameObject);
         }
 
@@ -117,8 +126,64 @@ namespace DouQuqu
                 rt.sizeDelta = new Vector2(288f, 288f);
                 rt.localScale = new Vector3(scale, scale, 1f);
                 PaintPack(inst, t);
+                CreateInspectButton(panel, t, rt.anchoredPosition);
                 packs[t - 1] = inst;
             }
+        }
+
+        void CreateInspectButton(RectTransform panel, int temperament, Vector2 packPos)
+        {
+            GameObject go = new GameObject("Inspect_" + temperament, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.SetParent(panel, false);
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(68f, 68f);
+            rect.anchoredPosition = new Vector2(packPos.x, packPos.y - 124f);
+            rect.localScale = Vector3.one;
+
+            Image image = go.GetComponent<Image>();
+            Sprite icon = Resources.Load<Sprite>(InspectIconPath);
+            if (icon == null)
+            {
+                Debug.LogWarning("[DouQuqu] 找不到详情放大镜：" + InspectIconPath);
+            }
+            image.sprite = icon;
+            image.preserveAspect = true;
+            image.raycastTarget = true;
+            image.color = Color.white;
+
+            Button button = go.GetComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = image;
+            int captured = temperament;
+            button.onClick.AddListener(() => OpenDetail(captured));
+        }
+
+        void OpenDetail(int temperament)
+        {
+            if (!EnsureDetailView()) return;
+            detailView.SetCatalogMode();
+            Color? descColor = null;
+            Color skillColor;
+            if (CricketCatalog.TrySkillBlurbColor(Quality, temperament, out skillColor))
+                descColor = skillColor;
+            detailView.Show(
+                CricketCatalog.RankLabel(Quality, temperament),
+                CricketCatalog.CricketName(Quality, temperament),
+                CricketCatalog.Blurb(Quality, temperament),
+                CricketCatalog.Portrait(Quality, temperament),
+                CricketCatalog.TemperamentName(temperament),
+                CricketCatalog.PanelStatDisplays(Quality, temperament),
+                CricketCatalog.PanelStatStrongFlags(temperament),
+                descColor);
+        }
+
+        bool EnsureDetailView()
+        {
+            if (detailView != null) return true;
+            GameObject prefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
+            detailView = QuquXiangqingView.InstantiateOverlay(prefab);
+            return detailView != null;
         }
 
         void PaintPack(GameObject root, int temperament)
