@@ -8,8 +8,8 @@ using UnityEngine.UIElements;
 namespace DouQuqu
 {
     /// <summary>
-    /// 战斗美术 HUD：把 Demo 的真实对战场画进中间 Battlefield。
-    /// Battlefield 上已有 Image，不能再挂 RawImage，所以在子节点 BattleView 里显示。
+    /// 战斗美术 HUD：头像、摇杆、分数贴在屏幕上。
+    /// 场地底图、蛐蛐、道具在世界里，顶视相机画进 Battlefield 的 BattleView。
     /// </summary>
     public sealed class BattleHudBinder : MonoBehaviour
     {
@@ -79,7 +79,7 @@ namespace DouQuqu
             BindZoneCamera();
             ApplyFieldZoneScales();
             BindBattleCamera();
-            BindBoardFollow();
+            PlaceBoardInWorld();
             BindTableShrink();
             RefreshTarget(true);
             SilenceHudRaycasts();
@@ -107,8 +107,6 @@ namespace DouQuqu
 
         private void LateUpdate()
         {
-            if (boardRoot == null)
-                boardRoot = FindNamed(transform, "Board") as RectTransform;
             if (boardRoot != null && !boardRoot.gameObject.activeSelf)
                 boardRoot.gameObject.SetActive(true);
             TickTableShrinkWarn();
@@ -149,6 +147,8 @@ namespace DouQuqu
                 boundMatch.GameplayEvent -= OnGameplayEvent;
             }
             ReleaseTarget();
+            GameObject world = GameObject.Find(BattleBoardWorld.RootName);
+            if (world != null) Destroy(world);
             Rules.ResetArenaSize();
         }
 
@@ -265,13 +265,13 @@ namespace DouQuqu
             return new Vector2(Screen.width * 0.5f, Screen.height * 0.55f);
         }
 
-        private void BindBoardFollow()
+        private void PlaceBoardInWorld()
         {
             RectTransform board = FindNamed(transform, "Board") as RectTransform;
-            if (board == null || pit == null) return;
+            if (board == null) return;
             boardRoot = board;
             board.gameObject.SetActive(true);
-            if (pit.parent == board && board.parent != null)
+            if (pit != null && pit.parent == board && board.parent != null)
             {
                 int index = board.GetSiblingIndex();
                 pit.SetParent(board.parent, true);
@@ -279,12 +279,13 @@ namespace DouQuqu
                 pit.localScale = Vector3.one;
             }
 
-            BattleBoardFollow.Bind(board, pit, fitter, OpeningArtScale());
+            BattleBoardWorld.Place(board, battleCam, OpeningArtScale());
         }
 
         private void BindTableShrink()
         {
-            tableShrink = BattleTableShrink.Bind(transform as RectTransform, pit);
+            RectTransform tableHost = boardRoot != null ? boardRoot : transform as RectTransform;
+            tableShrink = BattleTableShrink.Bind(tableHost, pit, transform as RectTransform);
             if (tableShrink == null || boundMatch == null) return;
             tableShrink.SnapTo(boundMatch.ZoneTier, 0f, true);
         }
@@ -335,15 +336,16 @@ namespace DouQuqu
         private void BindIntroPanorama()
         {
             if (fitter == null) return;
-            RectTransform table = FindNamed(transform, "BattleTable") as RectTransform;
-            RectTransform bg = FindNamed(transform, "bg") as RectTransform;
-            if (bg == null) bg = FindNamed(transform, "bigBg") as RectTransform;
-            if (bg == null) bg = FindNamed(transform, "ArenaBackgroundScenery") as RectTransform;
+            Transform host = boardRoot != null ? boardRoot : transform;
+            RectTransform table = FindNamed(host, "BattleTable") as RectTransform;
+            RectTransform bg = FindNamed(host, "bg") as RectTransform;
+            if (bg == null) bg = FindNamed(host, "bigBg") as RectTransform;
+            if (bg == null) bg = FindNamed(host, "ArenaBackgroundScenery") as RectTransform;
             if (table == null || bg == null) return;
             AlignBgScaleToTable(bg, table);
-            Vector2 tableSize = WorldRectSize(table);
-            Vector2 bgSize = WorldRectSize(bg);
-            fitter.UsePanoramaArt(tableSize, bgSize, WorldCenterOffset(bg, table));
+            Vector2 tableSize = BattleBoardWorld.PlanarSpan(table);
+            Vector2 bgSize = BattleBoardWorld.PlanarSpan(bg);
+            fitter.UsePanoramaArt(tableSize, bgSize, BattleBoardWorld.PlanarOffset(bg, table));
         }
 
         /// <summary>
@@ -357,28 +359,6 @@ namespace DouQuqu
             if (scale.y < 0.01f) scale.y = 1f;
             if (scale.z < 0.01f) scale.z = 1f;
             bg.localScale = scale;
-        }
-
-        private static Vector2 WorldRectSize(RectTransform rect)
-        {
-            if (rect == null) return Vector2.one;
-            Vector3[] corners = new Vector3[4];
-            rect.GetWorldCorners(corners);
-            return new Vector2(
-                Vector3.Distance(corners[0], corners[3]),
-                Vector3.Distance(corners[0], corners[1]));
-        }
-
-        private static Vector2 WorldCenterOffset(RectTransform from, RectTransform origin)
-        {
-            if (from == null || origin == null) return Vector2.zero;
-            Vector3[] fromCorners = new Vector3[4];
-            Vector3[] originCorners = new Vector3[4];
-            from.GetWorldCorners(fromCorners);
-            origin.GetWorldCorners(originCorners);
-            Vector3 fromCenter = (fromCorners[0] + fromCorners[2]) * 0.5f;
-            Vector3 originCenter = (originCorners[0] + originCorners[2]) * 0.5f;
-            return new Vector2(fromCenter.x - originCenter.x, fromCenter.y - originCenter.y);
         }
 
         private void OnZoneSnapped(int tier)
@@ -491,7 +471,7 @@ namespace DouQuqu
             battleCam.orthographic = true;
             battleCam.clearFlags = CameraClearFlags.SolidColor;
             Color clearSand = BattleBoard.Sand;
-            clearSand.a = 0f;
+            clearSand.a = 1f;
             battleCam.backgroundColor = clearSand;
             battleCam.depth = -1;
             BattleBoard.HideSurface();

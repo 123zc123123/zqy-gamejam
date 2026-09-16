@@ -32,16 +32,18 @@ namespace DouQuqu
         Coroutine outlineCo;
         Coroutine fadeCo;
 
-        public static BattleTableShrink Bind(RectTransform hudRoot, RectTransform pit)
+        public static BattleTableShrink Bind(RectTransform tableHost, RectTransform pit, RectTransform liewenHost = null)
         {
-            if (hudRoot == null) return null;
-            RectTransform table = FindNamed(hudRoot, "BattleTable") as RectTransform;
+            if (tableHost == null) return null;
+            RectTransform table = FindNamed(tableHost, "BattleTable") as RectTransform;
             if (table == null) return null;
             BattleTableShrink shrink = table.GetComponent<BattleTableShrink>();
             if (shrink == null) shrink = table.gameObject.AddComponent<BattleTableShrink>();
             shrink.table = table;
             shrink.CaptureFields(pit);
-            shrink.CaptureLiewen(hudRoot);
+            shrink.CaptureLiewen(liewenHost != null ? liewenHost : tableHost);
+            if (shrink.liewen == null && liewenHost != null)
+                shrink.CaptureLiewen(tableHost);
             shrink.Ensure();
             shrink.HideLiewen();
             return shrink;

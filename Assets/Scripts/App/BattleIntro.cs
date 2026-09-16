@@ -8,7 +8,7 @@ namespace DouQuqu
 {
     /// <summary>
     /// 进战镜头：先框整张大背景，再缩到玩家。多人落到己方角，自己练缩到当前有效区。
-    /// 停稳后中央 3-2-1、开罐！再开赛。2D Board 由 BattleBoardFollow 跟着 3D 相机，这里只改镜头和 HUD 显隐。
+    /// 停稳后中央 3-2-1、开罐！再开赛。场地底图钉在世界里，这里只改镜头和 HUD 显隐。
     /// </summary>
     public static class BattleIntro
     {
