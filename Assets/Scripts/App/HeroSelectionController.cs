@@ -620,12 +620,13 @@ namespace DouQuqu
         {
             ready = true;
             if (expanded) ApplyCollapsed();
-            AppServices.PendingLocalPicks = CopyPicks();
+            CricketPick[] picks = CopyPicks();
+            AppServices.PendingLocalPicks = picks;
             LanSession network = ActiveLanBattle();
             if (network != null)
             {
                 HookBattleReady();
-                network.SetSelectionReady(true);
+                network.SetSelectionReady(true, picks);
             }
             RefreshAll();
             if (network != null && network.IsBattleStarting)
@@ -661,7 +662,7 @@ namespace DouQuqu
             if (network != null)
             {
                 HookBattleReady();
-                network.SetSelectionReady(true);
+                network.SetSelectionReady(true, AppServices.PendingLocalPicks);
                 if (network.IsHost) network.StartBattleAfterSelectionTimeout();
                 RefreshChrome();
                 if (network.IsBattleStarting) OnBattleReady();

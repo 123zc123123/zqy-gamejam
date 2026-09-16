@@ -58,6 +58,14 @@ namespace DouQuqu
         public int matchSeed;
     }
 
+    [Serializable]
+    /// <summary>选虫页提交给房主的锁定状态和三只蛐蛐阵容。</summary>
+    public sealed class LanSelectionSubmission
+    {
+        public bool ready;
+        public CricketPick[] picks;
+    }
+
     /// <summary>
     /// Demo 使用的最小局域网传输层。通过 UDP 广播发现房间，通过 UDP 数据报
     /// 传输指令和快照，不依赖外部网络包。主机拥有权威状态并发送 MatchSnapshot。
@@ -116,6 +124,8 @@ namespace DouQuqu
         private float readyRequestTick;
         private bool pendingSelectionReadyRequest;
         private bool pendingSelectionReadyValue;
+        private CricketPick[] pendingSelectionPicks;
+        private CricketPick[][] selectedRosters = new CricketPick[MatchController.MaxPlayers][];
         private float selectionReadyRequestRemaining;
         private float selectionReadyRequestTick;
         private MatchSnapshot pendingSnapshot;
@@ -291,7 +301,15 @@ namespace DouQuqu
                 match.Configure(MatchRunMode.Host, roomCapacity, CompetitiveMatch.WithDuration(match.Knobs));
                 match.ResetMatch(roomCapacity, matchSeed);
                 for (int i = 0; i < roomCapacity && i < slots.Length; i++)
+                {
+                    CricketPick[] roster = selectedRosters != null && i < selectedRosters.Length
+                        ? selectedRosters[i]
+                        : null;
+                    // 旧客户端或独立服务器超时未提交阵容时也必须有三条命，
+                    // 避免第一只出场后被权威端直接判定为整名玩家淘汰。
+                    match.SetRoster(i, roster ?? TrainingCamp.PicksForBot(i));
                     match.SetPlayerHuman(i, slots[i].connected && !slots[i].isBot);
+                }
                 match.StartMatch();
                 BroadcastSnapshot();
             }
@@ -569,6 +587,7 @@ namespace DouQuqu
             readyRequestRemaining = 0f;
             readyRequestTick = 0f;
             pendingSelectionReadyRequest = false;
+            pendingSelectionPicks = null;
             selectionReadyRequestRemaining = 0f;
             selectionReadyRequestTick = 0f;
             DeferBattleUntilSelectionTimeout = false;
@@ -624,11 +643,15 @@ namespace DouQuqu
         }
 
         /// <summary>选虫页锁定状态；房主收齐所有真人后统一进入战斗。</summary>
-        public void SetSelectionReady(bool ready)
+        public void SetSelectionReady(bool ready, CricketPick[] picks = null)
         {
             if (LocalPlayerId < 0 || LocalPlayerId >= slots.Length) return;
+            if (ready && picks != null) pendingSelectionPicks = CopySelectionPicks(picks);
+            if (!ready) pendingSelectionPicks = null;
             if (IsHost)
             {
+                if (ready) StoreSelectionRoster(LocalPlayerId, pendingSelectionPicks);
+                else ClearSelectionRoster(LocalPlayerId);
                 slots[LocalPlayerId].selectionReady = ready;
                 BroadcastLobby();
                 TryPrepareBattleFromSelectionReady();
@@ -855,7 +878,12 @@ namespace DouQuqu
         {
             if (sessionSocket == null || hostEndpoint == null || LocalPlayerId < 0) return;
             selectionReadyRequestTick = 0.2f;
-            SendEnvelope(sessionSocket, hostEndpoint, "SELECT_READY", pendingSelectionReadyValue ? "1" : "0", LocalPlayerId);
+            LanSelectionSubmission submission = new LanSelectionSubmission
+            {
+                ready = pendingSelectionReadyValue,
+                picks = pendingSelectionReadyValue ? pendingSelectionPicks : null
+            };
+            SendEnvelope(sessionSocket, hostEndpoint, "SELECT_READY", JsonUtility.ToJson(submission), LocalPlayerId);
         }
 
         /// <summary>捕获主机的结束帧；该帧需要冗余发送，不能依赖普通周期快照。</summary>
@@ -925,6 +953,8 @@ namespace DouQuqu
 
         private void ResetSelectionReadyForConnectedPlayers()
         {
+            selectedRosters = new CricketPick[MatchController.MaxPlayers][];
+            pendingSelectionPicks = null;
             for (int i = 0; i < roomCapacity && i < slots.Length; i++)
             {
                 if (!slots[i].connected) continue;
@@ -954,6 +984,7 @@ namespace DouQuqu
             slots[id].selectionReady = false;
             slots[id].isBot = false;
             slots[id].playerName = "Player " + (id + 1);
+            ClearSelectionRoster(id);
             if (match != null) match.SetPlayerHuman(id, false);
         }
 
@@ -1131,7 +1162,11 @@ namespace DouQuqu
             else if (envelope.type == "SELECT_READY" && clientIds.ContainsKey(key))
             {
                 int id = clientIds[key];
-                slots[id].selectionReady = envelope.body == "1";
+                LanSelectionSubmission submission = ParseSelectionSubmission(envelope.body);
+                bool ready = submission != null && submission.ready;
+                if (ready) StoreSelectionRoster(id, submission.picks);
+                else ClearSelectionRoster(id);
+                slots[id].selectionReady = ready;
                 BroadcastLobby();
                 TryPrepareBattleFromSelectionReady();
             }
@@ -1265,6 +1300,7 @@ namespace DouQuqu
 
         private void ResetSlots()
         {
+            selectedRosters = new CricketPick[MatchController.MaxPlayers][];
             slots = new LanPlayerSlot[MatchController.MaxPlayers];
             for (int i = 0; i < slots.Length; i++)
                 slots[i] = new LanPlayerSlot
@@ -1276,6 +1312,55 @@ namespace DouQuqu
                     selectionReady = false,
                     isBot = false
                 };
+        }
+
+        private static LanSelectionSubmission ParseSelectionSubmission(string body)
+        {
+            // 接受旧版本只发送 1/0 的消息；阵容缺失时 BindMatchController 会补三只默认虫。
+            if (body == "1") return new LanSelectionSubmission { ready = true };
+            if (body == "0") return new LanSelectionSubmission { ready = false };
+            if (string.IsNullOrWhiteSpace(body)) return new LanSelectionSubmission();
+            try
+            {
+                return JsonUtility.FromJson<LanSelectionSubmission>(body) ?? new LanSelectionSubmission();
+            }
+            catch (Exception)
+            {
+                return new LanSelectionSubmission();
+            }
+        }
+
+        private void StoreSelectionRoster(int playerId, CricketPick[] picks)
+        {
+            if (playerId < 0 || playerId >= MatchController.MaxPlayers) return;
+            if (selectedRosters == null || selectedRosters.Length != MatchController.MaxPlayers)
+                selectedRosters = new CricketPick[MatchController.MaxPlayers][];
+            selectedRosters[playerId] = CopySelectionPicks(picks);
+        }
+
+        private void ClearSelectionRoster(int playerId)
+        {
+            if (selectedRosters == null || playerId < 0 || playerId >= selectedRosters.Length) return;
+            selectedRosters[playerId] = null;
+        }
+
+        private static CricketPick[] CopySelectionPicks(CricketPick[] source)
+        {
+            if (source == null) return null;
+            CricketPick[] copy = new CricketPick[Mathf.Min(MatchController.LivesPerPlayer, source.Length)];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                CricketPick pick = source[i];
+                copy[i] = pick == null
+                    ? new CricketPick()
+                    : new CricketPick
+                    {
+                        catalogId = pick.catalogId,
+                        quality = Mathf.Clamp(pick.quality, 1, 4),
+                        temperament = Mathf.Clamp(pick.temperament, 1, 4)
+                    };
+            }
+            return copy;
         }
 
         private void SendSnapshot(IPEndPoint endpoint)
