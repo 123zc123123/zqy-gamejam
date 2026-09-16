@@ -256,13 +256,16 @@ namespace DouQuqu
         public float nestGap = 12f;
 
         [Header("场地与缩圈")]
-        [InspectorCn("开局边长倍率", "第 0 档相对最后一档的边长倍率")]
+        [InspectorCn("开局边长倍率", "第 0 档相对标定罐（原 field-2 宽 = 21.2 半宽）的宽度倍率")]
         public float zoneScale0 = 2f;
-        [InspectorCn("第 1 档倍率", "第一次收口后的边长倍率")]
+        [InspectorCn("第 1 档倍率", "第一次收口后相对标定罐的宽度倍率")]
         public float zoneScale1 = 1.2f;
-        [InspectorCn("第 2 档倍率", "最后一档；1 = 现在的罐")]
+        [InspectorCn("第 2 档倍率", "最后一档相对标定罐的宽度倍率；改 field-2 后不再锁死为 1")]
         public float zoneScale2 = 1f;
         [HideInInspector] public float zoneScale3 = 1f;
+        [HideInInspector] public float zoneDepthScale0;
+        [HideInInspector] public float zoneDepthScale1;
+        [HideInInspector] public float zoneDepthScale2;
         [InspectorCn("档 0 持稳", "开局后、第一次预告前（秒）")]
         public float zoneHold0 = 55f;
         [InspectorCn("档 1 持稳", "第一次收口后、第二次预告前（秒）")]
@@ -293,6 +296,9 @@ namespace DouQuqu
         public const float DefaultArenaHalfWidth = 21.2f;
         public const float DefaultArenaHalfDepth = 31.8f;
         public const float DefaultArenaCorner = 7.2f;
+        /// <summary>当初 field-2 的宽，对应世界半宽 21.2。比例尺锁在这，不随以后改 field 重算。</summary>
+        public const float FieldRulerWidth = 920f;
+        public const float MetersPerFieldUnit = (DefaultArenaHalfWidth * 2f) / FieldRulerWidth;
         public static float ArenaHalfWidth = DefaultArenaHalfWidth;
         public static float ArenaHalfDepth = DefaultArenaHalfDepth;
         public static float ArenaCorner = DefaultArenaCorner;
@@ -313,7 +319,7 @@ namespace DouQuqu
             SetArenaScale(1f);
         }
 
-        /// <summary>半宽、半深相对最后一档基准同乘。有效区是直角矩形，不再乘圆角。</summary>
+        /// <summary>半宽、半深相对标定罐同乘。无 field 深度倍率时深度仍走 2:3 罐。</summary>
         public static void SetArenaScale(float scale)
         {
             float s = Mathf.Max(0.01f, scale);
@@ -322,15 +328,52 @@ namespace DouQuqu
             ArenaCorner = 0f;
         }
 
+        /// <summary>field 画布矩形 × 锁定比例尺 → 世界半宽半深。</summary>
+        public static Vector2 FieldToArenaHalf(float fieldWidth, float fieldHeight)
+        {
+            float k = MetersPerFieldUnit;
+            return new Vector2(
+                0.5f * Mathf.Max(0.01f, fieldWidth) * k,
+                0.5f * Mathf.Max(0.01f, fieldHeight) * k);
+        }
+
+        public static void SetArenaExtents(float halfW, float halfD)
+        {
+            ArenaHalfWidth = Mathf.Max(0.01f, halfW);
+            ArenaHalfDepth = Mathf.Max(0.01f, halfD);
+            ArenaCorner = 0f;
+        }
+
+        /// <summary>把三档 field 矩形写成相对标定罐的宽/高倍率。末档不锁死为 1。</summary>
+        public static void ApplyFieldRects(MatchKnobs knobs, Vector2 field0, Vector2 field1, Vector2 field2)
+        {
+            if (knobs == null) return;
+            float ruler = Mathf.Max(0.01f, FieldRulerWidth);
+            knobs.zoneScale0 = Mathf.Max(0.01f, Mathf.Abs(field0.x) / ruler);
+            knobs.zoneScale1 = Mathf.Max(0.01f, Mathf.Abs(field1.x) / ruler);
+            knobs.zoneScale2 = Mathf.Max(0.01f, Mathf.Abs(field2.x) / ruler);
+            knobs.zoneDepthScale0 = Mathf.Max(0.01f, Mathf.Abs(field0.y) / ruler);
+            knobs.zoneDepthScale1 = Mathf.Max(0.01f, Mathf.Abs(field1.y) / ruler);
+            knobs.zoneDepthScale2 = Mathf.Max(0.01f, Mathf.Abs(field2.y) / ruler);
+        }
+
+        public static void ApplyZoneTier(MatchKnobs knobs, int tier)
+        {
+            Vector2 half = ZoneHalfExtents(knobs, tier);
+            SetArenaExtents(half.x, half.y);
+        }
+
         /// <summary>按日程把有效区设成该时刻所在档。预告期仍用当前档，不提前换成下一档。</summary>
         public static void ApplyZoneAt(MatchKnobs knobs, float elapsed)
         {
-            SetArenaScale(ZoneScaleOf(knobs, ZoneTierAt(knobs, elapsed)));
+            ApplyZoneTier(knobs, ZoneTierAt(knobs, elapsed));
         }
 
-        /// <summary>HUD 场地窗只决定镜头窗口，不再改玩法有效区。</summary>
+        /// <summary>field 矩形按锁定比例尺换成当前有效区。</summary>
         public static void ApplyArenaFromRect(float width, float height)
         {
+            Vector2 half = FieldToArenaHalf(width, height);
+            SetArenaExtents(half.x, half.y);
         }
 
         public static Vector2 CornerSign(int playerId)
@@ -355,6 +398,30 @@ namespace DouQuqu
         public static float LastZoneScale(MatchKnobs knobs)
         {
             return ZoneScaleOf(knobs, LastZoneTier);
+        }
+
+        /// <summary>深度倍率：有 field 高度时用同一把尺；否则按 2:3 罐从宽度推。</summary>
+        public static float ZoneDepthScaleOf(MatchKnobs knobs, int tier)
+        {
+            float depth = 0f;
+            if (knobs != null)
+            {
+                switch (Mathf.Clamp(tier, 0, LastZoneTier))
+                {
+                    case 0: depth = knobs.zoneDepthScale0; break;
+                    case 1: depth = knobs.zoneDepthScale1; break;
+                    default: depth = knobs.zoneDepthScale2; break;
+                }
+            }
+            if (depth >= 0.01f) return depth;
+            return ZoneScaleOf(knobs, tier) * (DefaultArenaHalfDepth / DefaultArenaHalfWidth);
+        }
+
+        public static Vector2 ZoneHalfExtents(MatchKnobs knobs, int tier)
+        {
+            return new Vector2(
+                DefaultArenaHalfWidth * ZoneScaleOf(knobs, tier),
+                DefaultArenaHalfWidth * ZoneDepthScaleOf(knobs, tier));
         }
 
         /// <summary>两口收口时刻 = 各档持稳 + 预告。改持稳或预告则时刻跟着改。</summary>

@@ -15,6 +15,12 @@ namespace DouQuqu
 
         public static RectTransform Place(RectTransform board, Camera battleCam, float openingScale)
         {
+            float s = Mathf.Max(0.01f, openingScale);
+            return Place(board, battleCam, Rules.DefaultArenaHalfWidth * s, Rules.DefaultArenaHalfDepth * s);
+        }
+
+        public static RectTransform Place(RectTransform board, Camera battleCam, float halfW, float halfD)
+        {
             if (board == null) return null;
 
             Transform root = EnsureRoot(battleCam);
@@ -22,13 +28,6 @@ namespace DouQuqu
                 board.SetParent(root, false);
 
             board.gameObject.SetActive(true);
-            board.anchorMin = new Vector2(0.5f, 0.5f);
-            board.anchorMax = new Vector2(0.5f, 0.5f);
-            board.pivot = new Vector2(0.5f, 0.5f);
-            board.anchoredPosition3D = Vector3.zero;
-            board.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            board.localScale = Vector3.one;
-            board.localPosition = new Vector3(0f, FloorY, 0f);
 
             Canvas canvas = board.GetComponent<Canvas>();
             if (canvas == null) canvas = board.gameObject.AddComponent<Canvas>();
@@ -39,39 +38,72 @@ namespace DouQuqu
             canvas.pixelPerfect = false;
             canvas.enabled = true;
 
+            CanvasScaler scaler = board.GetComponent<CanvasScaler>();
+            if (scaler != null) scaler.enabled = false;
             GraphicRaycaster rays = board.GetComponent<GraphicRaycaster>();
             if (rays != null) rays.enabled = false;
             SilenceRaycasts(board);
 
+            board.anchorMin = new Vector2(0.5f, 0.5f);
+            board.anchorMax = new Vector2(0.5f, 0.5f);
+            board.pivot = new Vector2(0.5f, 0.5f);
+            LieOnGround(board);
+
             RectTransform table = FindNamed(board, "BattleTable") as RectTransform;
             if (table == null) table = board;
             Canvas.ForceUpdateCanvases();
-            AlignTableToArena(board, table, openingScale);
+            LieOnGround(board);
+            AlignTableToArena(board, table, halfW, halfD);
             return board;
         }
 
-        /// <summary>桌子铺满开局档矩形，中心在世界原点。镜头移动不会改这个。</summary>
-        public static void AlignTableToArena(RectTransform board, RectTransform table, float openingScale)
+        /// <summary>
+        /// 桌面矩形按开局档场地改尺寸（关卡）；Board 世界只乘同一个比例（不变形）。
+        /// </summary>
+        public static void AlignTableToArena(RectTransform board, RectTransform table, float halfW, float halfD)
         {
             if (board == null || table == null) return;
-            float scale = Mathf.Max(0.01f, openingScale);
-            float halfW = Rules.DefaultArenaHalfWidth * scale;
-            float halfD = Rules.DefaultArenaHalfDepth * scale;
+            halfW = Mathf.Max(0.01f, halfW);
+            halfD = Mathf.Max(0.01f, halfD);
 
-            Vector3 local = board.localScale;
-            if (Mathf.Abs(local.x) < 0.0001f) local.x = 1f;
-            if (Mathf.Abs(local.y) < 0.0001f) local.y = 1f;
-            if (Mathf.Abs(local.z) < 0.0001f) local.z = 1f;
-            board.localScale = local;
+            LieOnGround(board);
+            board.localScale = Vector3.one;
+            FitTableRectToArena(table, halfW, halfD);
+            Canvas.ForceUpdateCanvases();
+            LieOnGround(board);
 
             Vector2 tableSpan = PlanarSpan(table);
-            float scaleX = (halfW * 2f) / Mathf.Max(0.01f, tableSpan.x) * Mathf.Abs(local.x);
-            float scaleY = (halfD * 2f) / Mathf.Max(0.01f, tableSpan.y) * Mathf.Abs(local.y);
-            board.localScale = new Vector3(scaleX, scaleY, local.z);
+            float s = (halfW * 2f) / Mathf.Max(0.01f, tableSpan.x);
+            s = Mathf.Max(0.0001f, s);
+            board.localScale = new Vector3(s, s, s);
 
             Vector3 tableCenter = PlanarCenter(table);
             Vector3 pos = board.position;
             board.position = new Vector3(pos.x - tableCenter.x, FloorY, pos.z - tableCenter.z);
+        }
+
+        /// <summary>保留桌面宽度，高度改成场地比例。贴图由 tableBg 拉伸铺满这个矩形。</summary>
+        static void FitTableRectToArena(RectTransform table, float halfW, float halfD)
+        {
+            if (table == null) return;
+            table.anchorMin = table.anchorMax = table.pivot = new Vector2(0.5f, 0.5f);
+            table.anchoredPosition = Vector2.zero;
+            table.localScale = Vector3.one;
+            table.localRotation = Quaternion.identity;
+
+            float width = Mathf.Abs(table.rect.width);
+            if (width < 1f) width = Mathf.Abs(table.sizeDelta.x);
+            if (width < 1f) width = 1840f;
+            float height = width * halfD / Mathf.Max(0.01f, halfW);
+            table.sizeDelta = new Vector2(width, height);
+        }
+
+        static void LieOnGround(RectTransform board)
+        {
+            if (board == null) return;
+            board.anchoredPosition3D = Vector3.zero;
+            board.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            board.localPosition = new Vector3(board.localPosition.x, FloorY, board.localPosition.z);
         }
 
         public static Vector2 PlanarSpan(RectTransform rect)

@@ -23,6 +23,7 @@ namespace DouQuqu
         private MatchController boundMatch;
         private int localPlayerId;
         private RectTransform boardRoot;
+        private RectTransform designRoot;
         private BattleTableShrink tableShrink;
         private static BattleHudBinder instance;
 
@@ -53,9 +54,7 @@ namespace DouQuqu
                 hud.enabled = true;
             }
 
-            RectMask2D clip = GetComponent<RectMask2D>();
-            if (clip == null) clip = gameObject.AddComponent<RectMask2D>();
-            clip.enabled = true;
+            DisableViewClip(transform as RectTransform);
 
             // 必须先摘掉 HUD 的 MainCamera，否则 Demo 会把顶视组件挂到平视相机上，
             // 场地在 XZ 平面会被拍成一条细线。
@@ -72,9 +71,12 @@ namespace DouQuqu
             }
 
             PreparePitView();
-            FitPitToDesign();
+            FitDesignSize();
+            DisableViewClip(pit);
+            DisableViewClip(designRoot);
             yield return null;
             Canvas.ForceUpdateCanvases();
+            FitDesignSize();
             yield return LoadDemoIfNeeded();
             BindZoneCamera();
             ApplyFieldZoneScales();
@@ -91,7 +93,7 @@ namespace DouQuqu
             {
                 MatchKnobs knobs = boundMatch != null ? boundMatch.Knobs : null;
                 if (knobs != null)
-                    fitter.UseIntroScales(knobs.zoneScale0, Rules.LastZoneScale(knobs));
+                    fitter.UseIntroZone(knobs);
                 BindIntroPanorama();
                 fitter.FrameOpeningPanorama();
             }
@@ -111,6 +113,7 @@ namespace DouQuqu
         {
             if (boardRoot != null && !boardRoot.gameObject.activeSelf)
                 boardRoot.gameObject.SetActive(true);
+            FitDesignSize();
             TickTableShrinkWarn();
             if (pit == null || battleCam == null || view == null) return;
             RefreshTarget(false);
@@ -281,7 +284,10 @@ namespace DouQuqu
                 pit.localScale = Vector3.one;
             }
 
-            BattleBoardWorld.Place(board, battleCam, OpeningArtScale());
+            Vector2 opening = boundMatch != null
+                ? Rules.ZoneHalfExtents(boundMatch.Knobs, 0)
+                : new Vector2(Rules.DefaultArenaHalfWidth * 2f, Rules.DefaultArenaHalfDepth * 2f);
+            BattleBoardWorld.Place(board, battleCam, opening.x, opening.y);
         }
 
         private void BindTableShrink()
@@ -293,8 +299,7 @@ namespace DouQuqu
         }
 
         /// <summary>
-        /// 三档场地边长跟 Battlefield 里 field-0 / field-1 / field-2 走。
-        /// 末档 field-2 = 1，另外两档按相对它的矩形尺寸。
+        /// 三档 field 按锁定比例尺换成世界有效区。末档跟着 field-2，不锁死 21.2。
         /// </summary>
         private void ApplyFieldZoneScales()
         {
@@ -306,34 +311,26 @@ namespace DouQuqu
             RectTransform field2 = FindNamed(pit, "field-2") as RectTransform;
             if (field0 == null || field1 == null || field2 == null) return;
 
-            float baseline = FieldSpan(field2);
-            if (baseline < 1f) return;
-            knobs.zoneScale0 = Mathf.Max(0.01f, FieldSpan(field0) / baseline);
-            knobs.zoneScale1 = Mathf.Max(0.01f, FieldSpan(field1) / baseline);
-            knobs.zoneScale2 = 1f;
+            Rules.ApplyFieldRects(knobs, FieldSize(field0), FieldSize(field1), FieldSize(field2));
             if (boundMatch.State != null) boundMatch.State.knobs = knobs;
             if (boundMatch.ConfiguredPlayers <= 1)
-                Rules.SetArenaScale(Rules.LastZoneScale(knobs));
+                Rules.ApplyZoneTier(knobs, Rules.LastZoneTier);
             else
                 Rules.ApplyZoneAt(knobs, boundMatch.Elapsed);
         }
 
-        private static float FieldSpan(RectTransform field)
+        private static Vector2 FieldSize(RectTransform field)
         {
             Rect rect = field.rect;
-            return 0.5f * (Mathf.Abs(rect.width) + Mathf.Abs(rect.height));
-        }
-
-        private float OpeningArtScale()
-        {
-            if (boundMatch != null && boundMatch.Knobs != null)
-                return Mathf.Max(0.01f, boundMatch.Knobs.zoneScale0);
-            return 2f;
+            float w = Mathf.Abs(rect.width);
+            float h = Mathf.Abs(rect.height);
+            if (w < 1f) w = Mathf.Abs(field.sizeDelta.x);
+            if (h < 1f) h = Mathf.Abs(field.sizeDelta.y);
+            return new Vector2(w, h);
         }
 
         /// <summary>
-        /// 开场全景按 bg 整组（bigBg + foucusBg）相对桌子的尺寸框。
-        /// 不改 table / bigBg / foucusBg 的预制体尺寸。
+        /// 开场全景按预制体里 bg 相对桌子的尺寸框。field / bg 的相对大小不改。
         /// </summary>
         private void BindIntroPanorama()
         {
@@ -344,23 +341,9 @@ namespace DouQuqu
             if (bg == null) bg = FindNamed(host, "bigBg") as RectTransform;
             if (bg == null) bg = FindNamed(host, "ArenaBackgroundScenery") as RectTransform;
             if (table == null || bg == null) return;
-            AlignBgScaleToTable(bg, table);
             Vector2 tableSize = BattleBoardWorld.PlanarSpan(table);
             Vector2 bgSize = BattleBoardWorld.PlanarSpan(bg);
             fitter.UsePanoramaArt(tableSize, bgSize, BattleBoardWorld.PlanarOffset(bg, table));
-        }
-
-        /// <summary>
-        /// bigBg 与 foucusBg 保持相对关系；只把它们的父节点 bg 缩放到和桌子同一套 localScale。
-        /// </summary>
-        private static void AlignBgScaleToTable(RectTransform bg, RectTransform table)
-        {
-            if (bg == null || table == null) return;
-            Vector3 scale = table.localScale;
-            if (scale.x < 0.01f) scale.x = 1f;
-            if (scale.y < 0.01f) scale.y = 1f;
-            if (scale.z < 0.01f) scale.z = 1f;
-            bg.localScale = scale;
         }
 
         private void OnZoneSnapped(int tier)
@@ -422,17 +405,64 @@ namespace DouQuqu
             view.uvRect = new Rect(0f, 0f, 1f, 1f);
         }
 
-        /// <summary>对战场铺满 1080×1920 设计画布，不再用旧罐子窗 920×1369。</summary>
-        private void FitPitToDesign()
+        /// <summary>镜头 contain 进设计框后，不再用 RectMask 裁 BattleView。</summary>
+        static void DisableViewClip(RectTransform root)
         {
-            if (pit == null) return;
-            pit.anchorMin = Vector2.zero;
-            pit.anchorMax = Vector2.one;
-            pit.pivot = new Vector2(0.5f, 0.5f);
-            pit.offsetMin = Vector2.zero;
-            pit.offsetMax = Vector2.zero;
-            pit.localScale = Vector3.one;
-            pit.localRotation = Quaternion.identity;
+            if (root == null) return;
+            RectMask2D clip = root.GetComponent<RectMask2D>();
+            if (clip != null) clip.enabled = false;
+        }
+
+        public const float DesignWidth = 1080f;
+        public const float DesignHeight = 1920f;
+
+        /// <summary>
+        /// 1080×1920 设计框：窄屏按宽度等比例缩小，短屏按高度等比例缩小，不拉变形。
+        /// 镜头宽高比和世界显示尺都从这块框来。
+        /// </summary>
+        private void FitDesignSize()
+        {
+            if (designRoot == null)
+                designRoot = FindNamed(transform, "defaultDesignSize") as RectTransform;
+            RectTransform design = designRoot;
+            if (design == null) return;
+            FitDesignToParent(design);
+            if (pit != null && pit.parent == design)
+            {
+                pit.anchorMin = Vector2.zero;
+                pit.anchorMax = Vector2.one;
+                pit.pivot = new Vector2(0.5f, 0.5f);
+                pit.offsetMin = Vector2.zero;
+                pit.offsetMax = Vector2.zero;
+                pit.localScale = Vector3.one;
+                pit.localRotation = Quaternion.identity;
+            }
+        }
+
+        /// <returns>设计框的统一缩放。窄于 1080 时 = 父宽度 / 1080。</returns>
+        public static float FitDesignToParent(RectTransform design, float designWidth = DesignWidth, float designHeight = DesignHeight)
+        {
+            if (design == null) return 1f;
+            designWidth = Mathf.Max(1f, designWidth);
+            designHeight = Mathf.Max(1f, designHeight);
+            design.anchorMin = design.anchorMax = design.pivot = new Vector2(0.5f, 0.5f);
+            design.anchoredPosition = Vector2.zero;
+            design.sizeDelta = new Vector2(designWidth, designHeight);
+            design.localRotation = Quaternion.identity;
+
+            float scale = 1f;
+            RectTransform parent = design.parent as RectTransform;
+            if (parent != null)
+            {
+                float parentW = parent.rect.width;
+                float parentH = parent.rect.height;
+                if (parentW > 1f) scale = Mathf.Min(scale, parentW / designWidth);
+                if (parentH > 1f) scale = Mathf.Min(scale, parentH / designHeight);
+            }
+
+            scale = Mathf.Max(0.01f, scale);
+            design.localScale = new Vector3(scale, scale, scale);
+            return scale;
         }
 
         private static IEnumerator LoadDemoIfNeeded()
@@ -464,6 +494,9 @@ namespace DouQuqu
 
             fitter = battleCam.GetComponent<BattleCamera>();
             if (fitter == null) fitter = battleCam.gameObject.AddComponent<BattleCamera>();
+            RectTransform design = FindNamed(transform, "defaultDesignSize") as RectTransform;
+            if (design != null) fitter.UseDesignFrame(design.rect.width, design.rect.height);
+            else fitter.UseDesignFrame(DesignWidth, DesignHeight);
             fitter.UseHudFill();
 
             battleCam.transform.position = new Vector3(0f, 50f, 0f);
@@ -601,13 +634,33 @@ namespace DouQuqu
             target = null;
         }
 
+        /// <summary>
+        /// RenderTexture 必须和 BattleView 同宽高比。分轴封顶会把 1440×2560 裁成 1440×2048，
+        /// RawImage 再铺回去就把整个世界纵向拉扁。
+        /// </summary>
+        public static Vector2Int FitRenderTextureSize(int width, int height, int maxSide = 4096)
+        {
+            int w = Mathf.Max(32, width);
+            int h = Mathf.Max(32, height);
+            int cap = Mathf.Max(32, maxSide);
+            int longest = Mathf.Max(w, h);
+            if (longest > cap)
+            {
+                float s = cap / (float)longest;
+                w = Mathf.Max(32, Mathf.RoundToInt(w * s));
+                h = Mathf.Max(32, Mathf.RoundToInt(h * s));
+            }
+
+            return new Vector2Int(w, h);
+        }
+
         private static Vector2Int PixelSize(RectTransform rect)
         {
             Vector3[] corners = new Vector3[4];
             rect.GetWorldCorners(corners);
-            int w = Mathf.Max(32, Mathf.RoundToInt(Mathf.Abs(corners[2].x - corners[0].x)));
-            int h = Mathf.Max(32, Mathf.RoundToInt(Mathf.Abs(corners[2].y - corners[0].y)));
-            return new Vector2Int(Mathf.Min(w, 2048), Mathf.Min(h, 2048));
+            int w = Mathf.RoundToInt(Mathf.Abs(corners[2].x - corners[0].x));
+            int h = Mathf.RoundToInt(Mathf.Abs(corners[2].y - corners[0].y));
+            return FitRenderTextureSize(w, h);
         }
 
         private static Transform FindNamed(Transform root, string objectName)

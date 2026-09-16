@@ -230,9 +230,14 @@ namespace DouQuqu.Editor.Tests
             Assert.AreEqual("2:00", Rules.FormatClock(Rules.RemainingClock(ranked, 0f, false)));
 
             MatchKnobs training = TrainingCamp.WithDuration(demo);
-            Assert.AreEqual(600f, training.regTime, 1e-4f);
-            Assert.AreEqual(0f, training.otTime, 1e-4f);
-            Assert.IsFalse(training.zoneSchedule);
+            Assert.AreEqual(90f, training.regTime, 1e-4f);
+            Assert.AreEqual(30f, training.otTime, 1e-4f);
+            Assert.AreEqual(120f, Rules.HardStop(training), 1e-4f);
+            Assert.IsTrue(training.zoneSchedule);
+            Assert.AreEqual(0, Rules.ZoneTierAt(training, 0f));
+            Assert.AreEqual(1, Rules.ZoneTierAt(training, 60f));
+            Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(training, 90f));
+            Assert.AreEqual("2:00", Rules.FormatClock(Rules.RemainingClock(training, 0f, false)));
         }
 
         [Test]
@@ -257,6 +262,51 @@ namespace DouQuqu.Editor.Tests
             Assert.AreEqual(2, snaps.Length);
             Assert.AreEqual(60f, snaps[0], 1e-4f);
             Assert.AreEqual(90f, snaps[1], 1e-4f);
+        }
+
+        [Test]
+        public void Z19_OriginalField2WidthMapsToCan()
+        {
+            Vector2 last = Rules.FieldToArenaHalf(Rules.FieldRulerWidth, 1370f);
+            Assert.AreEqual(Rules.DefaultArenaHalfWidth, last.x, 1e-4f);
+            Assert.AreEqual(1370f * Rules.MetersPerFieldUnit * 0.5f, last.y, 1e-4f);
+        }
+
+        [Test]
+        public void Z20_ResizingField2ChangesLastTier()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            Rules.ApplyFieldRects(
+                knobs,
+                new Vector2(1840f, 2740f),
+                new Vector2(1291.3494f, 1921.9755f),
+                new Vector2(1104f, 1644f));
+            Assert.AreEqual(1104f / Rules.FieldRulerWidth, knobs.zoneScale2, 1e-4f);
+            Assert.Greater(knobs.zoneScale2, 1f);
+            Vector2 last = Rules.ZoneHalfExtents(knobs, Rules.LastZoneTier);
+            Assert.AreEqual(Rules.DefaultArenaHalfWidth * (1104f / 920f), last.x, 1e-3f);
+            Assert.AreNotEqual(Rules.DefaultArenaHalfWidth, last.x);
+        }
+
+        [Test]
+        public void Z21_Field0ConvertsThroughSameRuler()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            Rules.ApplyFieldRects(
+                knobs,
+                new Vector2(1840f, 2740f),
+                new Vector2(1291.3494f, 1921.9755f),
+                new Vector2(920f, 1370f));
+            Assert.AreEqual(2f, knobs.zoneScale0, 1e-4f);
+            Assert.AreEqual(1f, knobs.zoneScale2, 1e-4f);
+            Vector2 open = Rules.ZoneHalfExtents(knobs, 0);
+            Vector2 last = Rules.ZoneHalfExtents(knobs, 2);
+            Assert.AreEqual(42.4f, open.x, 1e-3f);
+            Assert.AreEqual(2740f * Rules.MetersPerFieldUnit * 0.5f, open.y, 1e-3f);
+            Assert.AreEqual(21.2f, last.x, 1e-3f);
+            Rules.ApplyZoneTier(knobs, 0);
+            Assert.AreEqual(open.x, Rules.ArenaHalfWidth, 1e-3f);
+            Assert.AreEqual(open.y, Rules.ArenaHalfDepth, 1e-3f);
         }
     }
 }

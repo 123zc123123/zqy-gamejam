@@ -6,12 +6,13 @@ namespace DouQuqu
 {
     /// <summary>
     /// 收口后用下一档 field 蒙版裁 tableBg，outline 迅速缩到新圈。
-    /// 崩裂纹用 Battle 预制体里的 liewen（默认隐藏，只在塌陷环带上按预制体尺寸铺）。
+    /// 预告一开始，liewen 从外沿往内填满即将塌陷的环带；收口后和裁掉的桌面一起渐隐。
     /// 不改 Board / 场景 / BattleTable 尺寸。
     /// </summary>
     public sealed class BattleTableShrink : MonoBehaviour
     {
         const float OutlineShrinkT = 0.15f;
+        const string RevealShader = "DouQuqu/UI/LiewenReveal";
 
         RectTransform table;
         RectTransform tableBg;
@@ -22,6 +23,7 @@ namespace DouQuqu
         RectTransform tableBgFade;
         RectTransform liewen;
         CanvasGroup fadeGroup;
+        Material revealMat;
         readonly RectTransform[] fields = new RectTransform[3];
         Vector2 tableSize;
         Vector2 liewenSize;
@@ -73,29 +75,36 @@ namespace DouQuqu
 
             SetCenteredSize(tableFadeClip, fromSize);
             SetCenteredSize(tableClip, toSize);
-            ClearWarn();
+            warnNextTier = -1;
             ShowFade();
-            ShowLiewenOn(tableFadeClip);
+            PlaceLiewen(tableFadeClip, fromSize, toSize, 1f);
             StopAnims();
             outlineCo = StartCoroutine(ShrinkOutline(fromSize, toSize, OutlineShrinkT));
             fadeCo = StartCoroutine(FadeExcess(Mathf.Max(0f, fadeT)));
         }
 
-        /// <summary>预告期不再铺程序裂纹；崩裂只在收口时用 liewen。</summary>
+        /// <summary>预告倒计时：裂纹从外沿往内填满当前档到下一档之间的塌陷环带。</summary>
         public void SetWarn(int nextTier, float progress)
         {
-            if (nextTier <= shownTier)
+            Ensure();
+            if (nextTier <= shownTier || tableClip == null)
             {
-                if (warnNextTier >= 0) ClearWarn();
+                if (warnNextTier >= 0 && fadeCo == null)
+                    HideLiewen();
+                warnNextTier = -1;
                 return;
             }
 
             warnNextTier = nextTier;
+            Vector2 outer = shownTier < 0 ? TableSize() : SizeOnTable(shownTier);
+            Vector2 inner = SizeOnTable(nextTier);
+            PlaceLiewen(tableClip, outer, inner, Mathf.Clamp01(progress));
         }
 
         public void ClearWarn()
         {
             warnNextTier = -1;
+            if (fadeCo == null) HideLiewen();
         }
 
         void CaptureFields(RectTransform pit)
@@ -119,14 +128,40 @@ namespace DouQuqu
             liewen.gameObject.SetActive(false);
         }
 
-        void ShowLiewenOn(RectTransform host)
+        void PlaceLiewen(RectTransform host, Vector2 outer, Vector2 inner, float progress)
         {
             if (liewen == null || host == null) return;
-            Vector2 size = liewenSize.x >= 1f ? liewenSize : TableSize();
+            if (outer.x < 1f || outer.y < 1f) outer = TableSize();
             liewen.SetParent(host, false);
-            SetCenteredSize(liewen, size);
+            SetCenteredSize(liewen, outer);
             liewen.SetAsLastSibling();
             liewen.gameObject.SetActive(true);
+
+            Image image = liewen.GetComponent<Image>();
+            if (image == null) return;
+            image.raycastTarget = false;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.enabled = true;
+            if (!EnsureRevealMat(image)) return;
+
+            Vector2 scale = new Vector2(
+                inner.x / Mathf.Max(1e-4f, outer.x),
+                inner.y / Mathf.Max(1e-4f, outer.y));
+            revealMat.SetVector("_InnerScale", new Vector4(scale.x, scale.y, 0f, 0f));
+            revealMat.SetFloat("_Progress", Mathf.Clamp01(progress));
+        }
+
+        bool EnsureRevealMat(Image image)
+        {
+            if (revealMat == null)
+            {
+                Shader shader = Shader.Find(RevealShader);
+                if (shader == null) return false;
+                revealMat = new Material(shader);
+            }
+            if (image.material != revealMat) image.material = revealMat;
+            return true;
         }
 
         void HideLiewen()
@@ -342,6 +377,10 @@ namespace DouQuqu
         void OnDestroy()
         {
             HideLiewen();
+            if (revealMat == null) return;
+            if (Application.isPlaying) Destroy(revealMat);
+            else DestroyImmediate(revealMat);
+            revealMat = null;
         }
 
         static Transform FindNamed(Transform root, string objectName)

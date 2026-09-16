@@ -3,7 +3,8 @@ using UnityEngine;
 namespace DouQuqu
 {
     /// <summary>
-    /// 顶视正交相机：窗口按最后一档大小，软跟随自己的虫，夹在当前有效区内。
+    /// 顶视正交相机：取景框完整进画面（contain，不裁战斗区），软跟随自己的虫，夹在当前有效区内。
+    /// 世界显示尺来自 HUD 的 defaultDesignSize（1080×1920）；窄屏等比例缩小这块框，不再 cover 裁切。
     /// </summary>
     [DefaultExecutionOrder(-50)]
     [RequireComponent(typeof(Camera))]
@@ -41,6 +42,8 @@ namespace DouQuqu
         private Vector3 introPanoramaCenter;
         private bool hasIntroScales;
         private bool hasPanorama;
+        private float designAspect = 1080f / 1920f;
+        private bool hasDesignAspect;
 
         public Camera Cam
         {
@@ -128,11 +131,19 @@ namespace DouQuqu
             else if (settleElapsed >= settleDuration) ApplyImmediate();
         }
 
-        /// <summary>嵌进 HUD 时铺满 Battlefield，避免罐子两侧留出空边。</summary>
+        /// <summary>世界显示：取景框完整放进 defaultDesignSize / Battlefield，不裁战斗区域。</summary>
         public void UseHudFill()
         {
-            fillView = true;
+            fillView = false;
             padding = 0f;
+            Fit();
+        }
+
+        /// <summary>镜头宽高比锁在设计框上，不用整屏或被裁过的 RenderTexture。</summary>
+        public void UseDesignFrame(float width, float height)
+        {
+            designAspect = Mathf.Max(0.01f, width) / Mathf.Max(0.01f, height);
+            hasDesignAspect = true;
             Fit();
         }
 
@@ -168,6 +179,17 @@ namespace DouQuqu
             hasIntroScales = true;
         }
 
+        public void UseIntroZone(MatchKnobs knobs)
+        {
+            Vector2 open = Rules.ZoneHalfExtents(knobs, 0);
+            Vector2 last = Rules.ZoneHalfExtents(knobs, Rules.LastZoneTier);
+            introOpenHalfW = Mathf.Max(0.01f, open.x);
+            introOpenHalfD = Mathf.Max(0.01f, open.y);
+            introLastHalfW = Mathf.Max(0.01f, last.x);
+            introLastHalfD = Mathf.Max(0.01f, last.y);
+            hasIntroScales = true;
+        }
+
         /// <summary>
         /// 桌子对应开局档世界；大背景按预制体相对桌子的宽高，映射成开场全景框。
         /// bgCenterOffset 是背景中心相对桌子中心、与 tableSize 同一套 UI 单位。
@@ -198,7 +220,7 @@ namespace DouQuqu
             float halfD = hasPanorama
                 ? introPanoramaHalfD
                 : (hasIntroScales ? introOpenHalfD : Rules.ArenaHalfDepth);
-            fillView = true;
+            fillView = false;
             padding = 0f;
             FrameWorld(hasPanorama ? introPanoramaCenter : Vector3.zero, halfW, halfD, 0f);
         }
@@ -212,14 +234,14 @@ namespace DouQuqu
                 sign.y * Rules.ArenaHalfDepth * 0.5f);
             float halfW = hasIntroScales ? introLastHalfW : Rules.ArenaHalfWidth * 0.5f;
             float halfD = hasIntroScales ? introLastHalfD : Rules.ArenaHalfDepth * 0.5f;
-            fillView = true;
+            fillView = false;
             padding = 0f;
             FrameWorld(center, halfW, halfD, duration);
         }
 
         public void FrameCurrentZone(float duration)
         {
-            fillView = true;
+            fillView = false;
             padding = 0f;
             FrameWorld(Vector3.zero, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, duration);
         }
@@ -229,7 +251,7 @@ namespace DouQuqu
         {
             godView = true;
             followEnabled = false;
-            fillView = true;
+            fillView = false;
             padding = 0f;
             FrameWorld(Vector3.zero, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, 0f);
         }
@@ -243,13 +265,11 @@ namespace DouQuqu
             followEnabled = true;
             chasing = true;
             snapPullElapsed = 1f;
-            fillView = true;
+            fillView = false;
             padding = 0f;
-            float scale = 1f;
-            if (match != null && match.Knobs != null)
-                scale = Mathf.Max(0.01f, Rules.LastZoneScale(match.Knobs));
-            targetHalfW = Rules.DefaultArenaHalfWidth * scale;
-            targetHalfD = Rules.DefaultArenaHalfDepth * scale;
+            Vector2 last = Rules.ZoneHalfExtents(match != null ? match.Knobs : null, Rules.LastZoneTier);
+            targetHalfW = Mathf.Max(0.01f, last.x);
+            targetHalfD = Mathf.Max(0.01f, last.y);
             hasFrame = true;
             toSize = ComputeSize();
             ApplySize(toSize);
@@ -275,7 +295,7 @@ namespace DouQuqu
             Camera battleCam = Cam;
             if (battleCam == null) return new Rect(0f, 0f, 1f, 1f);
             float viewHeight = 2f * Mathf.Max(0.01f, battleCam.orthographicSize);
-            float viewWidth = viewHeight * Mathf.Max(0.01f, battleCam.aspect);
+            float viewWidth = viewHeight * FrameAspect();
             float arenaWidth = (hasFrame ? targetHalfW : Rules.ArenaHalfWidth) * 2f;
             float arenaHeight = (hasFrame ? targetHalfD : Rules.ArenaHalfDepth) * 2f;
             float width = Mathf.Clamp01(arenaWidth / viewWidth);
@@ -349,8 +369,14 @@ namespace DouQuqu
         {
             Camera battleCam = Cam;
             float size = battleCam != null ? Mathf.Max(0.01f, battleCam.orthographicSize) : 1f;
-            float aspect = battleCam != null ? Mathf.Max(0.01f, battleCam.aspect) : 1f;
-            return new Vector2(size * aspect, size);
+            return new Vector2(size * FrameAspect(), size);
+        }
+
+        private float FrameAspect()
+        {
+            if (hasDesignAspect) return Mathf.Max(0.01f, designAspect);
+            Camera battleCam = Cam;
+            return battleCam != null ? Mathf.Max(0.01f, battleCam.aspect) : 1f;
         }
 
         private void ApplyImmediate()
@@ -370,15 +396,16 @@ namespace DouQuqu
         private float ComputeSize()
         {
             Camera battleCam = Cam;
-            float aspect = 1f;
+            float aspect = hasDesignAspect ? designAspect : 1f;
             if (battleCam != null)
             {
                 lastWidth = Mathf.Max(1, battleCam.pixelWidth);
                 lastHeight = Mathf.Max(1, battleCam.pixelHeight);
-                aspect = lastWidth / (float)lastHeight;
+                if (!hasDesignAspect)
+                    aspect = lastWidth / (float)lastHeight;
             }
 
-            float pad = fillView ? 0f : Mathf.Max(0f, padding);
+            float pad = Mathf.Max(0f, padding);
             float halfW = (hasFrame ? targetHalfW : Rules.ArenaHalfWidth) + pad;
             float halfD = (hasFrame ? targetHalfD : Rules.ArenaHalfDepth) + pad;
             float contain = Mathf.Max(halfD, halfW / Mathf.Max(0.01f, aspect));

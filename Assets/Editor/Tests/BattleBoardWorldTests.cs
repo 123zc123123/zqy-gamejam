@@ -38,12 +38,12 @@ namespace DouQuqu.Editor.Tests
             const float opening = 2f;
             BattleBoardWorld.Place(board, cam, opening);
 
+            AssertUniformScale(board);
             float halfW = Rules.DefaultArenaHalfWidth * opening;
             float halfD = Rules.DefaultArenaHalfDepth * opening;
+            AssertTableMatchesArena(table, halfW, halfD);
             Vector2 span = BattleBoardWorld.PlanarSpan(table);
             Vector3 center = BattleBoardWorld.PlanarCenter(table);
-            Assert.AreEqual(halfW * 2f, span.x, 0.05f);
-            Assert.AreEqual(halfD * 2f, span.y, 0.05f);
             Assert.AreEqual(0f, center.x, 0.05f);
             Assert.AreEqual(0f, center.z, 0.05f);
             Assert.AreEqual(BattleBoardWorld.RootName, board.parent.name);
@@ -67,10 +67,12 @@ namespace DouQuqu.Editor.Tests
             RectTransform table;
             CreateBoard(1840f, 2740f, out board, out table);
             BattleBoardWorld.Place(board, null, 2f);
+            AssertUniformScale(board);
             Vector3 pos = board.position;
             Vector3 scale = board.localScale;
             Vector2 span = BattleBoardWorld.PlanarSpan(table);
             BattleBoardWorld.Place(board, null, 2f);
+            AssertUniformScale(board);
             Assert.AreEqual(pos.x, board.position.x, 0.05f);
             Assert.AreEqual(pos.z, board.position.z, 0.05f);
             Assert.AreEqual(scale.x, board.localScale.x, 0.01f);
@@ -78,6 +80,86 @@ namespace DouQuqu.Editor.Tests
             Vector2 again = BattleBoardWorld.PlanarSpan(table);
             Assert.AreEqual(span.x, again.x, 0.05f);
             Assert.AreEqual(span.y, again.y, 0.05f);
+        }
+
+        [Test]
+        public void OddTableAspectFitsFieldThenWorldStaysUniform()
+        {
+            RectTransform board;
+            RectTransform table;
+            CreateBoard(1000f, 3000f, out board, out table);
+            const float opening = 2f;
+            BattleBoardWorld.Place(board, null, opening);
+            AssertUniformScale(board);
+            Assert.AreEqual(1f, table.localScale.x, 1e-4f);
+            Assert.AreEqual(1f, table.localScale.y, 1e-4f);
+            Assert.AreEqual(1f, table.localScale.z, 1e-4f);
+            AssertTableMatchesArena(
+                table,
+                Rules.DefaultArenaHalfWidth * opening,
+                Rules.DefaultArenaHalfDepth * opening);
+            Assert.AreEqual(1000f, table.sizeDelta.x, 0.05f);
+            Assert.AreEqual(1000f * Rules.DefaultArenaHalfDepth / Rules.DefaultArenaHalfWidth, table.sizeDelta.y, 0.05f);
+        }
+
+        [Test]
+        public void TableFollowsFieldConvertedOpeningNotForcedTwoToThree()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            Rules.ApplyFieldRects(
+                knobs,
+                new Vector2(1840f, 2740f),
+                new Vector2(1291f, 1922f),
+                new Vector2(920f, 1370f));
+            Vector2 open = Rules.ZoneHalfExtents(knobs, 0);
+
+            RectTransform board;
+            RectTransform table;
+            CreateBoard(1840f, 2740f, out board, out table);
+            BattleBoardWorld.Place(board, null, open.x, open.y);
+
+            AssertUniformScale(board);
+            AssertTableMatchesArena(table, open.x, open.y);
+            Assert.AreEqual(1840f, table.sizeDelta.x, 0.05f);
+            Assert.AreEqual(2740f, table.sizeDelta.y, 0.05f);
+        }
+
+        [Test]
+        public void PlaceDoesNotRewriteBgRect()
+        {
+            RectTransform board;
+            RectTransform table;
+            CreateBoard(1840f, 2740f, out board, out table);
+            GameObject bgGo = new GameObject("bg", typeof(RectTransform));
+            RectTransform bg = bgGo.GetComponent<RectTransform>();
+            bg.SetParent(board, false);
+            bg.anchorMin = bg.anchorMax = bg.pivot = new Vector2(0.5f, 0.5f);
+            bg.sizeDelta = new Vector2(7884f, 14016f);
+            bg.anchoredPosition = new Vector2(0f, -409f);
+            bg.localScale = Vector3.one;
+
+            BattleBoardWorld.Place(board, null, 2f);
+            Assert.AreEqual(7884f, bg.sizeDelta.x, 0.05f);
+            Assert.AreEqual(14016f, bg.sizeDelta.y, 0.05f);
+            Assert.AreEqual(1f, bg.localScale.x, 1e-4f);
+            Assert.AreEqual(1f, bg.localScale.y, 1e-4f);
+            Assert.AreEqual(-409f, bg.anchoredPosition.y, 0.05f);
+            AssertUniformScale(board);
+        }
+
+        static void AssertUniformScale(RectTransform board)
+        {
+            Vector3 s = board.localScale;
+            Assert.AreEqual(s.x, s.y, 1e-4f);
+            Assert.AreEqual(s.x, s.z, 1e-4f);
+        }
+
+        static void AssertTableMatchesArena(RectTransform table, float halfW, float halfD)
+        {
+            Vector2 span = BattleBoardWorld.PlanarSpan(table);
+            Assert.AreEqual(halfW * 2f, span.x, 0.05f);
+            Assert.AreEqual(halfD * 2f, span.y, 0.05f);
+            Assert.AreEqual(halfD / halfW, table.sizeDelta.y / table.sizeDelta.x, 1e-4f);
         }
 
         void CreateBoard(float tableW, float tableH, out RectTransform board, out RectTransform table)
@@ -99,6 +181,78 @@ namespace DouQuqu.Editor.Tests
             table.anchoredPosition = Vector2.zero;
             table.localScale = Vector3.one;
             table.localRotation = Quaternion.identity;
+        }
+    }
+
+    [TestFixture]
+    public sealed class BattleViewTextureTests
+    {
+        [Test]
+        public void RenderTextureKeepsViewAspectWhenCapping()
+        {
+            Vector2Int pixels = BattleHudBinder.FitRenderTextureSize(1440, 2560, 2048);
+            Assert.AreEqual(2048f / 1152f, pixels.y / (float)pixels.x, 1e-3f);
+            Assert.AreEqual(2560f / 1440f, pixels.y / (float)pixels.x, 1e-3f);
+            Assert.LessOrEqual(Mathf.Max(pixels.x, pixels.y), 2048);
+        }
+
+        [Test]
+        public void RenderTextureBelowCapStaysNative()
+        {
+            Vector2Int pixels = BattleHudBinder.FitRenderTextureSize(1440, 2560, 4096);
+            Assert.AreEqual(1440, pixels.x);
+            Assert.AreEqual(2560, pixels.y);
+        }
+
+        [Test]
+        public void IndependentAxisCapWouldStretchAndIsRejected()
+        {
+            Vector2Int broken = new Vector2Int(Mathf.Min(1440, 2048), Mathf.Min(2560, 2048));
+            Assert.Greater(Mathf.Abs(broken.y / (float)broken.x - 2560f / 1440f), 0.01f);
+            Vector2Int fixedSize = BattleHudBinder.FitRenderTextureSize(1440, 2560, 2048);
+            Assert.AreEqual(2560f / 1440f, fixedSize.y / (float)fixedSize.x, 1e-3f);
+        }
+
+        [Test]
+        public void NarrowParentScalesDesignUniformly()
+        {
+            RectTransform parent;
+            RectTransform design;
+            CreateDesign(720f, 1920f, out parent, out design);
+            float scale = BattleHudBinder.FitDesignToParent(design);
+            Assert.AreEqual(720f / 1080f, scale, 1e-4f);
+            Assert.AreEqual(scale, design.localScale.x, 1e-4f);
+            Assert.AreEqual(scale, design.localScale.y, 1e-4f);
+            Assert.AreEqual(scale, design.localScale.z, 1e-4f);
+            Assert.AreEqual(1080f, design.sizeDelta.x, 0.05f);
+            Assert.AreEqual(1920f, design.sizeDelta.y, 0.05f);
+            Object.DestroyImmediate(parent.gameObject);
+        }
+
+        [Test]
+        public void TallParentDoesNotStretchDesign()
+        {
+            RectTransform parent;
+            RectTransform design;
+            CreateDesign(1080f, 2400f, out parent, out design);
+            float scale = BattleHudBinder.FitDesignToParent(design);
+            Assert.AreEqual(1f, scale, 1e-4f);
+            Assert.AreEqual(1f, design.localScale.x, 1e-4f);
+            Assert.AreEqual(1f, design.localScale.y, 1e-4f);
+            Assert.AreEqual(1080f, design.sizeDelta.x, 0.05f);
+            Assert.AreEqual(1920f, design.sizeDelta.y, 0.05f);
+            Object.DestroyImmediate(parent.gameObject);
+        }
+
+        static void CreateDesign(float parentW, float parentH, out RectTransform parent, out RectTransform design)
+        {
+            GameObject parentGo = new GameObject("CanvasRoot", typeof(RectTransform));
+            parent = parentGo.GetComponent<RectTransform>();
+            parent.anchorMin = parent.anchorMax = parent.pivot = new Vector2(0.5f, 0.5f);
+            parent.sizeDelta = new Vector2(parentW, parentH);
+            GameObject designGo = new GameObject("defaultDesignSize", typeof(RectTransform));
+            design = designGo.GetComponent<RectTransform>();
+            design.SetParent(parent, false);
         }
     }
 }

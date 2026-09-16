@@ -260,7 +260,7 @@ namespace DouQuqu
             accumulator = 0f;
             inputSequence = 0;
             for (int i = 0; i < inputs.Length; i++) inputs[i] = new InputFrame(i, Vector2.up, false, false);
-            if (configuredPlayers <= 1) Rules.SetArenaScale(Rules.ZoneScaleOf(knobs, 3));
+            if (configuredPlayers <= 1) Rules.ApplyZoneTier(knobs, Rules.LastZoneTier);
             else Rules.ApplyZoneAt(knobs, 0f);
             state.homeSpawn = new Vector3[configuredPlayers];
             for (int i = 0; i < configuredPlayers; i++)
@@ -460,7 +460,7 @@ namespace DouQuqu
             int tier = state.playerCount <= 1 ? Rules.LastZoneTier : Rules.ZoneTierAt(active, state.elapsed);
             if (tier != previousTier)
             {
-                Rules.SetArenaScale(Rules.ZoneScaleOf(active, tier));
+                Rules.ApplyZoneTier(active, tier);
                 ZoneSnapped?.Invoke(tier);
                 GameplayEvent?.Invoke("zone-snap", Vector3.zero);
             }
@@ -592,7 +592,7 @@ namespace DouQuqu
             state.started = snapshot.started;
             state.over = snapshot.over;
             state.winnerId = snapshot.winnerId;
-            if (state.playerCount <= 1) Rules.SetArenaScale(Rules.ZoneScaleOf(knobs, 3));
+            if (state.playerCount <= 1) Rules.ApplyZoneTier(knobs, Rules.LastZoneTier);
             else Rules.ApplyZoneAt(knobs, state.elapsed);
             if (snapshot.version >= 4)
             {

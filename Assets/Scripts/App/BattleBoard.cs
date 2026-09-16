@@ -5,12 +5,13 @@ namespace DouQuqu
 {
     /// <summary>
     /// 红框里的棋盘底。旧 Ground / 围栏关掉，铺一块可替换的板。
-    /// 正式图放到 Resources/Battle/Board/Textures/BattleBoard.png 即可，不必改代码。
+    /// 正式图放到 Resources/Battle/Textures/BattleBoard.png 即可，不必改代码。
     /// </summary>
     public static class BattleBoard
     {
         public const string SlotName = "BattleBoard";
-        public const string ResourcePath = "Battle/Board/Textures/BattleBoard";
+        public const string ResourcePath = "Battle/Textures/BattleBoard";
+        public const string LegacyResourcePath = "Battle/Board/Textures/BattleBoard";
 
         public static readonly Color Sand = new Color(0.76f, 0.62f, 0.40f, 1f);
 
@@ -107,6 +108,7 @@ namespace DouQuqu
         private static Material MakeMaterial()
         {
             Texture2D art = Resources.Load<Texture2D>(ResourcePath);
+            if (art == null) art = Resources.Load<Texture2D>(LegacyResourcePath);
             if (art != null)
             {
                 Shader textured = Shader.Find("Unlit/Texture");

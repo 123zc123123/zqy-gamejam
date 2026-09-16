@@ -65,9 +65,9 @@ namespace DouQuqu
             if (warn)
             {
                 int next = Rules.ZoneWarnTier(knobs, elapsed);
-                float scale = Rules.ZoneScaleOf(knobs, next);
-                float innerW = Rules.DefaultArenaHalfWidth * scale;
-                float innerD = Rules.DefaultArenaHalfDepth * scale;
+                Vector2 inner = Rules.ZoneHalfExtents(knobs, next);
+                float innerW = inner.x;
+                float innerD = inner.y;
                 DrawDashedRect(warnMesh, warnRenderer, innerW, innerD, new Color(1f, 0.95f, 0.85f, 0.85f), 0.28f);
                 float pulse = 0.48f + 0.36f * (0.5f + 0.5f * Mathf.Sin(elapsed * Mathf.PI * 4f));
                 DrawFill(
@@ -100,12 +100,12 @@ namespace DouQuqu
         {
             fadeDuration = knobs != null ? Mathf.Max(0f, knobs.zoneFadeT) : 0.5f;
             fadeStartElapsed = elapsed;
-            float outer = Rules.ZoneScaleOf(knobs, fromTier);
-            float inner = Rules.ZoneScaleOf(knobs, toTier);
-            fadeOuterW = Rules.DefaultArenaHalfWidth * outer;
-            fadeOuterD = Rules.DefaultArenaHalfDepth * outer;
-            fadeInnerW = Rules.DefaultArenaHalfWidth * inner;
-            fadeInnerD = Rules.DefaultArenaHalfDepth * inner;
+            Vector2 outer = Rules.ZoneHalfExtents(knobs, fromTier);
+            Vector2 inner = Rules.ZoneHalfExtents(knobs, toTier);
+            fadeOuterW = outer.x;
+            fadeOuterD = outer.y;
+            fadeInnerW = inner.x;
+            fadeInnerD = inner.y;
             if (fadeDuration <= 0f) fadeStartElapsed = -1f;
         }
 
