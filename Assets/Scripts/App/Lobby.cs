@@ -147,6 +147,9 @@ namespace DouQuqu
             if (page != Page.BattleEnter && page != Page.HeroSelection && battleEnter != null && battleEnter.InRoom)
                 battleEnter.LeaveRoomSilent();
 
+            if (CurrentPage == Page.BattleEnter && page != Page.BattleEnter && battleEnter != null)
+                battleEnter.HidePageOverlays();
+
             CurrentPage = page;
             for (int i = 0; i < pages.Length; i++)
             {

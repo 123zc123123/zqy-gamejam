@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using ZqyGameJam.UI.QuquXiangqing;
 
 namespace DouQuqu
 {
@@ -23,6 +24,10 @@ namespace DouQuqu
         private GameObject matchmakingLeaveRoot;
         private TMP_Text matchmakingTimerText;
         private MergeBackpackPanel backpackPanel;
+        private QuquXiangqingView detailView;
+        private string detailBackpackId;
+        private GameObject rulesRoot;
+        private GameObject backpackRoot;
         private readonly Dictionary<Button, bool> lockedButtonStates = new Dictionary<Button, bool>();
         private bool bound;
         private bool friendRoom;
@@ -53,6 +58,7 @@ namespace DouQuqu
 
         private void OnDisable()
         {
+            ClosePageOverlays();
             if (AppServices.Instance == null || AppServices.Instance.Network == null) return;
             AppServices.Instance.Network.LobbyChanged -= OnLobbyChanged;
             AppServices.Instance.Network.MatchReady -= OnMatchReady;
@@ -131,6 +137,7 @@ namespace DouQuqu
         {
             if (!matching && (!friendRoom || !InRoom)) return;
             matching = false;
+            ClosePageOverlays();
             ApplyVisual();
             if (Lobby.Instance != null && Lobby.Instance.CurrentPage == Lobby.Page.BattleEnter)
                 Lobby.Show(Lobby.Page.HeroSelection);
@@ -193,6 +200,7 @@ namespace DouQuqu
             InRoom = false;
             friendRoom = false;
             matching = false;
+            ClosePageOverlays();
             if (AppServices.Instance != null && AppServices.Instance.Network != null)
                 AppServices.Instance.Network.LeaveRoom();
             ApplyVisual();
@@ -360,16 +368,13 @@ namespace DouQuqu
             if (leaveRoot != null) BindButton(leaveRoot, LeaveRoom);
             if (matchmakingLeaveRoot != null) BindButton(matchmakingLeaveRoot, LeaveRoom);
 
-            GameObject rules = FindGo(root, "SideButton_玩法说明");
-            if (rules == null) rules = FindGo(root, "SideButton_活动介绍");
-            if (rules == null) rules = FindGo(root, "玩法说明");
-            if (rules == null) rules = FindGo(root, "玩法规则");
-            if (rules != null) BindButton(rules, ActivityPopup.ShowRules);
+            rulesRoot = FindRulesButton(root);
+            if (rulesRoot != null) BindButton(rulesRoot, OpenRules);
+            else Debug.LogWarning("[DouQuqu] 进战页没有玩法说明按钮");
 
-            GameObject backpack = FindGo(root, "SideButton_背包");
-            if (backpack == null) backpack = FindGo(root, "SideButton_Pack");
-            if (backpack == null) backpack = FindGo(root, "背包");
-            if (backpack != null) BindButton(backpack, OpenBackpack);
+            backpackRoot = FindBackpackButton(root);
+            if (backpackRoot != null) BindButton(backpackRoot, OpenBackpack);
+            else Debug.LogWarning("[DouQuqu] 进战页没有背包按钮");
 
             GameObject training = FindGo(root, "训练营");
             if (training != null) BindCard(training, OpenTrainingCamp);
@@ -411,10 +416,75 @@ namespace DouQuqu
             if (confirm != null) BindButton(confirm.gameObject, clicked);
         }
 
+        private void OpenRules()
+        {
+            ActivityPopup.ShowRules();
+        }
+
         private void OpenBackpack()
         {
             if (backpackPanel == null) backpackPanel = gameObject.AddComponent<MergeBackpackPanel>();
-            backpackPanel.Show(null);
+            backpackPanel.Show(OpenBackpackCard);
+        }
+
+        private void OpenBackpackCard(CricketBackpackEntry entry)
+        {
+            if (entry == null || !EnsureDetailView()) return;
+            detailBackpackId = entry.instanceId;
+            detailView.SetBackpackMode();
+            detailView.SetSellPrice(PlayerDataService.SellPrice(entry.quality));
+            Color? descColor = null;
+            Color skillColor;
+            if (CricketCatalog.TrySkillBlurbColor(entry.quality, entry.temperament, out skillColor))
+                descColor = skillColor;
+            detailView.Show(
+                CricketCatalog.RankLabel(entry.quality, entry.temperament),
+                CricketCatalog.CricketName(entry.quality, entry.temperament),
+                CricketCatalog.Blurb(entry.quality, entry.temperament),
+                CricketCatalog.Portrait(entry.quality, entry.temperament),
+                CricketCatalog.TemperamentName(entry.temperament),
+                CricketCatalog.PanelStatDisplays(entry.quality, entry.temperament),
+                CricketCatalog.PanelStatStrongFlags(entry.temperament),
+                descColor);
+        }
+
+        private bool EnsureDetailView()
+        {
+            if (detailView != null) return true;
+            GameObject prefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
+            detailView = QuquXiangqingView.InstantiateOverlay(prefab);
+            if (detailView == null) return false;
+            detailView.Sold -= SellBackpackCard;
+            detailView.Sold += SellBackpackCard;
+            return true;
+        }
+
+        private void SellBackpackCard()
+        {
+            if (string.IsNullOrEmpty(detailBackpackId)) return;
+            CricketBackpackEntry entry = PlayerDataService.FindBackpack(detailBackpackId);
+            if (entry == null) return;
+            int price = PlayerDataService.SellPrice(entry.quality);
+            if (!PlayerDataService.RemoveFromBackpack(detailBackpackId)) return;
+            PlayerDataService.AddGold(price);
+            detailBackpackId = null;
+            if (detailView != null) detailView.Hide();
+            if (backpackPanel != null) backpackPanel.Refresh();
+        }
+
+        private void ClosePageOverlays()
+        {
+            ActivityPopup.Hide();
+            if (detailView != null) detailView.Hide();
+            if (backpackPanel != null) backpackPanel.Hide();
+            detailBackpackId = null;
+            EventQuestPopup quest = pageRoot != null ? pageRoot.GetComponentInChildren<EventQuestPopup>(true) : null;
+            if (quest != null) quest.Hide();
+        }
+
+        public void HidePageOverlays()
+        {
+            ClosePageOverlays();
         }
 
         private static void OpenTrainingCamp()
@@ -795,7 +865,7 @@ namespace DouQuqu
             if (button != null) button.interactable = interactable;
         }
 
-        /// <summary>匹配期间锁住其它入口，保留“离开房间”按钮用于取消匹配。</summary>
+        /// <summary>匹配期间锁住开打入口，保留离开、玩法说明、背包和日勤。</summary>
         private void SetPageButtonsLocked(bool locked)
         {
             if (pageRoot == null) return;
@@ -806,10 +876,7 @@ namespace DouQuqu
                 {
                     Button button = buttons[i];
                     if (button == null) continue;
-                    if (leaveRoot != null && (button.gameObject == leaveRoot || button.transform.IsChildOf(leaveRoot.transform)))
-                        continue;
-                    if (matchmakingLeaveRoot != null && (button.gameObject == matchmakingLeaveRoot || button.transform.IsChildOf(matchmakingLeaveRoot.transform)))
-                        continue;
+                    if (ShouldStayClickable(button)) continue;
                     if (!lockedButtonStates.ContainsKey(button))
                         lockedButtonStates.Add(button, button.interactable);
                     button.interactable = false;
@@ -822,6 +889,81 @@ namespace DouQuqu
                 if (pair.Key != null) pair.Key.interactable = pair.Value;
             }
             lockedButtonStates.Clear();
+        }
+
+        private bool ShouldStayClickable(Button button)
+        {
+            if (button == null) return false;
+            if (IsUnder(button, leaveRoot)) return true;
+            if (IsUnder(button, matchmakingLeaveRoot)) return true;
+            if (IsUnder(button, rulesRoot)) return true;
+            if (IsUnder(button, backpackRoot)) return true;
+            return HasAncestorNamed(button.transform, "progress-card")
+                || HasAncestorNamed(button.transform, "Popup_renwu");
+        }
+
+        private static bool IsUnder(Button button, GameObject root)
+        {
+            if (button == null || root == null) return false;
+            return button.gameObject == root || button.transform.IsChildOf(root.transform);
+        }
+
+        private static bool HasAncestorNamed(Transform t, string objectName)
+        {
+            while (t != null)
+            {
+                if (t.name == objectName) return true;
+                t = t.parent;
+            }
+            return false;
+        }
+
+        private GameObject FindRulesButton(Transform root)
+        {
+            GameObject go = FindGo(root, "SideButton_玩法说明");
+            if (go == null) go = FindGo(root, "SideButton_活动介绍");
+            if (go == null) go = FindGo(root, "SideButton_Description");
+            if (go == null) go = FindByLabel(root, "玩法说明", "玩法规则", "玩法详情");
+            return ClimbToSideButton(go);
+        }
+
+        private GameObject FindBackpackButton(Transform root)
+        {
+            GameObject go = FindGo(root, "SideButton_背包");
+            if (go == null) go = FindGo(root, "SideButton_Pack");
+            if (go == null) go = FindByLabel(root, "背包");
+            return ClimbToSideButton(go);
+        }
+
+        private static GameObject ClimbToSideButton(GameObject go)
+        {
+            if (go == null) return null;
+            Transform t = go.transform;
+            while (t != null)
+            {
+                if (t.name.IndexOf("SideButton", System.StringComparison.Ordinal) >= 0)
+                    return t.gameObject;
+                t = t.parent;
+            }
+            return go;
+        }
+
+        private static GameObject FindByLabel(Transform root, params string[] labels)
+        {
+            if (root == null || labels == null || labels.Length == 0) return null;
+            TMP_Text[] texts = root.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                TMP_Text text = texts[i];
+                if (text == null) continue;
+                string sample = text.text ?? string.Empty;
+                for (int j = 0; j < labels.Length; j++)
+                {
+                    if (sample.IndexOf(labels[j], System.StringComparison.Ordinal) < 0) continue;
+                    return text.gameObject;
+                }
+            }
+            return null;
         }
 
         private static void BindButton(GameObject go, UnityEngine.Events.UnityAction clicked)
@@ -841,6 +983,7 @@ namespace DouQuqu
             if (button == null) button = go.AddComponent<Button>();
             if (button == null) return;
             button.transition = Selectable.Transition.None;
+            button.interactable = true;
             if (image != null) button.targetGraphic = image;
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(clicked);
@@ -852,6 +995,7 @@ namespace DouQuqu
             {
                 Button nested = nestedButtons[i];
                 if (nested == null || nested == button) continue;
+                nested.interactable = true;
                 nested.onClick.RemoveAllListeners();
                 nested.onClick.AddListener(clicked);
             }
