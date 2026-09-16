@@ -61,6 +61,16 @@ namespace DouQuqu
             return Resolve(playerId).circle;
         }
 
+        /// <summary>开局倒计时「你是X方」用的一字：金 / 红 / 绿 / 蓝。</summary>
+        public static string TeamWord(int playerId)
+        {
+            int index = Mathf.Abs(playerId) % PlayerCount;
+            if (index == 0) return "金";
+            if (index == 1) return "红";
+            if (index == 2) return "绿";
+            return "蓝";
+        }
+
         /// <summary>PlayerFrame 里的头像贴图是玩家形象，不是上场虫。</summary>
         public static void BindAvatar(Transform root, bool visible = true)
         {

@@ -72,14 +72,15 @@ namespace DouQuqu
                 if (dropToCorner) cam.FrameCorner(localPlayerId, 0f);
                 else cam.FrameCurrentZone(0f);
             }
-            yield return Countdown(host);
+            yield return Countdown(host, localPlayerId);
             ShowChrome(host, pit, shot);
         }
 
-        private static IEnumerator Countdown(RectTransform hudRoot)
+        private static IEnumerator Countdown(RectTransform hudRoot, int localPlayerId)
         {
-            RectTransform overlay = CreateCountdown(hudRoot);
-            TMP_Text label = overlay.GetComponentInChildren<TMP_Text>();
+            RectTransform overlay = CreateCountdown(hudRoot, localPlayerId);
+            Transform countNode = overlay.Find("CountLabel");
+            TMP_Text label = countNode != null ? countNode.GetComponent<TMP_Text>() : overlay.GetComponentInChildren<TMP_Text>();
             for (int n = CountdownSeconds; n >= 1; n--)
             {
                 if (label != null) label.text = n.ToString();
@@ -102,7 +103,7 @@ namespace DouQuqu
             }
         }
 
-        private static RectTransform CreateCountdown(RectTransform hudRoot)
+        private static RectTransform CreateCountdown(RectTransform hudRoot, int localPlayerId)
         {
             GameObject go = new GameObject("BattleCount321", typeof(RectTransform));
             RectTransform overlay = go.GetComponent<RectTransform>();
@@ -112,22 +113,64 @@ namespace DouQuqu
             overlay.offsetMin = Vector2.zero;
             overlay.offsetMax = Vector2.zero;
             overlay.SetAsLastSibling();
+
+            Color sideColor = PlayerPalette.OutlineColor(localPlayerId);
+            string colorWord = PlayerPalette.TeamWord(localPlayerId);
+            string hex = ColorUtility.ToHtmlStringRGB(sideColor);
+            TMP_Text side = UiFactory.CreateText(
+                overlay,
+                "SideLabel",
+                "你是<color=#" + hex + ">" + colorWord + "</color>色方！",
+                152f,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                Vector2.zero,
+                Vector2.zero);
+            RectTransform sideRect = side.rectTransform;
+            sideRect.pivot = new Vector2(0.5f, 0.5f);
+            sideRect.sizeDelta = new Vector2(1040f, 220f);
+            sideRect.anchoredPosition = new Vector2(0f, 320f);
+            side.color = Color.white;
+            side.richText = true;
+            side.fontStyle = FontStyles.Bold;
+            side.enableAutoSizing = false;
+            side.enableWordWrapping = false;
+            side.overflowMode = TextOverflowModes.Overflow;
+            side.characterSpacing = 4f;
+            side.extraPadding = true;
+            ApplySharpBlackOutline(side, 0.22f);
+
             TMP_Text label = UiFactory.CreateText(
                 overlay,
                 "CountLabel",
                 "3",
                 280f,
-                Vector2.zero,
-                Vector2.one,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
                 Vector2.zero,
                 Vector2.zero);
+            RectTransform countRect = label.rectTransform;
+            countRect.pivot = new Vector2(0.5f, 0.5f);
+            countRect.sizeDelta = new Vector2(900f, 420f);
+            countRect.anchoredPosition = new Vector2(0f, -40f);
             label.color = Color.white;
             label.enableWordWrapping = false;
             label.overflowMode = TextOverflowModes.Overflow;
-            Outline outline = label.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.75f);
-            outline.effectDistance = new Vector2(6f, -6f);
+            label.extraPadding = true;
+            ApplySharpBlackOutline(label, 0.18f);
             return overlay;
+        }
+
+        static void ApplySharpBlackOutline(TMP_Text label, float width)
+        {
+            if (label == null || label.fontSharedMaterial == null) return;
+            Material material = new Material(label.fontSharedMaterial);
+            material.EnableKeyword("OUTLINE_ON");
+            material.SetFloat("_OutlineWidth", width);
+            material.SetColor("_OutlineColor", Color.black);
+            material.SetFloat("_FaceDilate", 0.12f);
+            material.SetFloat("_OutlineSoftness", 0f);
+            label.fontMaterial = material;
         }
 
         private static void ShowChrome(RectTransform host, RectTransform pit, RectTransform shot)
