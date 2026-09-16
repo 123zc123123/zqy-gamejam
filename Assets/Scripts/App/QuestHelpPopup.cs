@@ -11,9 +11,16 @@ namespace DouQuqu
     public sealed class QuestHelpPopup : MonoBehaviour, IPointerClickHandler
     {
         public Button ignoreButton;
+        int swallowUntilFrame = -1;
+
+        public void SwallowCurrentClick()
+        {
+            swallowUntilFrame = Time.frameCount;
+        }
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            if (Time.frameCount <= swallowUntilFrame) return;
             gameObject.SetActive(false);
             if (eventData == null || EventSystem.current == null) return;
 

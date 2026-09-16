@@ -80,11 +80,6 @@ namespace DouQuqu
 
         void ToggleHelp()
         {
-            if (helpOverlay != null && helpOverlay.activeSelf)
-            {
-                HideHelp();
-                return;
-            }
             ShowHelp();
         }
 
@@ -94,6 +89,12 @@ namespace DouQuqu
             if (helpOverlay == null) return;
             helpOverlay.SetActive(true);
             helpOverlay.transform.SetAsLastSibling();
+            QuestHelpPopup popup = helpOverlay.GetComponent<QuestHelpPopup>();
+            if (popup != null)
+            {
+                popup.ignoreButton = questIcon != null ? questIcon.GetComponent<Button>() : null;
+                popup.SwallowCurrentClick();
+            }
             ApplyHelpText();
             PlaceHelp();
         }
@@ -175,14 +176,27 @@ namespace DouQuqu
             if (helpImage == null || questIcon == null || helpOverlay == null) return;
             RectTransform overlay = helpOverlay.GetComponent<RectTransform>();
             if (overlay == null) return;
+            Canvas.ForceUpdateCanvases();
+            float overlayW = overlay.rect.width;
+            float overlayH = overlay.rect.height;
+            if (overlayW < 1f) overlayW = 1080f;
+            if (overlayH < 1f) overlayH = 1920f;
             Vector2 iconLocal = overlay.InverseTransformPoint(questIcon.position);
             float pad = 16f;
-            float halfHelp = helpImage.sizeDelta.x * 0.5f;
+            float halfHelpX = helpImage.sizeDelta.x * 0.5f;
+            float halfHelpY = helpImage.sizeDelta.y * 0.5f;
+            if (halfHelpX < 1f) halfHelpX = 193.5f;
+            if (halfHelpY < 1f) halfHelpY = 125f;
             float halfIcon = questIcon.rect.width * 0.5f;
-            float x = iconLocal.x + halfIcon + pad + halfHelp;
-            float y = iconLocal.y;
-            float limitX = overlay.rect.width * 0.5f - halfHelp - 8f;
-            if (x > limitX) x = iconLocal.x - halfIcon - pad - halfHelp;
+            float xRight = iconLocal.x + halfIcon + pad + halfHelpX;
+            float xLeft = iconLocal.x - halfIcon - pad - halfHelpX;
+            float minX = -overlayW * 0.5f + halfHelpX + 8f;
+            float maxX = overlayW * 0.5f - halfHelpX - 8f;
+            float x = xRight <= maxX ? xRight : xLeft;
+            x = Mathf.Clamp(x, minX, maxX);
+            float minY = -overlayH * 0.5f + halfHelpY + 8f;
+            float maxY = overlayH * 0.5f - halfHelpY - 8f;
+            float y = Mathf.Clamp(iconLocal.y, minY, maxY);
             helpImage.anchorMin = new Vector2(0.5f, 0.5f);
             helpImage.anchorMax = new Vector2(0.5f, 0.5f);
             helpImage.pivot = new Vector2(0.5f, 0.5f);
