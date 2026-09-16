@@ -4,21 +4,21 @@ using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>全屏遮罩，把目标按钮抬到遮罩之上接收点击，避免跨 Canvas 挖洞点不中。</summary>
+    /// <summary>
+    /// 新手遮罩画在目标所在的根 Canvas 上（共用同一套 CanvasScaler），
+    /// 再把目标按钮提到遮罩之后，适配拉长也不会点不中。
+    /// </summary>
     public sealed class TutorialSpotlight : MonoBehaviour
     {
-        const int SortingOrder = 400;
         static TutorialSpotlight instance;
+
         GameObject target;
-        RectTransform hole;
-        Button holeButton;
+        Transform originalParent;
+        int originalSibling;
+        Vector3 originalScale;
+        Quaternion originalRotation;
+        Image dim;
         TMP_Text hintLabel;
-        Canvas liftedCanvas;
-        GraphicRaycaster liftedRaycaster;
-        bool addedCanvas;
-        bool addedRaycaster;
-        bool oldOverride;
-        int oldOrder;
 
         public static void Show(GameObject targetButton, string hint)
         {
@@ -29,153 +29,151 @@ namespace DouQuqu
             }
 
             if (instance == null) instance = Create();
-            instance.RestoreLift();
-            instance.target = targetButton;
-            instance.LiftTarget(targetButton);
-            instance.hintLabel.text = string.IsNullOrEmpty(hint) ? string.Empty : hint;
-            instance.gameObject.SetActive(true);
-            instance.SyncHole();
+            instance.Attach(targetButton, hint);
         }
 
         public static void Hide()
         {
             if (instance == null) return;
-            instance.RestoreLift();
-            instance.target = null;
-            instance.gameObject.SetActive(false);
+            instance.Restore();
         }
 
         static TutorialSpotlight Create()
         {
-            RectTransform root = UiFactory.CreateOverlay("TutorialSpotlightCanvas", SortingOrder);
-            TutorialSpotlight view = root.gameObject.AddComponent<TutorialSpotlight>();
-            Image dim = root.gameObject.AddComponent<Image>();
-            dim.color = new Color(0.02f, 0.02f, 0.04f, 0.62f);
-            dim.raycastTarget = true;
-
-            GameObject holeGo = new GameObject("Hole", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-            holeGo.transform.SetParent(root, false);
-            view.hole = holeGo.GetComponent<RectTransform>();
-            Image holeImage = holeGo.GetComponent<Image>();
-            holeImage.color = new Color(1f, 1f, 1f, 0.02f);
-            holeImage.raycastTarget = true;
-            view.holeButton = holeGo.GetComponent<Button>();
-            view.holeButton.transition = Selectable.Transition.None;
-            view.holeButton.onClick.AddListener(view.OnHoleClicked);
-
-            view.hintLabel = UiFactory.CreateText(root, "Hint", string.Empty, 36f,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-280f, 0f), new Vector2(280f, 48f));
-            view.hintLabel.color = new Color(0.96f, 0.86f, 0.45f, 1f);
-            view.hintLabel.raycastTarget = false;
-            UiFonts.ApplyTree(root);
+            GameObject host = new GameObject("TutorialSpotlightHost");
+            TutorialSpotlight view = host.AddComponent<TutorialSpotlight>();
+            Object.DontDestroyOnLoad(host);
             return view;
+        }
+
+        void Attach(GameObject targetButton, string hint)
+        {
+            Restore();
+            Canvas canvas = RootCanvas(targetButton);
+            if (canvas == null)
+            {
+                Debug.LogWarning("[DouQuqu] 引导遮罩找不到目标 Canvas");
+                return;
+            }
+
+            target = targetButton;
+            originalParent = target.transform.parent;
+            originalSibling = target.transform.GetSiblingIndex();
+            originalScale = target.transform.localScale;
+            originalRotation = target.transform.localRotation;
+
+            RectTransform canvasRect = canvas.transform as RectTransform;
+            EnsureDim(canvasRect);
+            dim.transform.SetParent(canvasRect, false);
+            Stretch(dim.rectTransform);
+            dim.gameObject.SetActive(true);
+            dim.transform.SetAsLastSibling();
+
+            target.transform.SetParent(canvasRect, true);
+            target.transform.SetAsLastSibling();
+
+            EnsureHint(canvasRect);
+            hintLabel.text = string.IsNullOrEmpty(hint) ? string.Empty : hint;
+            hintLabel.gameObject.SetActive(!string.IsNullOrEmpty(hint));
+            hintLabel.transform.SetAsLastSibling();
+            PlaceHint();
+        }
+
+        void Restore()
+        {
+            if (target != null && originalParent != null)
+            {
+                target.transform.SetParent(originalParent, true);
+                target.transform.SetSiblingIndex(originalSibling);
+                target.transform.localScale = originalScale;
+                target.transform.localRotation = originalRotation;
+            }
+
+            target = null;
+            originalParent = null;
+            if (dim != null) dim.gameObject.SetActive(false);
+            if (hintLabel != null) hintLabel.gameObject.SetActive(false);
         }
 
         void LateUpdate()
         {
             if (target == null || !target.activeInHierarchy)
             {
-                if (hole != null) hole.gameObject.SetActive(false);
+                if (hintLabel != null) hintLabel.gameObject.SetActive(false);
                 return;
             }
-            SyncHole();
-        }
 
-        void LiftTarget(GameObject go)
-        {
-            if (go == null) return;
-            liftedCanvas = go.GetComponent<Canvas>();
-            if (liftedCanvas == null)
+            if (dim != null) dim.transform.SetAsLastSibling();
+            target.transform.SetAsLastSibling();
+            if (hintLabel != null && hintLabel.gameObject.activeSelf)
             {
-                liftedCanvas = go.AddComponent<Canvas>();
-                addedCanvas = true;
+                hintLabel.transform.SetAsLastSibling();
+                PlaceHint();
             }
-            else addedCanvas = false;
-            oldOverride = liftedCanvas.overrideSorting;
-            oldOrder = liftedCanvas.sortingOrder;
-            liftedCanvas.overrideSorting = true;
-            liftedCanvas.sortingOrder = SortingOrder + 10;
-            liftedRaycaster = go.GetComponent<GraphicRaycaster>();
-            if (liftedRaycaster == null)
-            {
-                liftedRaycaster = go.AddComponent<GraphicRaycaster>();
-                addedRaycaster = true;
-            }
-            else addedRaycaster = false;
-        }
-
-        void RestoreLift()
-        {
-            if (addedRaycaster && liftedRaycaster != null) Destroy(liftedRaycaster);
-            if (liftedCanvas != null)
-            {
-                if (addedCanvas) Destroy(liftedCanvas);
-                else
-                {
-                    liftedCanvas.overrideSorting = oldOverride;
-                    liftedCanvas.sortingOrder = oldOrder;
-                }
-            }
-            liftedCanvas = null;
-            liftedRaycaster = null;
-            addedCanvas = false;
-            addedRaycaster = false;
         }
 
         void OnDestroy()
         {
-            RestoreLift();
+            Restore();
         }
 
-        void SyncHole()
+        static Canvas RootCanvas(GameObject go)
         {
-            if (hole == null || target == null) return;
-            RectTransform source = target.GetComponent<RectTransform>();
-            if (source == null)
-            {
-                hole.gameObject.SetActive(false);
-                return;
-            }
+            if (go == null) return null;
+            Canvas canvas = go.GetComponentInParent<Canvas>();
+            return canvas != null ? canvas.rootCanvas : null;
+        }
 
-            hole.gameObject.SetActive(true);
-            hole.SetAsLastSibling();
-            if (hintLabel != null) hintLabel.transform.SetAsLastSibling();
-            Canvas srcCanvas = source.GetComponentInParent<Canvas>();
-            Camera cam = srcCanvas != null && srcCanvas.renderMode != RenderMode.ScreenSpaceOverlay
-                ? srcCanvas.worldCamera
-                : null;
+        void EnsureDim(RectTransform canvasRect)
+        {
+            if (dim != null) return;
+            GameObject go = new GameObject("TutorialDim", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(canvasRect, false);
+            dim = go.GetComponent<Image>();
+            dim.color = new Color(0.02f, 0.02f, 0.04f, 0.62f);
+            dim.raycastTarget = true;
+        }
+
+        void EnsureHint(RectTransform canvasRect)
+        {
+            if (hintLabel != null) return;
+            hintLabel = UiFactory.CreateText(canvasRect, "TutorialHint", string.Empty, 36f,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 0f), new Vector2(220f, 48f),
+                TextAlignmentOptions.MidlineLeft);
+            hintLabel.color = new Color(0.96f, 0.86f, 0.45f, 1f);
+            hintLabel.raycastTarget = false;
+            UiFonts.Apply(hintLabel);
+        }
+
+        void PlaceHint()
+        {
+            if (hintLabel == null || target == null) return;
+            RectTransform source = target.GetComponent<RectTransform>();
+            RectTransform hintRect = hintLabel.rectTransform;
+            RectTransform parent = hintRect.parent as RectTransform;
+            if (source == null || parent == null) return;
+
+            Canvas canvas = parent.GetComponentInParent<Canvas>();
+            Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
             Vector3[] corners = new Vector3[4];
             source.GetWorldCorners(corners);
-            Vector2 min = RectTransformUtility.WorldToScreenPoint(cam, corners[0]);
-            Vector2 max = RectTransformUtility.WorldToScreenPoint(cam, corners[2]);
-            Vector2 size = max - min;
-            if (size.x < 80f) size.x = 80f;
-            if (size.y < 80f) size.y = 80f;
-            Vector2 center = (min + max) * 0.5f;
-            hole.anchorMin = hole.anchorMax = new Vector2(0.5f, 0.5f);
-            hole.pivot = new Vector2(0.5f, 0.5f);
+            Vector2 right = RectTransformUtility.WorldToScreenPoint(cam, (corners[2] + corners[3]) * 0.5f);
             Vector2 local;
-            RectTransform parent = hole.parent as RectTransform;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, center, cam, out local);
-            hole.anchoredPosition = local;
-            hole.sizeDelta = size + new Vector2(24f, 24f);
-            if (hintLabel != null)
-            {
-                RectTransform hintRect = hintLabel.rectTransform;
-                hintRect.anchorMin = hintRect.anchorMax = new Vector2(0.5f, 0.5f);
-                hintRect.pivot = new Vector2(0.5f, 0f);
-                hintRect.anchoredPosition = local + new Vector2(0f, size.y * 0.5f + 28f);
-                hintRect.sizeDelta = new Vector2(560f, 48f);
-            }
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, right, cam, out local);
+            hintRect.anchorMin = hintRect.anchorMax = new Vector2(0.5f, 0.5f);
+            hintRect.pivot = new Vector2(0f, 0.5f);
+            hintRect.anchoredPosition = local + new Vector2(16f, 0f);
+            hintRect.sizeDelta = new Vector2(220f, 48f);
         }
 
-        void OnHoleClicked()
+        static void Stretch(RectTransform rect)
         {
-            if (target == null) return;
-            Button button = target.GetComponent<Button>();
-            if (button == null) button = target.GetComponentInChildren<Button>(true);
-            if (button == null) button = target.GetComponentInParent<Button>();
-            if (button != null && button.interactable) button.onClick.Invoke();
+            if (rect == null) return;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.localScale = Vector3.one;
         }
     }
 }
