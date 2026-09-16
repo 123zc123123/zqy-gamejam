@@ -30,7 +30,7 @@ namespace DouQuqu
             if (!PlayerDataService.RequireLogin()) return;
             VenueClient venue = VenueClient.Instance;
             if (venue != null && venue.HasServer)
-                venue.StartCoroutine(venue.RefreshRanking(_ => Refresh()));
+                venue.StartCoroutine(venue.RefreshRanking(Refresh));
             else
                 Refresh();
         }
