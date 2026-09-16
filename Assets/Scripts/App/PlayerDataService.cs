@@ -62,7 +62,7 @@ namespace DouQuqu
         public const int EggShopPrice = 10;
         public const int EggShopCount = 1;
         /// <summary>出包前改 false。登录时保证背包有四只极品（关羽 / 吕布 / 貂蝉 / 诸葛亮）。</summary>
-        public const bool DebugGrantUltimateBackpack = true;
+        public const bool DebugGrantUltimateBackpack = false;
         public static readonly int[] PointsPlace = { 50, 30, 10, 5 };
         public static readonly int[] GoldPlace = { 40, 24, 14, 8 };
         public static readonly int[] EggPlace = { 8, 6, 4, 2 };

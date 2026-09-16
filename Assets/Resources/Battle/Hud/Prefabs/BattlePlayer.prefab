@@ -58,7 +58,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.898, g: 0.678, b: 0.075, a: 0.60784316}
+  m_Color: {r: 0.898, g: 0.678, b: 0.075, a: 0.78431374}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -829,16 +829,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rightSide: 0
-  leftAvatarPos: {x: 0, y: 10}
-  leftAvatarPivot: {x: 0.5, y: 0.5}
-  leftInfoPos: {x: 22, y: 0}
-  leftNamePos: {x: 0, y: -60}
-  leftScorePos: {x: 80, y: 0}
-  leftScoreLabelPos: {x: 0, y: 0}
-  leftCricket1Pos: {x: -84, y: 0}
-  leftCricket2Pos: {x: 0, y: 0}
-  leftCricket3Pos: {x: 84, y: 0}
-  hasLeftSnapshot: 0
 --- !u!1 &7657172270089370179
 GameObject:
   m_ObjectHideFlags: 0

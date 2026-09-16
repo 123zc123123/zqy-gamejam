@@ -164,6 +164,8 @@ namespace DouQuqu
                 TutorialDirector.OnShopOpened(shop);
             if (page == Page.Home)
                 TutorialDirector.OnHomeReady();
+            if (page == Page.Merge)
+                TutorialDirector.OnBreedingOpened();
             RefreshNavVisibility();
         }
 

@@ -11,6 +11,8 @@ namespace DouQuqu
         private static readonly Color ConfirmFill = new Color(0.5192f, 0.0899f, 0.0936f, 1f);
         private static readonly Color TitleColor = new Color(0.9608f, 0.9255f, 0.8235f, 1f);
         private static readonly Color RoomInputText = new Color(0.31f, 0.22f, 0.16f, 1f);
+        private static readonly Color EmptyAvatarGray = new Color(0.55f, 0.55f, 0.55f, 1f);
+        private const float LobbyFrameNative = 260f;
 
         private GameObject pageRoot;
         private GameObject actionsRoot;
@@ -18,6 +20,7 @@ namespace DouQuqu
         private GameObject leaveRoot;
         private GameObject readyRoot;
         private GameObject matchmakingStatusRoot;
+        private GameObject matchmakingLeaveRoot;
         private TMP_Text matchmakingTimerText;
         private MergeBackpackPanel backpackPanel;
         private readonly Dictionary<Button, bool> lockedButtonStates = new Dictionary<Button, bool>();
@@ -34,6 +37,7 @@ namespace DouQuqu
             pageRoot = root;
             bound = true;
             CacheRoots();
+            EnsureLobbyPlayerFrames();
             EnsureTeamRoomUi();
             EnsureReadyButton();
             EnsureMatchmakingUi();
@@ -242,6 +246,82 @@ namespace DouQuqu
 
             matchmakingStatusRoot = matchmakingTimerText != null ? matchmakingTimerText.gameObject : null;
             if (matchmakingStatusRoot != null) matchmakingStatusRoot.SetActive(false);
+
+            EnsureMatchmakingLeaveButton();
+        }
+
+        /// <summary>匹配中用通用 btn-ready + 红色取消底，替代进战页角落那颗小「离开房间」。</summary>
+        private void EnsureMatchmakingLeaveButton()
+        {
+            if (pageRoot == null) return;
+            if (matchmakingLeaveRoot == null)
+                matchmakingLeaveRoot = FindGo(pageRoot.transform, "MatchmakingLeaveButton");
+            if (matchmakingLeaveRoot != null) return;
+
+            GameObject prefab = Resources.Load<GameObject>("Common/Prefabs/btn-ready");
+            Sprite red = Resources.Load<Sprite>("Common/Textures/红色取消");
+            GameObject go;
+            if (prefab != null)
+            {
+                go = Instantiate(prefab, pageRoot.transform, false);
+            }
+            else
+            {
+                go = new GameObject("MatchmakingLeaveButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+                go.transform.SetParent(pageRoot.transform, false);
+                GameObject label = new GameObject("离开房间", typeof(RectTransform), typeof(TextMeshProUGUI));
+                RectTransform labelRect = label.GetComponent<RectTransform>();
+                labelRect.SetParent(go.transform, false);
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = Vector2.zero;
+                labelRect.offsetMax = Vector2.zero;
+                TextMeshProUGUI text = label.GetComponent<TextMeshProUGUI>();
+                text.font = UiFactory.Font;
+                text.text = "离开房间";
+                text.fontSize = 56f;
+                text.color = Color.white;
+                text.alignment = TextAlignmentOptions.Center;
+                text.raycastTarget = false;
+            }
+
+            go.name = "MatchmakingLeaveButton";
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0f);
+            rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(321f, 141f);
+            rect.anchoredPosition = actionsRoot != null
+                ? actionsRoot.GetComponent<RectTransform>().anchoredPosition
+                : new Vector2(0f, 444f);
+            rect.localScale = Vector3.one;
+
+            Image image = go.GetComponent<Image>();
+            if (image != null)
+            {
+                if (red != null) image.sprite = red;
+                image.color = Color.white;
+                image.preserveAspect = true;
+                image.raycastTarget = true;
+            }
+
+            TMP_Text tmp = go.GetComponentInChildren<TMP_Text>(true);
+            if (tmp != null)
+            {
+                tmp.text = "离开房间";
+                tmp.color = Color.white;
+                tmp.raycastTarget = false;
+            }
+
+            Graphic[] graphics = go.GetComponentsInChildren<Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                if (graphics[i] == null || graphics[i].gameObject == go) continue;
+                graphics[i].raycastTarget = false;
+            }
+
+            go.SetActive(false);
+            matchmakingLeaveRoot = go;
         }
 
         /// <summary>刷新“已匹配时间 / 10 秒”的显示；匹配完成后隐藏。</summary>
@@ -278,6 +358,7 @@ namespace DouQuqu
 
             if (readyRoot != null) BindButton(readyRoot, OnFriendRoomAction);
             if (leaveRoot != null) BindButton(leaveRoot, LeaveRoom);
+            if (matchmakingLeaveRoot != null) BindButton(matchmakingLeaveRoot, LeaveRoom);
 
             GameObject rules = FindGo(root, "SideButton_玩法说明");
             if (rules == null) rules = FindGo(root, "SideButton_活动介绍");
@@ -595,16 +676,72 @@ namespace DouQuqu
             PaintLobbyFrames();
         }
 
-        private void PaintLobbyFrames()
+        private void EnsureLobbyPlayerFrames()
         {
             if (playersRoot == null) return;
             Transform root = playersRoot.transform;
+            GameObject prefab = Resources.Load<GameObject>("Common/Prefabs/PlayerFrame");
             int count = Mathf.Min(4, root.childCount);
             for (int i = 0; i < count; i++)
             {
                 Transform card = root.GetChild(i);
                 if (card == null) continue;
-                PlayerPalette.PaintOutline(card, i);
+
+                Transform group2 = card.Find("Group 2");
+                Transform frame = card.Find("PlayerFrame");
+                if (frame == null && prefab != null)
+                {
+                    GameObject go = Object.Instantiate(prefab, card, false);
+                    go.name = "PlayerFrame";
+                    frame = go.transform;
+                }
+
+                RectTransform frameRect = frame as RectTransform;
+                RectTransform slotRect = group2 as RectTransform;
+                if (frameRect != null)
+                {
+                    frameRect.anchorMin = new Vector2(0.5f, 0.5f);
+                    frameRect.anchorMax = new Vector2(0.5f, 0.5f);
+                    frameRect.pivot = new Vector2(0.5f, 0.5f);
+                    float visual = 200f;
+                    if (slotRect != null)
+                    {
+                        frameRect.anchoredPosition = slotRect.anchoredPosition;
+                        if (slotRect.sizeDelta.x > 1f) visual = slotRect.sizeDelta.x;
+                        frameRect.SetSiblingIndex(slotRect.GetSiblingIndex());
+                    }
+                    else
+                    {
+                        frameRect.anchoredPosition = new Vector2(0f, 8.5f);
+                    }
+
+                    float scale = visual / LobbyFrameNative;
+                    frameRect.localScale = new Vector3(scale, scale, 1f);
+                    frameRect.localRotation = Quaternion.identity;
+                }
+
+                if (group2 != null) group2.gameObject.SetActive(false);
+            }
+        }
+
+        private void PaintLobbyFrames()
+        {
+            if (playersRoot == null) return;
+            EnsureLobbyPlayerFrames();
+            Transform root = playersRoot.transform;
+            int count = Mathf.Min(4, root.childCount);
+            IReadOnlyList<LanPlayerSlot> slots = AppServices.Instance != null && AppServices.Instance.Network != null
+                ? AppServices.Instance.Network.Slots
+                : null;
+            for (int i = 0; i < count; i++)
+            {
+                Transform card = root.GetChild(i);
+                if (card == null) continue;
+                Transform frame = card.Find("PlayerFrame") ?? card;
+                bool occupied = slots != null && i < slots.Count && slots[i] != null && slots[i].connected;
+                PlayerPalette.PaintOutline(frame, i);
+                PlayerPalette.BindAvatar(frame, true);
+                PlayerPalette.TintAvatar(frame, occupied ? Color.white : EmptyAvatarGray);
             }
         }
 
@@ -612,7 +749,8 @@ namespace DouQuqu
         {
             if (actionsRoot != null) actionsRoot.SetActive(!InRoom);
             if (playersRoot != null) playersRoot.SetActive(InRoom);
-            if (leaveRoot != null) leaveRoot.SetActive(InRoom);
+            if (leaveRoot != null) leaveRoot.SetActive(InRoom && !matching);
+            if (matchmakingLeaveRoot != null) matchmakingLeaveRoot.SetActive(matching);
             if (readyRoot != null) readyRoot.SetActive(InRoom && friendRoom);
             SetPageButtonsLocked(matching);
             RefreshFriendRoomAction();
@@ -669,6 +807,8 @@ namespace DouQuqu
                     Button button = buttons[i];
                     if (button == null) continue;
                     if (leaveRoot != null && (button.gameObject == leaveRoot || button.transform.IsChildOf(leaveRoot.transform)))
+                        continue;
+                    if (matchmakingLeaveRoot != null && (button.gameObject == matchmakingLeaveRoot || button.transform.IsChildOf(matchmakingLeaveRoot.transform)))
                         continue;
                     if (!lockedButtonStates.ContainsKey(button))
                         lockedButtonStates.Add(button, button.interactable);

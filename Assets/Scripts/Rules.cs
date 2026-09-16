@@ -256,7 +256,7 @@ namespace DouQuqu
         public float nestGap = 12f;
 
         [Header("场地与缩圈")]
-        [InspectorCn("开局边长倍率", "第 0 档相对最后一档的边长、圆角倍率")]
+        [InspectorCn("开局边长倍率", "第 0 档相对最后一档的边长倍率")]
         public float zoneScale0 = 2f;
         [InspectorCn("第 1 档倍率", "第一次收口后的边长倍率")]
         public float zoneScale1 = 1.2f;
@@ -313,13 +313,13 @@ namespace DouQuqu
             SetArenaScale(1f);
         }
 
-        /// <summary>半宽、半深、圆角相对最后一档基准同乘。</summary>
+        /// <summary>半宽、半深相对最后一档基准同乘。有效区是直角矩形，不再乘圆角。</summary>
         public static void SetArenaScale(float scale)
         {
             float s = Mathf.Max(0.01f, scale);
             ArenaHalfWidth = DefaultArenaHalfWidth * s;
             ArenaHalfDepth = DefaultArenaHalfDepth * s;
-            ArenaCorner = DefaultArenaCorner * s;
+            ArenaCorner = 0f;
         }
 
         /// <summary>按日程把有效区设成该时刻所在档。预告期仍用当前档，不提前换成下一档。</summary>
@@ -396,11 +396,9 @@ namespace DouQuqu
         public static Vector3 OpeningSpawn(int playerId, float spawnEdge)
         {
             Vector2 sign = CornerSign(playerId);
-            float corner = Mathf.Max(0.01f, ArenaCorner);
-            float edge = Mathf.Clamp(spawnEdge, 0.01f, corner * 0.95f);
-            Vector2 arc = new Vector2(sign.x * (ArenaHalfWidth - corner), sign.y * (ArenaHalfDepth - corner));
-            Vector2 outward = sign.normalized;
-            return new Vector3(arc.x + outward.x * (corner - edge), 0f, arc.y + outward.y * (corner - edge));
+            float maxEdge = Mathf.Min(ArenaHalfWidth, ArenaHalfDepth) * 0.95f;
+            float edge = Mathf.Clamp(spawnEdge, 0.01f, Mathf.Max(0.01f, maxEdge));
+            return new Vector3(sign.x * (ArenaHalfWidth - edge), 0f, sign.y * (ArenaHalfDepth - edge));
         }
 
         public static Vector3 SoloPullbackPoint()
@@ -1448,20 +1446,10 @@ namespace DouQuqu
 
         public static Vector3 ClampInsideArena(Vector3 p, float pad = 0f)
         {
-            // 使用与原型相同的圆角矩形 SDF 将点投回场内，保留圆角而不是退化成轴对齐矩形。
-            for (int i = 0; i < 12; i++)
-            {
-                float sdf = ArenaSdf(p.x, p.z);
-                if (sdf <= -pad) break;
-                Vector2 gradient = ArenaGradient(p.x, p.z);
-                float length = gradient.magnitude;
-                if (length < 0.0001f) break;
-                float step = Mathf.Max(0.04f, sdf + pad);
-                p.x -= gradient.x / length * step;
-                p.z -= gradient.y / length * step;
-            }
-            p.x = Mathf.Clamp(p.x, -ArenaHalfWidth + pad, ArenaHalfWidth - pad);
-            p.z = Mathf.Clamp(p.z, -ArenaHalfDepth + pad, ArenaHalfDepth - pad);
+            float insetW = Mathf.Max(0.01f, ArenaHalfWidth - pad);
+            float insetD = Mathf.Max(0.01f, ArenaHalfDepth - pad);
+            p.x = Mathf.Clamp(p.x, -insetW, insetW);
+            p.z = Mathf.Clamp(p.z, -insetD, insetD);
             p.y = 0f;
             return p;
         }
@@ -1471,16 +1459,14 @@ namespace DouQuqu
             return ArenaSdf(p.x, p.z) <= -pad;
         }
 
-        /// <summary>圆角矩形场地的有符号距离（场内为负值）。</summary>
+        /// <summary>直角矩形场地的有符号距离（场内为负值），与黄虚线框同一套半宽半深。</summary>
         public static float ArenaSdf(float x, float z)
         {
-            float qx = Mathf.Abs(x) - (ArenaHalfWidth - ArenaCorner);
-            float qz = Mathf.Abs(z) - (ArenaHalfDepth - ArenaCorner);
-            float ox = Mathf.Max(qx, 0f);
-            float oz = Mathf.Max(qz, 0f);
-            float outside = Mathf.Sqrt(ox * ox + oz * oz);
-            float inside = Mathf.Min(Mathf.Max(qx, qz), 0f);
-            return outside + inside - ArenaCorner;
+            float dx = Mathf.Abs(x) - ArenaHalfWidth;
+            float dz = Mathf.Abs(z) - ArenaHalfDepth;
+            float ox = Mathf.Max(dx, 0f);
+            float oz = Mathf.Max(dz, 0f);
+            return Mathf.Sqrt(ox * ox + oz * oz) + Mathf.Min(Mathf.Max(dx, dz), 0f);
         }
 
         /// <summary>用有限差分计算场地 SDF 的外法线方向。</summary>

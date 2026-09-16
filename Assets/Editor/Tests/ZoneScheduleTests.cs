@@ -88,11 +88,8 @@ namespace DouQuqu.Editor.Tests
             Assert.Less(p4.z, 0f);
             Assert.AreEqual(-knobs.spawnEdge, Rules.ArenaSdf(p1.x, p1.z), 0.08f);
             Assert.AreEqual(-knobs.spawnEdge, Rules.ArenaSdf(p2.x, p2.z), 0.08f);
-            float aabbCorner = Mathf.Sqrt(
-                (Rules.ArenaHalfWidth - knobs.spawnEdge) * (Rules.ArenaHalfWidth - knobs.spawnEdge)
-                + (Rules.ArenaHalfDepth - knobs.spawnEdge) * (Rules.ArenaHalfDepth - knobs.spawnEdge));
-            float fromOrigin = new Vector2(p1.x, p1.z).magnitude;
-            Assert.Less(fromOrigin, aabbCorner - 0.5f);
+            Assert.AreEqual(Rules.ArenaHalfWidth - knobs.spawnEdge, Mathf.Abs(p1.x), 1e-4f);
+            Assert.AreEqual(Rules.ArenaHalfDepth - knobs.spawnEdge, Mathf.Abs(p1.z), 1e-4f);
         }
 
         [Test]

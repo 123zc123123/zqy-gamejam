@@ -21,17 +21,36 @@ namespace DouQuqu
         public const int StepBuyEgg = 8;
         public const int StepBoughtTalk = 9;
         public const int StepDone = 10;
+        public const int StepSwipeNav = 11;
+        public const int StepClickBreed = 12;
+        public const int StepPlaceEgg1 = 13;
+        public const int StepPlaceEgg2 = 14;
+        public const int StepMergeLarva = 15;
 
         public const string IdHeroSelect = "dlg.tutorial.hero_select";
         public const string IdSettlement = "dlg.tutorial.settlement";
         public const string IdShop = "dlg.tutorial.shop";
         public const string IdShopBought = "dlg.tutorial.shop_bought";
+        public const string IdBattleJump = "dlg.tutorial.battle_jump";
+        public const string IdBattleBound = "dlg.tutorial.battle_bound";
+        public const string IdBattleHeart = "dlg.tutorial.battle_heart";
+        public const string IdBattleShield = "dlg.tutorial.battle_shield";
+        public const string IdBattleNest = "dlg.tutorial.battle_nest";
+        public const string IdBattleKill = "dlg.tutorial.battle_kill";
+        public const string IdBreedDone = "dlg.tutorial.breed_done";
+        public const string IdBreedMerge = "dlg.tutorial.breed_merge";
+
+        public const float BoundShowSeconds = 2.5f;
+        public const float NestHp = 1f;
+
+        public static bool NeedsBattleLesson => Step == StepBattle;
 
         public static bool IsActive
         {
             get
             {
                 int step = Step;
+                if (step >= StepSwipeNav && step <= StepMergeLarva) return true;
                 return step > StepOff && step < StepDone;
             }
         }
@@ -42,7 +61,9 @@ namespace DouQuqu
         public static bool BlocksStarterGrant(PlayerProfile player)
         {
             if (player == null) return false;
-            return player.tutorialStep > StepOff && player.tutorialStep < StepDone;
+            int step = player.tutorialStep;
+            if (step >= StepSwipeNav && step <= StepMergeLarva) return true;
+            return step > StepOff && step < StepDone;
         }
 
         public static int Step => PlayerDataService.TutorialStep;
@@ -55,7 +76,18 @@ namespace DouQuqu
         public static void RouteAfterLogin()
         {
             int step = Step;
-            if (step <= StepOff || step >= StepDone) return;
+            if (step <= StepOff) return;
+            if (step == StepSwipeNav || step == StepClickBreed)
+            {
+                Lobby.SetPending(Lobby.Page.Shop);
+                return;
+            }
+            if (step >= StepPlaceEgg1 && step <= StepMergeLarva)
+            {
+                Lobby.SetPending(Lobby.Page.Merge);
+                return;
+            }
+            if (step >= StepDone) return;
             if (step <= StepBattle)
             {
                 AppServices.PendingMatchKind = MatchKind.Training;
@@ -81,6 +113,7 @@ namespace DouQuqu
                 if (PlayerDataService.BackpackCount() <= 0)
                     PlayerDataService.AddFinestToBackpack(1, 1);
                 PlayerDataService.SetTutorialStep(StepBattle);
+                TutorialSpotlight.Hide();
                 selection.NotifyBackpackChanged();
             });
         }
@@ -149,6 +182,8 @@ namespace DouQuqu
 
             if (Step == StepBuyEgg)
                 TutorialSpotlight.Show(shop.EggOfferButton != null ? shop.EggOfferButton.gameObject : null, "买一只幼虫");
+            if (Step == StepSwipeNav || Step == StepClickBreed)
+                TutorialShopNavHint.Begin();
         }
 
         public static void OnBoughtEggs()
@@ -158,9 +193,20 @@ namespace DouQuqu
             PlayerDataService.SetTutorialStep(StepBoughtTalk);
             DialogueBoxView.Play(IdShopBought, () =>
             {
-                PlayerDataService.SetTutorialStep(StepDone);
-                TutorialSpotlight.Hide();
+                PlayerDataService.SetTutorialStep(StepSwipeNav);
+                TutorialShopNavHint.Begin();
             });
+        }
+
+        public static void OnBreedingOpened()
+        {
+            if (Step < StepSwipeNav || Step > StepMergeLarva) return;
+            TutorialFingerHint.Hide();
+            TutorialSpotlight.Hide();
+            TutorialShopNavHint.Stop();
+            if (Step == StepSwipeNav || Step == StepClickBreed)
+                PlayerDataService.SetTutorialStep(StepPlaceEgg1);
+            TutorialBreedHint.Begin();
         }
 
         static void DelaySpotlightShop()

@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.battle_heart
+title: 新手 · 第一场饲料
+---
+
+## 1. 老头 · 饲料
+> mood: warm
+> avatar: oldman
+
+老头：场上那颗是饲料，跳过去碰到就吃。
+
+## 2. 老头 · 变大
+> mood: warm
+> avatar: oldman
+
+老头：不用再按键。吃了虫会变大。

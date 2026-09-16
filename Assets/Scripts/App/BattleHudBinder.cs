@@ -8,8 +8,8 @@ using UnityEngine.UIElements;
 namespace DouQuqu
 {
     /// <summary>
-    /// 战斗美术 HUD：把 Demo 的真实对战场画进中间 Battlefield。
-    /// Battlefield 上已有 Image，不能再挂 RawImage，所以在子节点 BattleView 里显示。
+    /// 战斗美术 HUD：头像、摇杆、分数贴在屏幕上。
+    /// 场地底图、蛐蛐、道具在世界里，顶视相机画进 Battlefield 的 BattleView。
     /// </summary>
     public sealed class BattleHudBinder : MonoBehaviour
     {
@@ -23,6 +23,7 @@ namespace DouQuqu
         private MatchController boundMatch;
         private int localPlayerId;
         private RectTransform boardRoot;
+        private BattleTableShrink tableShrink;
         private static BattleHudBinder instance;
 
         private void Awake()
@@ -71,25 +72,28 @@ namespace DouQuqu
             }
 
             PreparePitView();
+            FitPitToDesign();
             yield return null;
             Canvas.ForceUpdateCanvases();
             yield return LoadDemoIfNeeded();
             BindZoneCamera();
+            ApplyFieldZoneScales();
             BindBattleCamera();
-            BindBoardFollow();
+            PlaceBoardInWorld();
+            BindTableShrink();
             RefreshTarget(true);
             SilenceHudRaycasts();
             BindMatchClock();
             BindScoreHud();
             GroundMarker.SyncFromHud(transform);
-            bool dropToCorner = boundMatch != null
-                && boundMatch.ConfiguredPlayers > 1
-                && boundMatch.Knobs != null
-                && boundMatch.Knobs.zoneSchedule;
+            bool dropToCorner = boundMatch != null && boundMatch.ConfiguredPlayers > 1;
             if (fitter != null)
             {
-                if (dropToCorner) fitter.FrameOpeningPanorama();
-                else fitter.FrameCurrentZone(0f);
+                MatchKnobs knobs = boundMatch != null ? boundMatch.Knobs : null;
+                if (knobs != null)
+                    fitter.UseIntroScales(knobs.zoneScale0, Rules.LastZoneScale(knobs));
+                BindIntroPanorama();
+                fitter.FrameOpeningPanorama();
             }
             yield return BattleIntro.Play(transform as RectTransform, pit, fitter, localPlayerId, dropToCorner);
             if (fitter != null) fitter.FollowLocalPlayer(boundMatch, localPlayerId);
@@ -99,16 +103,41 @@ namespace DouQuqu
             BindScoreHud();
             GroundMarker.SyncFromHud(transform);
             StartMatchIfNeeded();
+            if (TutorialDirector.NeedsBattleLesson)
+                yield return TutorialBattleDirector.Play(boundMatch, localPlayerId, transform);
         }
 
         private void LateUpdate()
         {
-            if (boardRoot == null)
-                boardRoot = FindNamed(transform, "Board") as RectTransform;
             if (boardRoot != null && !boardRoot.gameObject.activeSelf)
                 boardRoot.gameObject.SetActive(true);
+            TickTableShrinkWarn();
             if (pit == null || battleCam == null || view == null) return;
             RefreshTarget(false);
+        }
+
+        private void TickTableShrinkWarn()
+        {
+            if (tableShrink == null || boundMatch == null) return;
+            MatchKnobs knobs = boundMatch.Knobs;
+            if (knobs == null || !boundMatch.ZoneWarn)
+            {
+                tableShrink.SetWarn(-1, 0f);
+                return;
+            }
+
+            int current = boundMatch.ZoneTier;
+            int next = Rules.ZoneWarnTier(knobs, boundMatch.Elapsed);
+            float[] snaps = Rules.ZoneSnapTimes(knobs);
+            if (current < 0 || current >= snaps.Length || next <= current)
+            {
+                tableShrink.SetWarn(-1, 0f);
+                return;
+            }
+
+            float warn = Mathf.Max(0.0001f, knobs.zoneWarnT);
+            float progress = 1f - (snaps[current] - boundMatch.Elapsed) / warn;
+            tableShrink.SetWarn(next, Mathf.Clamp01(progress));
         }
 
         private void OnDestroy()
@@ -120,6 +149,8 @@ namespace DouQuqu
                 boundMatch.GameplayEvent -= OnGameplayEvent;
             }
             ReleaseTarget();
+            GameObject world = GameObject.Find(BattleBoardWorld.RootName);
+            if (world != null) Destroy(world);
             Rules.ResetArenaSize();
         }
 
@@ -236,13 +267,13 @@ namespace DouQuqu
             return new Vector2(Screen.width * 0.5f, Screen.height * 0.55f);
         }
 
-        private void BindBoardFollow()
+        private void PlaceBoardInWorld()
         {
             RectTransform board = FindNamed(transform, "Board") as RectTransform;
-            if (board == null || pit == null) return;
+            if (board == null) return;
             boardRoot = board;
             board.gameObject.SetActive(true);
-            if (pit.parent == board && board.parent != null)
+            if (pit != null && pit.parent == board && board.parent != null)
             {
                 int index = board.GetSiblingIndex();
                 pit.SetParent(board.parent, true);
@@ -250,7 +281,47 @@ namespace DouQuqu
                 pit.localScale = Vector3.one;
             }
 
-            BattleBoardFollow.Bind(board, pit, fitter, OpeningArtScale());
+            BattleBoardWorld.Place(board, battleCam, OpeningArtScale());
+        }
+
+        private void BindTableShrink()
+        {
+            RectTransform tableHost = boardRoot != null ? boardRoot : transform as RectTransform;
+            tableShrink = BattleTableShrink.Bind(tableHost, pit, transform as RectTransform);
+            if (tableShrink == null || boundMatch == null) return;
+            tableShrink.SnapTo(boundMatch.ZoneTier, 0f, true);
+        }
+
+        /// <summary>
+        /// 三档场地边长跟 Battlefield 里 field-0 / field-1 / field-2 走。
+        /// 末档 field-2 = 1，另外两档按相对它的矩形尺寸。
+        /// </summary>
+        private void ApplyFieldZoneScales()
+        {
+            if (pit == null || boundMatch == null) return;
+            MatchKnobs knobs = boundMatch.Knobs;
+            if (knobs == null) return;
+            RectTransform field0 = FindNamed(pit, "field-0") as RectTransform;
+            RectTransform field1 = FindNamed(pit, "field-1") as RectTransform;
+            RectTransform field2 = FindNamed(pit, "field-2") as RectTransform;
+            if (field0 == null || field1 == null || field2 == null) return;
+
+            float baseline = FieldSpan(field2);
+            if (baseline < 1f) return;
+            knobs.zoneScale0 = Mathf.Max(0.01f, FieldSpan(field0) / baseline);
+            knobs.zoneScale1 = Mathf.Max(0.01f, FieldSpan(field1) / baseline);
+            knobs.zoneScale2 = 1f;
+            if (boundMatch.State != null) boundMatch.State.knobs = knobs;
+            if (boundMatch.ConfiguredPlayers <= 1)
+                Rules.SetArenaScale(Rules.LastZoneScale(knobs));
+            else
+                Rules.ApplyZoneAt(knobs, boundMatch.Elapsed);
+        }
+
+        private static float FieldSpan(RectTransform field)
+        {
+            Rect rect = field.rect;
+            return 0.5f * (Mathf.Abs(rect.width) + Mathf.Abs(rect.height));
         }
 
         private float OpeningArtScale()
@@ -260,8 +331,44 @@ namespace DouQuqu
             return 2f;
         }
 
+        /// <summary>
+        /// 开场全景按 bg 整组（bigBg + foucusBg）相对桌子的尺寸框。
+        /// 不改 table / bigBg / foucusBg 的预制体尺寸。
+        /// </summary>
+        private void BindIntroPanorama()
+        {
+            if (fitter == null) return;
+            Transform host = boardRoot != null ? boardRoot : transform;
+            RectTransform table = FindNamed(host, "BattleTable") as RectTransform;
+            RectTransform bg = FindNamed(host, "bg") as RectTransform;
+            if (bg == null) bg = FindNamed(host, "bigBg") as RectTransform;
+            if (bg == null) bg = FindNamed(host, "ArenaBackgroundScenery") as RectTransform;
+            if (table == null || bg == null) return;
+            AlignBgScaleToTable(bg, table);
+            Vector2 tableSize = BattleBoardWorld.PlanarSpan(table);
+            Vector2 bgSize = BattleBoardWorld.PlanarSpan(bg);
+            fitter.UsePanoramaArt(tableSize, bgSize, BattleBoardWorld.PlanarOffset(bg, table));
+        }
+
+        /// <summary>
+        /// bigBg 与 foucusBg 保持相对关系；只把它们的父节点 bg 缩放到和桌子同一套 localScale。
+        /// </summary>
+        private static void AlignBgScaleToTable(RectTransform bg, RectTransform table)
+        {
+            if (bg == null || table == null) return;
+            Vector3 scale = table.localScale;
+            if (scale.x < 0.01f) scale.x = 1f;
+            if (scale.y < 0.01f) scale.y = 1f;
+            if (scale.z < 0.01f) scale.z = 1f;
+            bg.localScale = scale;
+        }
+
         private void OnZoneSnapped(int tier)
         {
+            float fade = boundMatch != null && boundMatch.Knobs != null
+                ? boundMatch.Knobs.zoneFadeT
+                : 0.5f;
+            if (tableShrink != null) tableShrink.SnapTo(tier, fade, false);
             if (fitter == null || boundMatch == null) return;
             float settle = boundMatch.Knobs != null ? boundMatch.Knobs.camSettleT : 0.8f;
             fitter.PullIntoZone(settle);
@@ -284,6 +391,16 @@ namespace DouQuqu
             Transform ring = pit.Find("PitRing");
             if (ring != null) Destroy(ring.gameObject);
 
+            for (int i = 0; i < pit.childCount; i++)
+            {
+                Transform child = pit.GetChild(i);
+                if (child == null || !child.name.StartsWith("field-")) continue;
+                UnityEngine.UI.Image fieldImage = child.GetComponent<UnityEngine.UI.Image>();
+                if (fieldImage != null) fieldImage.enabled = false;
+                UnityEngine.UI.Outline fieldOutline = child.GetComponent<UnityEngine.UI.Outline>();
+                if (fieldOutline != null) fieldOutline.enabled = false;
+            }
+
             Transform display = pit.Find("BattleView");
             if (display == null)
             {
@@ -305,27 +422,17 @@ namespace DouQuqu
             view.uvRect = new Rect(0f, 0f, 1f, 1f);
         }
 
-        /// <summary>
-        /// 新背景擂台比旧红框大。把 Battlefield 拉到顶栏头像和底栏卡之间，铺满坑。
-        /// </summary>
-private void FitPitToHud()
+        /// <summary>对战场铺满 1080×1920 设计画布，不再用旧罐子窗 920×1369。</summary>
+        private void FitPitToDesign()
         {
             if (pit == null) return;
-            RectTransform host = pit.parent as RectTransform;
-            RectTransform top = FindNamed(transform, "PlayersRow") as RectTransform;
-            RectTransform bottom = FindNamed(transform, "ScrollableTrack") as RectTransform;
-            // The legacy rows are optional; preserve the same arena window when they are removed.
-            float topEdge = top != null ? top.anchoredPosition.y - top.rect.height * 0.5f : 637f;
-            float bottomEdge = bottom != null ? bottom.anchoredPosition.y + bottom.rect.height * 0.5f : -617f;
-            float hostWidth = host != null ? host.rect.width : 1080f;
-            const float inset = 6f;
-            float yMax = topEdge - inset;
-            float yMin = bottomEdge + inset;
-            pit.anchorMin = new Vector2(0.5f, 0.5f);
-            pit.anchorMax = new Vector2(0.5f, 0.5f);
+            pit.anchorMin = Vector2.zero;
+            pit.anchorMax = Vector2.one;
             pit.pivot = new Vector2(0.5f, 0.5f);
-            pit.anchoredPosition = new Vector2(0f, (yMax + yMin) * 0.5f);
-            pit.sizeDelta = new Vector2(Mathf.Max(200f, hostWidth - 40f), Mathf.Max(200f, yMax - yMin));
+            pit.offsetMin = Vector2.zero;
+            pit.offsetMax = Vector2.zero;
+            pit.localScale = Vector3.one;
+            pit.localRotation = Quaternion.identity;
         }
 
         private static IEnumerator LoadDemoIfNeeded()
@@ -366,7 +473,7 @@ private void FitPitToHud()
             battleCam.orthographic = true;
             battleCam.clearFlags = CameraClearFlags.SolidColor;
             Color clearSand = BattleBoard.Sand;
-            clearSand.a = 0f;
+            clearSand.a = 1f;
             battleCam.backgroundColor = clearSand;
             battleCam.depth = -1;
             BattleBoard.HideSurface();

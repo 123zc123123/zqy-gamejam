@@ -29,6 +29,7 @@ namespace DouQuqu
         private Image dragGhost;
         private Text goldText;
         private Text eggText;
+        private GameObject goldCircle;
         private Sprite[] phaseSprites;
         private Sprite[] qualitySprites;
         private QuquXiangqingView detailView;
@@ -47,6 +48,19 @@ namespace DouQuqu
             new Color(0.48f, 0.78f, 0.42f, 1f),
             new Color(0.82f, 0.48f, 0.22f, 1f)
         };
+
+        public GameObject GoldCircle => goldCircle;
+        public MergeBoard Board => board;
+
+        public int CountLevel(int level)
+        {
+            if (board == null) return 0;
+            int count = 0;
+            IReadOnlyList<MergePiece> pieces = board.Pieces;
+            for (int i = 0; i < pieces.Count; i++)
+                if (pieces[i] != null && pieces[i].level == level) count++;
+            return count;
+        }
 
         public void AttachCanvas(GameObject canvas)
         {
@@ -591,6 +605,9 @@ namespace DouQuqu
             button.navigation = nav;
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(SpawnOne);
+            if (goldCircle == null) goldCircle = target.gameObject;
+            if (target.name.IndexOf("Arena", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                goldCircle = target.gameObject;
         }
 
         private void RefreshBoard()

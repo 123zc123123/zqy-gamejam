@@ -65,6 +65,8 @@ namespace DouQuqu
         public event Action<int> PlayerEliminated;
         public event Action<string, Vector3> GameplayEvent;
         public event Action<int> ZoneSnapped;
+        bool tutorialHoldClock;
+        bool tutorialSuppressSpawns;
 
         private void Awake()
         {
@@ -353,6 +355,98 @@ namespace DouQuqu
             bug.pendingCharge = false;
         }
 
+        public void SetTutorialFreeze(bool on)
+        {
+            tutorialHoldClock = on;
+            tutorialSuppressSpawns = on;
+            if (state == null) return;
+            if (on) state.nextNestAt = float.MaxValue;
+            else if (state.nextNestAt > 1e8f)
+                state.nextNestAt = state.elapsed + Mathf.Max(0f, ActiveKnobs.nestGap);
+        }
+
+        public void ClearPickups()
+        {
+            if (state == null || state.pickups == null) return;
+            state.pickups.Clear();
+            StateChanged?.Invoke(state);
+        }
+
+        public void SpawnTutorialPickup(string kind, Vector3 at)
+        {
+            if (state == null) return;
+            state.pickups.Add(new PickupState(state.nextPickupId++, at, kind));
+            StateChanged?.Invoke(state);
+        }
+
+        public void SpawnTutorialNest(Vector3 at, float hp)
+        {
+            if (state == null) return;
+            state.nest = new NestState
+            {
+                position = at,
+                hp = Mathf.Max(1f, hp),
+                alive = true
+            };
+            state.nextNestAt = float.MaxValue;
+            StateChanged?.Invoke(state);
+        }
+
+        public void MovePlayerTo(int playerId, Vector3 at)
+        {
+            if (state == null || state.bugs == null || playerId < 0 || playerId >= state.bugs.Length) return;
+            BugState bug = state.bugs[playerId];
+            if (bug == null) return;
+            at.y = 0f;
+            bug.position = at;
+            bug.previousPosition = at;
+            bug.velocity = Vector3.zero;
+            bug.height = 0f;
+            bug.verticalVelocity = 0f;
+            bug.airborne = false;
+            StateChanged?.Invoke(state);
+        }
+
+        public Vector3 PointInward(int playerId, float distance)
+        {
+            if (state == null || state.bugs == null || playerId < 0 || playerId >= state.bugs.Length)
+                return Vector3.zero;
+            BugState bug = state.bugs[playerId];
+            Vector3 pos = bug.position;
+            float need = (bug.radius + 2.8f);
+            Vector3 inward = new Vector3(-pos.x, 0f, -pos.z);
+            if (inward.sqrMagnitude < 0.01f) inward = Vector3.forward;
+            inward.Normalize();
+            Vector3[] tries =
+            {
+                pos + inward * distance,
+                pos + inward * (distance + 3f),
+                pos + Vector3.Cross(Vector3.up, inward) * distance,
+                pos - Vector3.Cross(Vector3.up, inward) * distance
+            };
+            for (int i = 0; i < tries.Length; i++)
+            {
+                Vector3 at = Rules.ClampInsideArena(tries[i], 2.4f);
+                at.y = 0f;
+                float gap = Vector2.Distance(new Vector2(at.x, at.z), new Vector2(pos.x, pos.z));
+                if (gap >= need) return at;
+            }
+            return Rules.ClampInsideArena(pos + inward * need, 2.4f);
+        }
+
+        public Vector3 PointOutward(int playerId, float distance)
+        {
+            if (state == null || state.bugs == null || playerId < 0 || playerId >= state.bugs.Length)
+                return Vector3.zero;
+            Vector3 pos = state.bugs[playerId].position;
+            Vector3 outward = new Vector3(pos.x, 0f, pos.z);
+            if (outward.sqrMagnitude < 0.01f) outward = Vector3.back;
+            outward.Normalize();
+            BugState bug = state.bugs[playerId];
+            float pad = (bug != null ? bug.radius : 1f) + 1.2f;
+            return Rules.ClampInsideArena(pos + outward * distance, pad);
+        }
+
         /// <summary>推进一个权威模拟片段；移动/碰撞分步执行，再结算经济、巢穴和蓄力。</summary>
         public void Tick(float dt)
         {
@@ -361,7 +455,7 @@ namespace DouQuqu
             MatchKnobs active = ActiveKnobs;
             float previousElapsed = state.elapsed;
             int previousTier = state.playerCount <= 1 ? Rules.LastZoneTier : Rules.ZoneTierAt(active, previousElapsed);
-            state.elapsed += dt;
+            if (!tutorialHoldClock) state.elapsed += dt;
             state.tick++;
             int tier = state.playerCount <= 1 ? Rules.LastZoneTier : Rules.ZoneTierAt(active, state.elapsed);
             if (tier != previousTier)
@@ -385,7 +479,7 @@ namespace DouQuqu
             for (int i = 0; i < state.bugs.Length; i++)
                 if (state.bugs[i].alive && !Rules.InsideArena(state.bugs[i].position)) MarkOut(state.bugs[i]);
             movement.MarkBabyOutOfBounds(state, Emit);
-            economy.Tick(state, AddGrow, Emit);
+            if (!tutorialSuppressSpawns) economy.Tick(state, AddGrow, Emit);
             // 巢穴计时在拾取结算后执行；蓄力/松开只在完整固定 Tick 末采样一次。
             nestSystem.TickBeforeCollision(state, dt, Emit);
             nestSystem.TickAfterCollision(state, Emit);

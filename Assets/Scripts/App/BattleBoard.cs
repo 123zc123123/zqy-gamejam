@@ -26,7 +26,7 @@ namespace DouQuqu
             EnsureBoard(Mathf.Max(0.01f, openingScale));
         }
 
-        /// <summary>关掉旧 Ground / 围栏和 3D 底板，只留 2D HUD 棋盘。</summary>
+        /// <summary>关掉旧 Ground / 围栏和 3D 底板，正式底图由 BattleBoardWorld 钉在世界上。</summary>
         public static void HideSurface()
         {
             HideLegacyArena();

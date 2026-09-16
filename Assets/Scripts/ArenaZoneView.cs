@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -6,24 +7,33 @@ namespace DouQuqu
     /// <summary>当前有效区边 + 预告环带。收口时环带一起渐隐，轮廓不是出局边。</summary>
     public sealed class ArenaZoneView : MonoBehaviour
     {
-        private const int CornerSegments = 10;
-        private LineRenderer currentEdge;
-        private LineRenderer warnEdge;
+        private const int EdgeSamples = 8;
+        private const float DashLength = 1.6f;
+        private const float GapLength = 1.0f;
+        private const float LineY = 0.04f;
+        private const float FillY = 0.03f;
+        private MeshFilter currentFilter;
+        private MeshRenderer currentRenderer;
+        private Mesh currentMesh;
+        private MeshFilter warnFilter;
+        private MeshRenderer warnRenderer;
+        private Mesh warnMesh;
         private MeshFilter fillFilter;
         private MeshRenderer fillRenderer;
         private Mesh fillMesh;
         private Material lineMaterial;
         private Material fillMaterial;
+        private readonly List<Vector3> dashVerts = new List<Vector3>(256);
+        private readonly List<Color> dashColors = new List<Color>(256);
+        private readonly List<int> dashTris = new List<int>(512);
         private int lastTier = -1;
         private float lastElapsed;
         private float fadeStartElapsed = -1f;
         private float fadeDuration;
         private float fadeOuterW;
         private float fadeOuterD;
-        private float fadeOuterC;
         private float fadeInnerW;
         private float fadeInnerD;
-        private float fadeInnerC;
 
         public static ArenaZoneView Ensure()
         {
@@ -36,9 +46,8 @@ namespace DouQuqu
 
         public void Refresh(MatchKnobs knobs, float elapsed, bool schedule)
         {
-            EnsureLines();
-            DrawRoundedRect(currentEdge, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, Rules.ArenaCorner, new Color(1f, 0.92f, 0.45f, 0.95f), 0.42f);
-            currentEdge.enabled = true;
+            EnsureMeshes();
+            DrawDashedRect(currentMesh, currentRenderer, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, new Color(1f, 0.92f, 0.45f, 0.95f), 0.42f);
 
             if (elapsed + 0.05f < lastElapsed)
             {
@@ -59,18 +68,16 @@ namespace DouQuqu
                 float scale = Rules.ZoneScaleOf(knobs, next);
                 float innerW = Rules.DefaultArenaHalfWidth * scale;
                 float innerD = Rules.DefaultArenaHalfDepth * scale;
-                float innerC = Rules.DefaultArenaCorner * scale;
-                DrawRoundedRect(warnEdge, innerW, innerD, innerC, new Color(1f, 0.95f, 0.85f, 0.85f), 0.28f);
-                warnEdge.enabled = true;
+                DrawDashedRect(warnMesh, warnRenderer, innerW, innerD, new Color(1f, 0.95f, 0.85f, 0.85f), 0.28f);
                 float pulse = 0.48f + 0.36f * (0.5f + 0.5f * Mathf.Sin(elapsed * Mathf.PI * 4f));
                 DrawFill(
-                    Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, Rules.ArenaCorner,
-                    innerW, innerD, innerC,
+                    Rules.ArenaHalfWidth, Rules.ArenaHalfDepth,
+                    innerW, innerD,
                     new Color(0.96f, 0.08f, 0.06f, pulse));
             }
             else
             {
-                warnEdge.enabled = false;
+                if (warnRenderer != null) warnRenderer.enabled = false;
                 if (fadeStartElapsed < 0f) HideFill();
             }
 
@@ -82,8 +89,8 @@ namespace DouQuqu
                 else
                 {
                     DrawFill(
-                        fadeOuterW, fadeOuterD, fadeOuterC,
-                        fadeInnerW, fadeInnerD, fadeInnerC,
+                        fadeOuterW, fadeOuterD,
+                        fadeInnerW, fadeInnerD,
                         new Color(0.96f, 0.08f, 0.06f, alpha));
                 }
             }
@@ -97,20 +104,21 @@ namespace DouQuqu
             float inner = Rules.ZoneScaleOf(knobs, toTier);
             fadeOuterW = Rules.DefaultArenaHalfWidth * outer;
             fadeOuterD = Rules.DefaultArenaHalfDepth * outer;
-            fadeOuterC = Rules.DefaultArenaCorner * outer;
             fadeInnerW = Rules.DefaultArenaHalfWidth * inner;
             fadeInnerD = Rules.DefaultArenaHalfDepth * inner;
-            fadeInnerC = Rules.DefaultArenaCorner * inner;
             if (fadeDuration <= 0f) fadeStartElapsed = -1f;
         }
 
-        private void EnsureLines()
+        private void EnsureMeshes()
         {
+            HideLegacyLines();
             if (lineMaterial == null)
             {
                 Shader shader = Shader.Find("Sprites/Default");
                 if (shader == null) shader = Shader.Find("Unlit/Color");
                 lineMaterial = new Material(shader) { name = "ArenaZoneLine" };
+                lineMaterial.mainTexture = Texture2D.whiteTexture;
+                lineMaterial.color = Color.white;
             }
 
             if (fillMaterial == null)
@@ -122,8 +130,8 @@ namespace DouQuqu
                 fillMaterial.color = Color.white;
             }
 
-            if (currentEdge == null) currentEdge = CreateLine("CurrentEdge", 20);
-            if (warnEdge == null) warnEdge = CreateLine("WarnEdge", 21);
+            EnsureEdge("CurrentDash", 20, ref currentFilter, ref currentRenderer, ref currentMesh);
+            EnsureEdge("WarnDash", 21, ref warnFilter, ref warnRenderer, ref warnMesh);
             if (fillFilter == null)
             {
                 Transform existing = transform.Find("WarnFill");
@@ -143,30 +151,43 @@ namespace DouQuqu
             }
         }
 
-        private LineRenderer CreateLine(string childName, int sorting)
+        private void EnsureEdge(string childName, int sorting, ref MeshFilter filter, ref MeshRenderer renderer, ref Mesh mesh)
         {
+            if (filter != null) return;
             Transform existing = transform.Find(childName);
             GameObject child = existing != null ? existing.gameObject : new GameObject(childName);
             if (existing == null) child.transform.SetParent(transform, false);
-            LineRenderer line = child.GetComponent<LineRenderer>();
-            if (line == null) line = child.AddComponent<LineRenderer>();
-            line.sharedMaterial = lineMaterial;
-            line.useWorldSpace = true;
-            line.loop = true;
-            line.numCapVertices = 4;
-            line.numCornerVertices = 2;
-            line.shadowCastingMode = ShadowCastingMode.Off;
-            line.receiveShadows = false;
-            line.alignment = LineAlignment.View;
-            line.textureMode = LineTextureMode.Stretch;
-            line.sortingOrder = sorting;
-            line.enabled = false;
-            return line;
+            filter = child.GetComponent<MeshFilter>();
+            if (filter == null) filter = child.AddComponent<MeshFilter>();
+            renderer = child.GetComponent<MeshRenderer>();
+            if (renderer == null) renderer = child.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = lineMaterial;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.sortingOrder = sorting;
+            mesh = new Mesh { name = childName };
+            filter.sharedMesh = mesh;
+            renderer.enabled = false;
+        }
+
+        private void HideLegacyLines()
+        {
+            HideChildRenderer("CurrentEdge");
+            HideChildRenderer("WarnEdge");
+        }
+
+        private void HideChildRenderer(string childName)
+        {
+            Transform existing = transform.Find(childName);
+            if (existing == null) return;
+            LineRenderer line = existing.GetComponent<LineRenderer>();
+            if (line != null) line.enabled = false;
+            existing.gameObject.SetActive(false);
         }
 
         private void DrawFill(
-            float outerW, float outerD, float outerC,
-            float innerW, float innerD, float innerC,
+            float outerW, float outerD,
+            float innerW, float innerD,
             Color color)
         {
             if (fillMesh == null || fillRenderer == null) return;
@@ -176,8 +197,8 @@ namespace DouQuqu
                 return;
             }
 
-            Vector3[] outer = RoundedRectPoints(outerW, outerD, outerC, 0.03f);
-            Vector3[] inner = RoundedRectPoints(innerW, innerD, innerC, 0.03f);
+            Vector3[] outer = RectPoints(outerW, outerD, FillY, EdgeSamples);
+            Vector3[] inner = RectPoints(innerW, innerD, FillY, EdgeSamples);
             int n = outer.Length;
             var verts = new Vector3[n * 2];
             var colors = new Color[n * 2];
@@ -212,37 +233,105 @@ namespace DouQuqu
             fadeStartElapsed = -1f;
         }
 
-        private static void DrawRoundedRect(LineRenderer line, float halfW, float halfD, float corner, Color color, float width)
+        private void DrawDashedRect(Mesh mesh, MeshRenderer renderer, float halfW, float halfD, Color color, float width)
         {
-            if (line == null) return;
-            Vector3[] points = RoundedRectPoints(halfW, halfD, corner, 0.04f);
-            line.positionCount = points.Length;
-            line.SetPositions(points);
-            line.startColor = color;
-            line.endColor = color;
-            line.startWidth = width;
-            line.endWidth = width;
+            if (mesh == null || renderer == null) return;
+            dashVerts.Clear();
+            dashColors.Clear();
+            dashTris.Clear();
+            AppendDashedRect(dashVerts, dashColors, dashTris, halfW, halfD, LineY, width, color);
+            mesh.Clear();
+            if (dashVerts.Count == 0)
+            {
+                renderer.enabled = false;
+                return;
+            }
+
+            mesh.SetVertices(dashVerts);
+            mesh.SetColors(dashColors);
+            mesh.SetTriangles(dashTris, 0);
+            mesh.RecalculateBounds();
+            renderer.enabled = true;
         }
 
-        private static Vector3[] RoundedRectPoints(float halfW, float halfD, float corner, float y)
+        private static void AppendDashedRect(
+            List<Vector3> verts, List<Color> colors, List<int> tris,
+            float halfW, float halfD, float y, float width, Color color)
         {
-            float cr = Mathf.Clamp(corner, 0.01f, Mathf.Min(halfW, halfD) * 0.95f);
-            Vector2[] centers =
+            Vector2[] corners =
             {
-                new Vector2(halfW - cr, halfD - cr),
-                new Vector2(-(halfW - cr), halfD - cr),
-                new Vector2(-(halfW - cr), -(halfD - cr)),
-                new Vector2(halfW - cr, -(halfD - cr))
+                new Vector2(halfW, halfD),
+                new Vector2(-halfW, halfD),
+                new Vector2(-halfW, -halfD),
+                new Vector2(halfW, -halfD)
             };
-            var points = new Vector3[CornerSegments * 4];
+            float half = Mathf.Max(0.02f, width * 0.5f);
+            float period = DashLength + GapLength;
+            for (int c = 0; c < 4; c++)
+            {
+                Vector2 a = corners[c];
+                Vector2 b = corners[(c + 1) % 4];
+                Vector2 delta = b - a;
+                float length = delta.magnitude;
+                if (length < 0.01f) continue;
+                Vector2 dir = delta / length;
+                Vector2 n = new Vector2(-dir.y, dir.x);
+                AppendQuad(verts, colors, tris, a, a + dir * Mathf.Min(DashLength, length), n, half, y, color);
+                if (length > DashLength * 2f + 0.08f)
+                    AppendQuad(verts, colors, tris, b - dir * DashLength, b, n, half, y, color);
+                float t = period;
+                float end = Mathf.Max(period, length - DashLength);
+                while (t < end)
+                {
+                    float t1 = Mathf.Min(t + DashLength, end);
+                    if (t1 - t >= 0.08f)
+                        AppendQuad(verts, colors, tris, a + dir * t, a + dir * t1, n, half, y, color);
+                    t += period;
+                }
+            }
+        }
+
+        private static void AppendQuad(
+            List<Vector3> verts, List<Color> colors, List<int> tris,
+            Vector2 a, Vector2 b, Vector2 n, float half, float y, Color color)
+        {
+            int i = verts.Count;
+            verts.Add(new Vector3(a.x + n.x * half, y, a.y + n.y * half));
+            verts.Add(new Vector3(a.x - n.x * half, y, a.y - n.y * half));
+            verts.Add(new Vector3(b.x - n.x * half, y, b.y - n.y * half));
+            verts.Add(new Vector3(b.x + n.x * half, y, b.y + n.y * half));
+            colors.Add(color);
+            colors.Add(color);
+            colors.Add(color);
+            colors.Add(color);
+            tris.Add(i);
+            tris.Add(i + 1);
+            tris.Add(i + 2);
+            tris.Add(i);
+            tris.Add(i + 2);
+            tris.Add(i + 3);
+        }
+
+        private static Vector3[] RectPoints(float halfW, float halfD, float y, int perSide)
+        {
+            perSide = Mathf.Max(1, perSide);
+            Vector2[] corners =
+            {
+                new Vector2(halfW, halfD),
+                new Vector2(-halfW, halfD),
+                new Vector2(-halfW, -halfD),
+                new Vector2(halfW, -halfD)
+            };
+            var points = new Vector3[perSide * 4];
             int index = 0;
             for (int c = 0; c < 4; c++)
             {
-                float start = c * 90f * Mathf.Deg2Rad;
-                for (int s = 0; s < CornerSegments; s++)
+                Vector2 a = corners[c];
+                Vector2 b = corners[(c + 1) % 4];
+                for (int s = 0; s < perSide; s++)
                 {
-                    float a = start + 90f * Mathf.Deg2Rad * s / CornerSegments;
-                    Vector2 p = centers[c] + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * cr;
+                    float t = s / (float)perSide;
+                    Vector2 p = Vector2.LerpUnclamped(a, b, t);
                     points[index++] = new Vector3(p.x, y, p.y);
                 }
             }

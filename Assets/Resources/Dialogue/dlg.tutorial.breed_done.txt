@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.breed_done
+title: 新手 · 合成中虫
+---
+
+## 1. 老头 · 合成
+> mood: warm
+> avatar: oldman
+
+老头：两只一样的拖到一起就会升一级。
+
+## 2. 老头 · 精品
+> mood: warm
+> avatar: oldman
+
+老头：合成到精品才能上场。你先自己练练吧。

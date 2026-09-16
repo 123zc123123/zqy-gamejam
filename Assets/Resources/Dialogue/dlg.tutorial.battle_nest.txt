@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.battle_nest
+title: 新手 · 第一场房子
+---
+
+## 1. 老头 · 房子
+> mood: warm
+> avatar: oldman
+
+老头：小房子不能吃，要撞。撞开的人当饲主。
+
+## 2. 老头 · 卵
+> mood: warm
+> avatar: oldman
+
+老头：会孵出帮你打人的小蟋蟀。卵可以踢，不能吃。
