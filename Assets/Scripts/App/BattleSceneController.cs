@@ -256,10 +256,7 @@ namespace DouQuqu
             if (BindNamedButton(overlay, "退出", ReturnToBattleEntrance)
                 | BindNamedButton(overlay, "返回", ReturnToBattleEntrance)
                 | BindNamedButton(overlay, "ReturnButton", ReturnToBattleEntrance))
-            {
-                BindNamedButton(overlay, "观战", SpectateBattlefield);
                 return;
-            }
 
             UiFactory.CreateButton(overlay, "ReturnButton", "退出", ReturnToBattleEntrance,
                 new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.12f), Vector2.zero, Vector2.zero);

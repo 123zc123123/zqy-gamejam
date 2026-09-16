@@ -30,6 +30,7 @@ namespace DouQuqu
             if (match == null) return;
             EnsureRows();
             UiFonts.ApplyTree(transform);
+            HideSpectateButton();
             int playerCount = Mathf.Clamp(match.ConfiguredPlayers, 0, RowCount);
             int[] order = SortByPlace(match, playerCount);
             bool award = kind == MatchKind.Random || kind == MatchKind.Friend;
@@ -106,8 +107,7 @@ namespace DouQuqu
             GameObject prefab = Resources.Load<GameObject>(RowPrefabPath);
             if (prefab == null) return;
 
-            Transform footer = transform.Find("观战");
-            if (footer == null) footer = transform.Find("退出");
+            Transform footer = transform.Find("退出");
             if (footer == null) footer = transform.Find("返回");
             int insertAt = footer != null ? footer.GetSiblingIndex() : transform.childCount;
             for (int i = 0; i < RowCount; i++)
@@ -183,6 +183,15 @@ namespace DouQuqu
             if (t == null) return;
             TMP_Text tmp = t.GetComponent<TMP_Text>();
             if (tmp != null) tmp.text = value;
+        }
+
+        void HideSpectateButton()
+        {
+            Transform watch = FindNamed(transform, "观战");
+            if (watch != null) watch.gameObject.SetActive(false);
+            Transform exit = FindNamed(transform, "退出");
+            RectTransform exitRect = exit != null ? exit as RectTransform : null;
+            if (exitRect != null) exitRect.anchoredPosition = Vector2.zero;
         }
 
         void HideNamed(string objectName)

@@ -1267,6 +1267,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: "\u89C2\u6218"
       objectReference: {fileID: 0}
+    - target: {fileID: 2051699905051119292, guid: bb1cb999ee7aafd449add35c88997fa9, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2127690620035395355, guid: bb1cb999ee7aafd449add35c88997fa9, type: 3}
       propertyPath: m_text
       value: "\u89C2\u6218"
@@ -1422,7 +1426,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1197779285658219541, guid: bb1cb999ee7aafd449add35c88997fa9, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 185
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1197779285658219541, guid: bb1cb999ee7aafd449add35c88997fa9, type: 3}
       propertyPath: m_AnchoredPosition.y
