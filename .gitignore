@@ -10,7 +10,7 @@ CLAUDE.md
 
 venue-server/players.json
 
-# Local FX preview packs — used VFX live in Assets/Art/FX
+# Local FX preview packs — battle VFX copies live in Assets/Resources/Battle/Fx (+ Lib)
 Assets/Epic Toon FX/
 Assets/Epic Toon FX.meta
 Assets/Epic Toon FX_Local/

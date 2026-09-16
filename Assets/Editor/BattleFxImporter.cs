@@ -17,6 +17,7 @@ namespace DouQuqu.Editor
         const string PackagePath = @"C:\baidunetdiskdownload\Epic Toon FX 1.4.unitypackage";
         const string PackageFolder = "Assets/Epic Toon FX";
         const string DestFolder = "Assets/Resources/Battle/Fx";
+        const string LibFolder = DestFolder + "/Lib";
         const string BattleScene = "Assets/Scenes/Demo.unity";
         const string SessionKey = "DouQuqu.BattleFxImported";
 
@@ -99,11 +100,76 @@ namespace DouQuqu.Editor
             }
 
             WireDemoScene();
+            EmbedDependencies();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             if (missing.Count > 0)
                 Debug.LogWarning("[DouQuqu] 战斗特效缺源：" + string.Join("\n", missing.ToArray()));
-            Debug.Log("[DouQuqu] 战斗特效已拷 " + copied + " 条到 " + DestFolder + "。");
+            Debug.Log("[DouQuqu] 战斗特效已拷 " + copied + " 条到 " + DestFolder + "，依赖已收进 Lib。");
+        }
+
+        [MenuItem("DouQuqu/Embed Battle FX Dependencies")]
+        public static void EmbedDependencies()
+        {
+            EnsureFolder(LibFolder);
+            EnsureFolder(LibFolder + "/Textures");
+            EnsureFolder(LibFolder + "/Materials");
+            EnsureFolder(LibFolder + "/Models");
+
+            string[] prefabs = Directory.GetFiles(DestFolder, "*.prefab");
+            Dictionary<string, string> map = new Dictionary<string, string>();
+            for (int i = 0; i < prefabs.Length; i++)
+            {
+                string prefab = prefabs[i].Replace('\\', '/');
+                string[] deps = AssetDatabase.GetDependencies(prefab, true);
+                for (int d = 0; d < deps.Length; d++)
+                {
+                    string src = deps[d].Replace('\\', '/');
+                    if (src.IndexOf("/Epic Toon FX/", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    string ext = Path.GetExtension(src).ToLowerInvariant();
+                    string destDir = LibFolder;
+                    if (ext == ".png" || ext == ".jpg" || ext == ".tga") destDir = LibFolder + "/Textures";
+                    else if (ext == ".mat") destDir = LibFolder + "/Materials";
+                    else if (ext == ".fbx") destDir = LibFolder + "/Models";
+                    else continue;
+                    string dest = destDir + "/" + Path.GetFileName(src);
+                    string oldGuid = AssetDatabase.AssetPathToGUID(src);
+                    if (string.IsNullOrEmpty(oldGuid) || map.ContainsKey(oldGuid)) continue;
+                    if (File.Exists(dest)) AssetDatabase.DeleteAsset(dest);
+                    if (!AssetDatabase.CopyAsset(src, dest)) continue;
+                    map[oldGuid] = AssetDatabase.AssetPathToGUID(dest);
+                }
+            }
+
+            RemapGuids(DestFolder, map);
+            RemapGuids(LibFolder + "/Materials", map);
+            AssetDatabase.Refresh();
+            Debug.Log("[DouQuqu] 战斗特效依赖已嵌入 " + map.Count + " 个资源。");
+        }
+
+        static void EnsureFolder(string path)
+        {
+            if (AssetDatabase.IsValidFolder(path)) return;
+            string parent = Path.GetDirectoryName(path).Replace('\\', '/');
+            string name = Path.GetFileName(path);
+            if (!AssetDatabase.IsValidFolder(parent)) EnsureFolder(parent);
+            AssetDatabase.CreateFolder(parent, name);
+        }
+
+        static void RemapGuids(string folder, Dictionary<string, string> map)
+        {
+            if (!Directory.Exists(folder) || map.Count == 0) return;
+            string[] files = Directory.GetFiles(folder, "*.*", SearchOption.TopDirectoryOnly);
+            for (int i = 0; i < files.Length; i++)
+            {
+                string ext = Path.GetExtension(files[i]).ToLowerInvariant();
+                if (ext != ".prefab" && ext != ".mat" && ext != ".asset") continue;
+                string text = File.ReadAllText(files[i]);
+                string orig = text;
+                foreach (KeyValuePair<string, string> pair in map)
+                    text = text.Replace(pair.Key, pair.Value);
+                if (text != orig) File.WriteAllText(files[i], text);
+            }
         }
 
         static void WireDemoScene()
