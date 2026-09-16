@@ -9,10 +9,25 @@ namespace DouQuqu
     /// </summary>
     public sealed class MainMenuController : MonoBehaviour
     {
+        private Text profileName;
+        private TMP_Text profileNameTmp;
+        private Text goldText;
+        private TMP_Text goldTmp;
+
         private void Awake()
         {
             if (GetComponent<Lobby>() == null)
                 gameObject.AddComponent<Lobby>();
+        }
+
+        private void OnEnable()
+        {
+            PlayerDataService.PlayerDataChanged += RefreshHud;
+        }
+
+        private void OnDisable()
+        {
+            PlayerDataService.PlayerDataChanged -= RefreshHud;
         }
 
         private void Start()
@@ -37,9 +52,8 @@ namespace DouQuqu
             BindClick(menu, "SideButtonActivity", ActivityPopup.ShowActivity);
             TutorialDirector.OnHomeReady();
 
-            Text profileName = FindLabel(menu.transform, "ProfileName");
-            if (profileName != null)
-                profileName.text = PlayerDataService.CurrentPlayerName;
+            CacheHud(menu.transform);
+            RefreshHud();
             return true;
         }
 
@@ -113,6 +127,68 @@ namespace DouQuqu
             SceneNames.Load(SceneNames.Login);
         }
 
+        private void CacheHud(Transform menu)
+        {
+            GameObject hud = FindNamed(menu, "HUDTop");
+            Transform root = hud != null ? hud.transform : menu;
+
+            GameObject nameGo = FindNamed(root, "ProfileName") ?? FindNamed(root, "PlayerName");
+            if (nameGo != null)
+            {
+                profileNameTmp = nameGo.GetComponent<TMP_Text>();
+                profileName = nameGo.GetComponent<Text>();
+            }
+
+            GameObject goldGo = FindGoldDisplay(root);
+            if (goldGo != null)
+            {
+                goldTmp = goldGo.GetComponentInChildren<TMP_Text>(true);
+                if (goldTmp == null) goldText = goldGo.GetComponentInChildren<Text>(true);
+            }
+
+            if (profileNameTmp == null && profileName == null)
+                Debug.LogWarning("[DouQuqu] 主界面顶部没有玩家名 ProfileName");
+            if (goldTmp == null && goldText == null)
+                Debug.LogWarning("[DouQuqu] 主界面顶部没有金币 GoldDisplay");
+        }
+
+        private void RefreshHud()
+        {
+            if (!PlayerDataService.IsLoggedIn) return;
+
+            string playerName = PlayerDataService.CurrentPlayerName;
+            if (profileNameTmp != null) profileNameTmp.text = playerName;
+            else if (profileName != null) profileName.text = playerName;
+
+            string gold = PlayerDataService.FormatGold(PlayerDataService.Gold);
+            if (goldTmp != null) goldTmp.text = gold;
+            else if (goldText != null) goldText.text = gold;
+        }
+
+        private static GameObject FindGoldDisplay(Transform root)
+        {
+            GameObject exact = FindNamed(root, "GoldDisplay");
+            if (exact != null) return exact;
+            return FindGoldDisplayLoose(root);
+        }
+
+        private static GameObject FindGoldDisplayLoose(Transform root)
+        {
+            if (IsGoldDisplayName(root.name)) return root.gameObject;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                GameObject hit = FindGoldDisplayLoose(root.GetChild(i));
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+
+        private static bool IsGoldDisplayName(string objectName)
+        {
+            return objectName == "GoldDisplay"
+                || objectName.StartsWith("GoldDisplay (", System.StringComparison.Ordinal);
+        }
+
         private static GameObject FindNamed(string objectName)
         {
             Transform[] transforms = FindObjectsOfType<Transform>(true);
@@ -134,12 +210,6 @@ namespace DouQuqu
                 if (hit != null) return hit;
             }
             return null;
-        }
-
-        private static Text FindLabel(Transform root, string objectName)
-        {
-            GameObject go = FindNamed(root, objectName);
-            return go != null ? go.GetComponent<Text>() : null;
         }
     }
 }
