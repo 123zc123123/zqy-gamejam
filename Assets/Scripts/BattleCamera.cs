@@ -32,6 +32,15 @@ namespace DouQuqu
         private int followPlayerId;
         private float snapPullDuration;
         private float snapPullElapsed = 1f;
+        private float introOpenHalfW;
+        private float introOpenHalfD;
+        private float introLastHalfW;
+        private float introLastHalfD;
+        private float introPanoramaHalfW;
+        private float introPanoramaHalfD;
+        private Vector3 introPanoramaCenter;
+        private bool hasIntroScales;
+        private bool hasPanorama;
 
         public Camera Cam
         {
@@ -147,9 +156,51 @@ namespace DouQuqu
             if (settleDuration <= 0f) ApplyImmediate();
         }
 
+        /// <summary>开场全景用大背景相对桌子的尺寸；落到己方角时窗口用末档。</summary>
+        public void UseIntroScales(float openingScale, float lastScale)
+        {
+            openingScale = Mathf.Max(0.01f, openingScale);
+            lastScale = Mathf.Max(0.01f, lastScale);
+            introOpenHalfW = Rules.DefaultArenaHalfWidth * openingScale;
+            introOpenHalfD = Rules.DefaultArenaHalfDepth * openingScale;
+            introLastHalfW = Rules.DefaultArenaHalfWidth * lastScale;
+            introLastHalfD = Rules.DefaultArenaHalfDepth * lastScale;
+            hasIntroScales = true;
+        }
+
+        /// <summary>
+        /// 桌子对应开局档世界；大背景按预制体相对桌子的宽高，映射成开场全景框。
+        /// bgCenterOffset 是背景中心相对桌子中心、与 tableSize 同一套 UI 单位。
+        /// 不改 Board / table / bg 的预制体尺寸。
+        /// </summary>
+        public void UsePanoramaArt(Vector2 tableSize, Vector2 bgSize, Vector2 bgCenterOffset)
+        {
+            float tableW = Mathf.Max(1f, tableSize.x);
+            float tableH = Mathf.Max(1f, tableSize.y);
+            float bgW = Mathf.Max(1f, bgSize.x);
+            float bgH = Mathf.Max(1f, bgSize.y);
+            float openW = hasIntroScales ? introOpenHalfW : Rules.DefaultArenaHalfWidth;
+            float openD = hasIntroScales ? introOpenHalfD : Rules.DefaultArenaHalfDepth;
+            introPanoramaHalfW = openW * (bgW / tableW);
+            introPanoramaHalfD = openD * (bgH / tableH);
+            introPanoramaCenter = new Vector3(
+                openW * 2f * (bgCenterOffset.x / tableW),
+                0f,
+                openD * 2f * (bgCenterOffset.y / tableH));
+            hasPanorama = true;
+        }
+
         public void FrameOpeningPanorama()
         {
-            FrameWorld(Vector3.zero, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, 0f);
+            float halfW = hasPanorama
+                ? introPanoramaHalfW
+                : (hasIntroScales ? introOpenHalfW : Rules.ArenaHalfWidth);
+            float halfD = hasPanorama
+                ? introPanoramaHalfD
+                : (hasIntroScales ? introOpenHalfD : Rules.ArenaHalfDepth);
+            fillView = true;
+            padding = 0f;
+            FrameWorld(hasPanorama ? introPanoramaCenter : Vector3.zero, halfW, halfD, 0f);
         }
 
         public void FrameCorner(int playerId, float duration)
@@ -159,11 +210,17 @@ namespace DouQuqu
                 sign.x * Rules.ArenaHalfWidth * 0.5f,
                 0f,
                 sign.y * Rules.ArenaHalfDepth * 0.5f);
-            FrameWorld(center, Rules.ArenaHalfWidth * 0.5f, Rules.ArenaHalfDepth * 0.5f, duration);
+            float halfW = hasIntroScales ? introLastHalfW : Rules.ArenaHalfWidth * 0.5f;
+            float halfD = hasIntroScales ? introLastHalfD : Rules.ArenaHalfDepth * 0.5f;
+            fillView = true;
+            padding = 0f;
+            FrameWorld(center, halfW, halfD, duration);
         }
 
         public void FrameCurrentZone(float duration)
         {
+            fillView = true;
+            padding = 0f;
             FrameWorld(Vector3.zero, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, duration);
         }
 

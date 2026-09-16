@@ -7,12 +7,12 @@ using UnityEngine.UI;
 namespace DouQuqu
 {
     /// <summary>
-    /// 进战镜头：先框整张开局棋盘，再落到己方角，停稳后中央 3-2-1 再开赛。
-    /// 2D Board 由 BattleBoardFollow 跟着 3D 相机，这里只改镜头和 HUD 显隐。
+    /// 进战镜头：先框整张大背景，再缩到玩家。多人落到己方角，自己练缩到当前有效区。
+    /// 停稳后中央 3-2-1、开罐！再开赛。2D Board 由 BattleBoardFollow 跟着 3D 相机，这里只改镜头和 HUD 显隐。
     /// </summary>
     public static class BattleIntro
     {
-        private const float HoldSeconds = 0.65f;
+        private const float HoldSeconds = 1.2f;
         private const float ZoomSeconds = 2.4f;
         private const int CountdownSeconds = 3;
 
@@ -54,7 +54,11 @@ namespace DouQuqu
                 yield return null;
             }
 
-            if (dropToCorner && cam != null) cam.FrameCorner(localPlayerId, ZoomSeconds);
+            if (cam != null)
+            {
+                if (dropToCorner) cam.FrameCorner(localPlayerId, ZoomSeconds);
+                else cam.FrameCurrentZone(ZoomSeconds);
+            }
 
             float elapsed = 0f;
             while (elapsed < ZoomSeconds)
@@ -63,7 +67,11 @@ namespace DouQuqu
                 yield return null;
             }
 
-            if (dropToCorner && cam != null) cam.FrameCorner(localPlayerId, 0f);
+            if (cam != null)
+            {
+                if (dropToCorner) cam.FrameCorner(localPlayerId, 0f);
+                else cam.FrameCurrentZone(0f);
+            }
             yield return Countdown(host);
             ShowChrome(host, pit, shot);
         }
@@ -75,15 +83,23 @@ namespace DouQuqu
             for (int n = CountdownSeconds; n >= 1; n--)
             {
                 if (label != null) label.text = n.ToString();
-                float wait = 0f;
-                while (wait < 1f)
-                {
-                    wait += Time.unscaledDeltaTime;
-                    yield return null;
-                }
+                yield return WaitUnscaled(1f);
             }
 
+            if (label != null) label.text = "开罐！";
+            yield return WaitUnscaled(1f);
+
             if (overlay != null) UnityEngine.Object.Destroy(overlay.gameObject);
+        }
+
+        private static IEnumerator WaitUnscaled(float seconds)
+        {
+            float wait = 0f;
+            while (wait < seconds)
+            {
+                wait += Time.unscaledDeltaTime;
+                yield return null;
+            }
         }
 
         private static RectTransform CreateCountdown(RectTransform hudRoot)
@@ -132,7 +148,7 @@ namespace DouQuqu
                 if (shot != null && child == shot) continue;
                 string name = child.name;
                 if (name == "BattleIntroShot" || name == "BattleCount321" || name == "Board"
-                    || name == "ArenaBackgroundScenery" || name == "Battlefield")
+                    || name == "ArenaBackgroundScenery" || name == "Battlefield" || name == "liewen")
                     continue;
                 list.Add(child.gameObject);
             }

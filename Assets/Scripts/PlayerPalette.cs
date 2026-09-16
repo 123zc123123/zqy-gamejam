@@ -64,21 +64,7 @@ namespace DouQuqu
         /// <summary>PlayerFrame 里的头像贴图是玩家形象，不是上场虫。</summary>
         public static void BindAvatar(Transform root, bool visible = true)
         {
-            if (root == null) return;
-            Transform portrait = FindNamed(root, "头像贴图") ?? FindNamed(root, "Avatar");
-            if (portrait == null)
-            {
-                Transform avatarRoot = FindNamed(root, "avatar");
-                if (avatarRoot != null)
-                {
-                    Transform nested = avatarRoot.Find("avatar");
-                    portrait = nested != null ? nested : avatarRoot;
-                }
-            }
-
-            if (portrait == null) return;
-            Image image = portrait.GetComponent<Image>();
-            if (image == null) image = portrait.GetComponentInChildren<Image>(true);
+            Image image = FindAvatarImage(root);
             if (image == null) return;
             if (!visible)
             {
@@ -90,6 +76,15 @@ namespace DouQuqu
             image.preserveAspect = true;
             Sprite sprite = Resources.Load<Sprite>(AvatarResource);
             if (sprite != null) image.sprite = sprite;
+        }
+
+        /// <summary>匹配空位等：把头像底图染成指定色，不换框。</summary>
+        public static void TintAvatar(Transform root, Color color)
+        {
+            Image image = FindAvatarImage(root);
+            if (image == null) return;
+            image.enabled = true;
+            image.color = color;
         }
 
         public static void PaintOutline(Transform root, int playerId)
@@ -195,6 +190,25 @@ namespace DouQuqu
                 hudBackground = new Color(0.43f, 0.53f, 0.87f, 0.61f),
                 circle = new Color(0.43f, 0.53f, 0.87f, 1f)
             };
+        }
+
+        static Image FindAvatarImage(Transform root)
+        {
+            if (root == null) return null;
+            Transform portrait = FindNamed(root, "头像贴图") ?? FindNamed(root, "Avatar");
+            if (portrait == null)
+            {
+                Transform avatarRoot = FindNamed(root, "avatar");
+                if (avatarRoot != null)
+                {
+                    Transform nested = avatarRoot.Find("avatar");
+                    portrait = nested != null ? nested : avatarRoot;
+                }
+            }
+
+            if (portrait == null) return null;
+            Image image = portrait.GetComponent<Image>();
+            return image != null ? image : portrait.GetComponentInChildren<Image>(true);
         }
 
         static Transform FindNamed(Transform root, string objectName)
