@@ -453,7 +453,8 @@ namespace DouQuqu
                 view.SetActive(pickup.alive);
                 if (!pickup.alive) continue;
                 view.transform.position = pickup.position + Vector3.up * groundOffset;
-                view.transform.localScale = Vector3.one * 2f;
+                bool shield = pickup.kind == "shield" || pickup.kind == "charge";
+                view.transform.localScale = Vector3.one * (shield ? 3.4f : 2f);
             }
             HideUnseen(pickupViews, seenIds);
         }

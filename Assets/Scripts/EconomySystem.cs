@@ -21,7 +21,11 @@ namespace DouQuqu
             state.nextPickupId = 0;
             int count = Mathf.Min(state.knobs.heartStart, state.knobs.heartCap);
             for (int i = 0; i < count; i++)
-                state.pickups.Add(new PickupState(state.nextPickupId++, PlacePoint(state, state.knobs.heartMinEdge, false), "heart"));
+            {
+                Vector3 at;
+                if (!TryPlace(state, "heart", out at)) break;
+                state.pickups.Add(new PickupState(state.nextPickupId++, at, "heart"));
+            }
         }
 
         // 只看地面 XZ，不看高度。用本子步起点→终点扫掠，空中擦过也算。
@@ -87,7 +91,10 @@ namespace DouQuqu
         {
             int live = Count(state, "heart");
             if (!Rules.ShouldRefillHeart(state.knobs, state.elapsed, state.lastHeartAt, live)) return;
-            PickupState pickup = new PickupState(state.nextPickupId++, PlacePoint(state, state.knobs.heartMinEdge, false), "heart");
+            Vector3 at;
+            if (!TryPlace(state, "heart", out at))
+                return;
+            PickupState pickup = new PickupState(state.nextPickupId++, at, "heart");
             state.pickups.Add(pickup);
             state.lastHeartAt = state.elapsed;
             emit?.Invoke("heart-spawn", pickup.position);
@@ -103,7 +110,9 @@ namespace DouQuqu
             {
                 string kind = due[i];
                 if (kind != "shield") kind = "shield";
-                PickupState pickup = new PickupState(state.nextPickupId++, PlacePoint(state, state.knobs.itemMinEdge, true), kind);
+                Vector3 at;
+                if (!TryPlace(state, kind, out at)) continue;
+                PickupState pickup = new PickupState(state.nextPickupId++, at, kind);
                 state.pickups.Add(pickup);
                 emit?.Invoke("item-spawn:" + kind, pickup.position);
             }
@@ -129,30 +138,58 @@ namespace DouQuqu
             return count;
         }
 
-        // 先多次尝试合法位置，失败后回退到场地内夹取点，
-        // 确保场地拥挤时游戏仍能继续推进。
-        private Vector3 PlacePoint(MatchState state, float margin, bool ring)
+        bool TryPlace(MatchState state, string kind, out Vector3 at)
         {
+            at = Vector3.zero;
+            bool isHeart = kind == "heart";
+            float edge = isHeart ? state.knobs.heartMinEdge : state.knobs.itemMinEdge;
+            float minBug = isHeart ? state.knobs.heartMinBug : state.knobs.itemMinBug;
+            float minHeart = isHeart ? state.knobs.heartMinHeart : 3.2f;
+            float minItem = isHeart ? 3.2f : state.knobs.itemMinItem;
             System.Random random = new System.Random(state.randomSeed + state.nextPickupId * 7919 + state.tick * 17);
-            for (int attempt = 0; attempt < 80; attempt++)
+            Vector3 best = Vector3.zero;
+            float bestSep = -1f;
+            for (int attempt = 0; attempt < 96; attempt++)
             {
-                float angle = (float)random.NextDouble() * Mathf.PI * 2f;
-                float radius = ring
-                    ? state.knobs.itemRingMin + (float)random.NextDouble() * (state.knobs.itemRingMax - state.knobs.itemRingMin)
-                    : 2f + (float)random.NextDouble() * 20f;
-                Vector3 candidate = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
-                if (Rules.ArenaSdf(candidate.x, candidate.z) > -margin) continue;
+                float x = (float)(random.NextDouble() * 2.0 - 1.0) * Rules.ArenaHalfWidth;
+                float z = (float)(random.NextDouble() * 2.0 - 1.0) * Rules.ArenaHalfDepth;
+                if (Rules.ArenaSdf(x, z) > -edge) continue;
+                Vector2 p = new Vector2(x, z);
                 bool blocked = false;
+                float sep = 99f;
                 for (int i = 0; i < state.bugs.Length; i++)
-                    if (state.bugs[i].alive && Vector2.Distance(new Vector2(candidate.x, candidate.z), new Vector2(state.bugs[i].position.x, state.bugs[i].position.z)) < state.knobs.itemMinBug) { blocked = true; break; }
-                for (int i = 0; !blocked && i < state.pickups.Count; i++)
-                    if (state.pickups[i].alive && Vector2.Distance(new Vector2(candidate.x, candidate.z), new Vector2(state.pickups[i].position.x, state.pickups[i].position.z)) < (state.pickups[i].kind == "heart" ? state.knobs.itemMinHeart : state.knobs.itemMinItem)) blocked = true;
-                if (!blocked && state.nest != null && state.nest.alive && Vector2.Distance(new Vector2(candidate.x, candidate.z), new Vector2(state.nest.position.x, state.nest.position.z)) < 2.2f) blocked = true;
-                for (int i = 0; !blocked && i < state.eggs.Count; i++)
-                    if (state.eggs[i].alive && Vector2.Distance(new Vector2(candidate.x, candidate.z), new Vector2(state.eggs[i].position.x, state.eggs[i].position.z)) < 1.8f) blocked = true;
-                if (!blocked) return candidate;
+                {
+                    if (!state.bugs[i].alive) continue;
+                    float d = Vector2.Distance(p, new Vector2(state.bugs[i].position.x, state.bugs[i].position.z));
+                    if (d < minBug) { blocked = true; break; }
+                }
+                if (blocked) continue;
+                for (int i = 0; i < state.pickups.Count; i++)
+                {
+                    PickupState other = state.pickups[i];
+                    if (other == null || !other.alive) continue;
+                    float d = Vector2.Distance(p, new Vector2(other.position.x, other.position.z));
+                    float need = other.kind == "heart" ? minHeart : minItem;
+                    if (d < need) { blocked = true; break; }
+                    if (isHeart == (other.kind == "heart") && d < sep) sep = d;
+                }
+                if (blocked) continue;
+                if (state.nest != null && state.nest.alive &&
+                    Vector2.Distance(p, new Vector2(state.nest.position.x, state.nest.position.z)) < 3.2f)
+                    continue;
+                for (int i = 0; i < state.eggs.Count; i++)
+                    if (state.eggs[i].alive && Vector2.Distance(p, new Vector2(state.eggs[i].position.x, state.eggs[i].position.z)) < 2.2f)
+                    { blocked = true; break; }
+                if (blocked) continue;
+                if (sep > bestSep)
+                {
+                    bestSep = sep;
+                    best = new Vector3(x, 0f, z);
+                }
             }
-            return Rules.ClampInsideArena(new Vector3(0f, 0f, ring ? state.knobs.itemRingMin : 0f), margin);
+            if (bestSep < 0f) return false;
+            at = best;
+            return true;
         }
     }
 }

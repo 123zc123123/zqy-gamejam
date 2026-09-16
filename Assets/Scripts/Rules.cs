@@ -175,19 +175,21 @@ namespace DouQuqu
         [InspectorCn("硬截止余量", "秒；与狂暴开始相加为单局总长，默认 2 分钟")]
         public float otTime = 30f;
         [InspectorCn("开局饲料球", "开局饲料球数量")]
-        public int heartStart = 4;
+        public int heartStart = 6;
         [InspectorCn("场上饲料球上限", "不足才补，每次 1 颗")]
-        public int heartCap = 6;
+        public int heartCap = 8;
         [InspectorCn("饲料球补货批量", "未使用；饲料球补货仍每次 1 颗")]
         public int heartBatch = 6;
         [InspectorCn("道具补货数量", "到点补几颗限时道具，不超过场上上限")]
-        public int itemBatch = 3;
+        public int itemBatch = 1;
         [InspectorCn("场上道具上限", "已满则挂起")]
-        public int itemCap = 3;
+        public int itemCap = 2;
+        [InspectorCn("时间表后护盾间隔", "最后一波之后再补的间隔（秒）")]
+        public float itemGap = 22f;
         [InspectorCn("饲料球间隔", "正赛补饲料球间隔（秒）")]
-        public float heartGap = 7f;
+        public float heartGap = 5f;
         [InspectorCn("1:30 后饲料球间隔", "狂暴段补饲料球间隔（秒）")]
-        public float heartGapOt = 5f;
+        public float heartGapOt = 4f;
         [InspectorCn("开始补饲料球", "秒；此前只吃开局那批")]
         public float heartOpenAt = 20f;
         [InspectorCn("道具拾取半径", "饲料球另用固定半径")]
@@ -201,17 +203,17 @@ namespace DouQuqu
         [InspectorCn("道具离饲料球", "投放点离已有饲料球的最小距离")]
         public float itemMinHeart = 1.6f;
         [InspectorCn("道具间距", "投放点离已有限时道具的最小距离")]
-        public float itemMinItem = 2f;
+        public float itemMinItem = 7f;
         [InspectorCn("道具环带内径", "限时道具刷在环带上的内半径")]
         public float itemRingMin = 6f;
         [InspectorCn("道具环带外径", "限时道具刷在环带上的外半径")]
         public float itemRingMax = 12f;
         [InspectorCn("饲料球离边", "饲料球离罐边的最小距离")]
-        public float heartMinEdge = 1.4f;
-        [HideInInspector]
-        public float heartMinBug = 1.3f;
-        [HideInInspector]
-        public float heartMinHeart = 1.25f;
+        public float heartMinEdge = 2.2f;
+        [InspectorCn("饲料球离虫", "投放点离活虫的最小距离")]
+        public float heartMinBug = 3.2f;
+        [InspectorCn("饲料球间距", "两颗饲料球之间的最小距离")]
+        public float heartMinHeart = 3.8f;
 
         [Header("巢穴与幼虫")]
         [InspectorCn("房子血量", "一次有效撞击 -1")]
@@ -251,9 +253,9 @@ namespace DouQuqu
         [InspectorCn("场上巢上限", "整条链算 1 个")]
         public int nestCap = 1;
         [InspectorCn("首栋出现时间", "秒")]
-        public float nestFirstT = 25f;
+        public float nestFirstT = 32f;
         [InspectorCn("下一栋间隔", "上一窝彻底结束后，下一栋再等的间隔（秒）")]
-        public float nestGap = 12f;
+        public float nestGap = 24f;
 
         [Header("场地与缩圈")]
         [InspectorCn("开局边长倍率", "第 0 档相对标定罐（原 field-2 宽 = 21.2 半宽）的宽度倍率")]
@@ -1355,15 +1357,23 @@ namespace DouQuqu
         /// </summary>
         public static List<string> DueItemSpawns(MatchKnobs knobs, float time, ref int nextIndex, ref string lastKind, int fieldCount, System.Random random)
         {
-            float[] times = { 20f, 42f, 60f, 74f, 85f, 94f, 102f, 110f };
+            float[] times = { 28f, 72f, 108f };
             List<string> result = new List<string>();
             int cap = Mathf.Max(0, knobs.itemCap);
             while (nextIndex < times.Length && time >= times[nextIndex] && fieldCount + result.Count < cap)
             {
                 int room = cap - fieldCount - result.Count;
-                int count = Mathf.Min(Mathf.Max(1, knobs.itemBatch), room);
+                int count = Mathf.Min(1, room);
                 for (int i = 0; i < count; i++)
                     result.Add(PickItemKind(ref lastKind, random == null ? UnityEngine.Random.value : (float)random.NextDouble()));
+                nextIndex++;
+            }
+            float gap = Mathf.Max(8f, knobs.itemGap);
+            while (nextIndex >= times.Length && fieldCount + result.Count < cap)
+            {
+                float due = times[times.Length - 1] + (nextIndex - times.Length + 1) * gap;
+                if (time + 1e-9f < due) break;
+                result.Add("shield");
                 nextIndex++;
             }
             return result;

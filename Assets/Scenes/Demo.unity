@@ -561,13 +561,13 @@ MonoBehaviour:
     aiSafeEdgeMargin: 4
     regTime: 90
     otTime: 30
-    heartStart: 4
-    heartCap: 6
+    heartStart: 6
+    heartCap: 8
     heartBatch: 6
     itemBatch: 3
     itemCap: 3
-    heartGap: 7
-    heartGapOt: 5
+    heartGap: 5
+    heartGapOt: 4
     heartOpenAt: 20
     itemR: 1.35
     v3Rate: 23
@@ -579,7 +579,7 @@ MonoBehaviour:
     itemRingMax: 12
     heartMinEdge: 1.4
     heartMinBug: 1.3
-    heartMinHeart: 1.25
+    heartMinHeart: 3.8
     nestHP: 5
     nestMass: 60
     nestR: 2.4

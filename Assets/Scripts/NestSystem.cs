@@ -40,9 +40,11 @@ namespace DouQuqu
         private void StepNestSpawn(MatchState state, Action<string, Vector3> emit)
         {
             if (state.nest != null || HasLiveChain(state) || Rules.IsRage(state.knobs, state.elapsed) || state.elapsed + 1e-9f < state.nextNestAt) return;
+            Vector3 at;
+            if (!TryPlaceNest(state, out at)) return;
             state.nest = new NestState
             {
-                position = PlaceNest(state),
+                position = at,
                 hp = Mathf.Max(0f, state.knobs.nestHP),
                 alive = true
             };
@@ -146,9 +148,63 @@ namespace DouQuqu
             }
         }
 
-        private Vector3 PlaceNest(MatchState state)
+        bool TryPlaceNest(MatchState state, out Vector3 at)
         {
-            return Rules.PlacePoint(new System.Random(state.randomSeed + state.tick * 31), state.bugs, null, 6f);
+            at = Vector3.zero;
+            float edge = 4.8f;
+            float minBug = 4.8f;
+            float minPickup = 3.4f;
+            float half = Mathf.Min(Rules.ArenaHalfWidth, Rules.ArenaHalfDepth);
+            float rMin = half * 0.22f;
+            float rMax = half * 0.70f;
+            System.Random random = new System.Random(state.randomSeed + state.tick * 31);
+            Vector3 best = Vector3.zero;
+            float bestScore = -1f;
+            for (int attempt = 0; attempt < 120; attempt++)
+            {
+                float x = (float)(random.NextDouble() * 2.0 - 1.0) * Rules.ArenaHalfWidth;
+                float z = (float)(random.NextDouble() * 2.0 - 1.0) * Rules.ArenaHalfDepth;
+                if (Rules.ArenaSdf(x, z) > -edge) continue;
+                float nx = Mathf.Abs(x) / Mathf.Max(0.01f, Rules.ArenaHalfWidth);
+                float nz = Mathf.Abs(z) / Mathf.Max(0.01f, Rules.ArenaHalfDepth);
+                if (nx > 0.68f && nz > 0.68f) continue;
+                float r = Mathf.Sqrt(x * x + z * z);
+                if (r < rMin || r > rMax) continue;
+                Vector2 p = new Vector2(x, z);
+                float near = 99f;
+                bool blocked = false;
+                if (state.bugs != null)
+                {
+                    for (int i = 0; i < state.bugs.Length; i++)
+                    {
+                        BugState bug = state.bugs[i];
+                        if (bug == null || !bug.alive) continue;
+                        float d = Vector2.Distance(p, new Vector2(bug.position.x, bug.position.z));
+                        if (d < minBug + bug.radius) { blocked = true; break; }
+                        if (d < near) near = d;
+                    }
+                }
+                if (blocked) continue;
+                if (state.pickups != null)
+                {
+                    for (int i = 0; i < state.pickups.Count; i++)
+                    {
+                        PickupState pickup = state.pickups[i];
+                        if (pickup == null || !pickup.alive) continue;
+                        if (Vector2.Distance(p, new Vector2(pickup.position.x, pickup.position.z)) < minPickup)
+                        { blocked = true; break; }
+                    }
+                }
+                if (blocked) continue;
+                if (near > bestScore)
+                {
+                    bestScore = near;
+                    best = new Vector3(x, 0f, z);
+                }
+            }
+            if (bestScore < 0f) return false;
+            at = best;
+            return true;
         }
 
         private bool HasLiveChain(MatchState state)
