@@ -60,11 +60,15 @@ namespace DouQuqu
         {
             bool done = false;
             DialogueBoxView.Play(TutorialDirector.IdBattleBound, () => done = true);
-            PulseOutline(hudRoot, true);
-            while (!done && !Failed(match, localId)) yield return null;
+            while (!done && !Failed(match, localId))
+            {
+                PulseOutline(hudRoot, true);
+                yield return null;
+            }
             float shown = 0f;
             while (!Failed(match, localId) && shown < TutorialDirector.BoundShowSeconds)
             {
+                PulseOutline(hudRoot, true);
                 shown += Time.unscaledDeltaTime;
                 yield return null;
             }
@@ -73,27 +77,31 @@ namespace DouQuqu
 
         static IEnumerator LessonPickup(MatchController match, int localId, string kind, string dialogueId)
         {
-            Vector3 at = match.PointInward(localId, 6.5f);
+            yield return WaitUntilLanded(match, localId);
+            match.ClearPickups();
+            Vector3 at = PlaceAway(match, localId, 8.5f);
             match.SpawnTutorialPickup(kind, at);
-            yield return null;
+            ShowMarker(at);
             yield return null;
             if (!PickupAlive(match, kind))
             {
-                at = match.PointInward(localId, 9.5f);
+                at = PlaceAway(match, localId, 10.5f);
                 match.SpawnTutorialPickup(kind, at);
-                yield return null;
+                ShowMarker(at);
             }
-            ShowMarker(at);
             bool done = false;
             DialogueBoxView.Play(dialogueId, () => done = true);
             while (!done && !Failed(match, localId)) yield return null;
             while (!Failed(match, localId) && PickupAlive(match, kind)) yield return null;
             HideMarker();
+            yield return WaitUntilLanded(match, localId);
         }
 
         static IEnumerator LessonNest(MatchController match, int localId)
         {
-            Vector3 at = match.PointInward(localId, 7.5f);
+            yield return WaitUntilLanded(match, localId);
+            match.ClearPickups();
+            Vector3 at = PlaceAway(match, localId, 9f);
             match.SpawnTutorialNest(at, TutorialDirector.NestHp);
             ShowMarker(at);
             bool done = false;
@@ -101,10 +109,12 @@ namespace DouQuqu
             while (!done && !Failed(match, localId)) yield return null;
             while (!Failed(match, localId) && match.Nest != null && match.Nest.alive) yield return null;
             HideMarker();
+            yield return WaitUntilLanded(match, localId);
         }
 
         static IEnumerator LessonKill(MatchController match, int localId)
         {
+            yield return WaitUntilLanded(match, localId);
             int before = match.MatchScore(localId);
             Vector3 at = match.PointOutward(localId, 5.5f);
             match.MovePlayerTo(DummyId, at);
@@ -122,6 +132,59 @@ namespace DouQuqu
         {
             BugState bug = Bug(match, localId);
             return bug != null && bug.alive && bug.airborne && bug.height > 0.15f;
+        }
+
+        static bool PlayerGrounded(MatchController match, int localId)
+        {
+            BugState bug = Bug(match, localId);
+            return bug != null && bug.alive && !bug.airborne && bug.height <= 0.08f;
+        }
+
+        static IEnumerator WaitUntilLanded(MatchController match, int localId)
+        {
+            while (!Failed(match, localId) && !PlayerGrounded(match, localId))
+                yield return null;
+            float settled = 0f;
+            while (!Failed(match, localId) && settled < 0.28f)
+            {
+                if (!PlayerGrounded(match, localId))
+                {
+                    settled = 0f;
+                    yield return null;
+                    continue;
+                }
+                settled += Time.unscaledDeltaTime;
+                yield return null;
+            }
+        }
+
+        static Vector3 PlaceAway(MatchController match, int localId, float distance)
+        {
+            BugState bug = Bug(match, localId);
+            if (bug == null) return match.PointInward(localId, distance);
+            Vector3 pos = bug.position;
+            Vector3 inward = new Vector3(-pos.x, 0f, -pos.z);
+            if (inward.sqrMagnitude < 0.01f) inward = Vector3.forward;
+            inward.Normalize();
+            Vector3 side = Vector3.Cross(Vector3.up, inward);
+            float minGap = bug.radius + 5.5f;
+            Vector3[] tries =
+            {
+                pos + side * distance,
+                pos - side * distance,
+                pos + inward * distance,
+                pos + side * (distance + 2.5f),
+                pos - side * (distance + 2.5f),
+                pos + inward * (distance + 3f)
+            };
+            for (int i = 0; i < tries.Length; i++)
+            {
+                Vector3 at = Rules.ClampInsideArena(tries[i], 2.4f);
+                at.y = 0f;
+                float gap = Vector2.Distance(new Vector2(at.x, at.z), new Vector2(pos.x, pos.z));
+                if (gap >= minGap) return at;
+            }
+            return match.PointInward(localId, distance);
         }
 
         static bool PickupAlive(MatchController match, string kind)
@@ -164,24 +227,34 @@ namespace DouQuqu
             if (marker != null) marker.SetActive(false);
         }
 
-        static Color outlineHome = Color.white;
-        static bool outlineHomeCaptured;
         static Image outlineImage;
 
         static void PulseOutline(Transform hudRoot, bool on)
         {
-            if (outlineImage == null && hudRoot != null)
+            RestoreTableTint(hudRoot);
+            ArenaZoneView zone = ArenaZoneView.Ensure();
+            if (zone != null) zone.SetTutorialBoundPulse(on);
+        }
+
+        static void RestoreTableTint(Transform hudRoot)
+        {
+            if (outlineImage == null)
+                outlineImage = FindOutlineImage(hudRoot);
+            if (outlineImage != null)
+                outlineImage.color = Color.white;
+        }
+
+        static Image FindOutlineImage(Transform hudRoot)
+        {
+            Transform named = hudRoot != null ? FindNamed(hudRoot, "tableOutline") : null;
+            if (named == null)
             {
-                Transform named = FindNamed(hudRoot, "tableOutline");
-                if (named != null) outlineImage = named.GetComponent<Image>();
+                Transform world = GameObject.Find("BattleWorld") != null
+                    ? GameObject.Find("BattleWorld").transform
+                    : null;
+                if (world != null) named = FindNamed(world, "tableOutline");
             }
-            if (outlineImage == null) return;
-            if (!outlineHomeCaptured)
-            {
-                outlineHome = outlineImage.color;
-                outlineHomeCaptured = true;
-            }
-            outlineImage.color = on ? new Color(1f, 0.35f, 0.2f, 1f) : outlineHome;
+            return named != null ? named.GetComponent<Image>() : null;
         }
 
         static Transform FindNamed(Transform root, string objectName)

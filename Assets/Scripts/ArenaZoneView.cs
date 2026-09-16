@@ -34,6 +34,7 @@ namespace DouQuqu
         private float fadeOuterD;
         private float fadeInnerW;
         private float fadeInnerD;
+        private bool tutorialBoundPulse;
 
         public static ArenaZoneView Ensure()
         {
@@ -44,10 +45,26 @@ namespace DouQuqu
             return view;
         }
 
+        public void SetTutorialBoundPulse(bool on)
+        {
+            tutorialBoundPulse = on;
+            if (!on) return;
+            if (warnRenderer != null) warnRenderer.enabled = false;
+            HideFill();
+        }
+
         public void Refresh(MatchKnobs knobs, float elapsed, bool schedule)
         {
             EnsureMeshes();
-            DrawDashedRect(currentMesh, currentRenderer, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, new Color(1f, 0.92f, 0.45f, 0.95f), 0.42f);
+            Color dash = new Color(1f, 0.92f, 0.45f, 0.95f);
+            float dashWidth = 0.42f;
+            if (tutorialBoundPulse)
+            {
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * Mathf.PI * 2.4f);
+                dash = new Color(1f, 0.16f + 0.2f * (1f - pulse), 0.08f, 0.55f + 0.45f * pulse);
+                dashWidth = 0.62f;
+            }
+            DrawDashedRect(currentMesh, currentRenderer, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, dash, dashWidth);
 
             if (elapsed + 0.05f < lastElapsed)
             {
@@ -61,7 +78,7 @@ namespace DouQuqu
             lastTier = tier;
             lastElapsed = elapsed;
 
-            bool warn = schedule && Rules.IsZoneWarn(knobs, elapsed);
+            bool warn = !tutorialBoundPulse && schedule && Rules.IsZoneWarn(knobs, elapsed);
             if (warn)
             {
                 int next = Rules.ZoneWarnTier(knobs, elapsed);
@@ -81,7 +98,7 @@ namespace DouQuqu
                 if (fadeStartElapsed < 0f) HideFill();
             }
 
-            if (fadeStartElapsed >= 0f)
+            if (!tutorialBoundPulse && fadeStartElapsed >= 0f)
             {
                 float u = fadeDuration <= 0f ? 1f : Mathf.Clamp01((elapsed - fadeStartElapsed) / fadeDuration);
                 float alpha = 0.72f * (1f - u);

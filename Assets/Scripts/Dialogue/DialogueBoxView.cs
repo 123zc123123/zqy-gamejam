@@ -140,7 +140,7 @@ namespace DouQuqu
             portraitRect.anchorMin = new Vector2(0f, 0f);
             portraitRect.anchorMax = new Vector2(0f, 0f);
             portraitRect.pivot = new Vector2(0f, 0f);
-            portraitRect.anchoredPosition = new Vector2(12f, 108f);
+            portraitRect.anchoredPosition = new Vector2(-72f, 108f);
             portraitRect.sizeDelta = new Vector2(420f, 560f);
             portrait.preserveAspect = true;
             portrait.raycastTarget = false;
