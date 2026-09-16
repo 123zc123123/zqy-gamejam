@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -8,41 +9,21 @@ using UnityEngine.SceneManagement;
 namespace DouQuqu.Editor
 {
     /// <summary>
-    /// 导入 Epic Toon FX，并把战斗要用的几条拷进 Resources/Battle/Fx。
-    /// 菜单：DouQuqu / Import Battle FX
+    /// 战斗特效已经收在 Resources/Battle/Fx（含 Lib），同事不需要 Epic Toon FX。
+    /// 本机若有外部包，菜单可再拷一次并嵌入依赖。打开工程时不会自动导入。
     /// </summary>
-    [InitializeOnLoad]
     public static class BattleFxImporter
     {
-        const string PackagePath = @"C:\baidunetdiskdownload\Epic Toon FX 1.4.unitypackage";
         const string PackageFolder = "Assets/Epic Toon FX";
         const string DestFolder = "Assets/Resources/Battle/Fx";
         const string LibFolder = DestFolder + "/Lib";
         const string BattleScene = "Assets/Scenes/Demo.unity";
-        const string SessionKey = "DouQuqu.BattleFxImported";
 
-        static BattleFxImporter()
+        static readonly string[] PackageCandidates =
         {
-            EditorApplication.delayCall += TryImportOnce;
-        }
-
-        static void TryImportOnce()
-        {
-            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
-            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
-            {
-                EditorApplication.delayCall += TryImportOnce;
-                return;
-            }
-            if (SessionState.GetBool(SessionKey, false)) return;
-            if (File.Exists(DestFolder + "/hit.prefab"))
-            {
-                SessionState.SetBool(SessionKey, true);
-                return;
-            }
-            SessionState.SetBool(SessionKey, true);
-            ImportAndWire();
-        }
+            "Epic Toon FX 1.4.unitypackage",
+            @"C:\baidunetdiskdownload\Epic Toon FX 1.4.unitypackage"
+        };
 
         static readonly string[][] Copies =
         {
@@ -61,17 +42,41 @@ namespace DouQuqu.Editor
             new[] { "confetti", "Assets/Epic Toon FX/Prefabs/Environment/Confetti/Blast/ConfettiBlastRainbow.prefab" }
         };
 
+        static bool BattleFxReady()
+        {
+            return File.Exists(DestFolder + "/hit.prefab") && Directory.Exists(LibFolder);
+        }
+
+        static string FindUnityPackage()
+        {
+            for (int i = 0; i < PackageCandidates.Length; i++)
+            {
+                string path = PackageCandidates[i];
+                if (!Path.IsPathRooted(path))
+                    path = Path.Combine(Directory.GetCurrentDirectory(), path);
+                if (File.Exists(path)) return path;
+            }
+            return null;
+        }
+
         [MenuItem("DouQuqu/Import Battle FX")]
         public static void ImportAndWire()
         {
             if (!Directory.Exists(PackageFolder))
             {
-                if (!File.Exists(PackagePath))
+                string packagePath = FindUnityPackage();
+                if (string.IsNullOrEmpty(packagePath))
                 {
-                    Debug.LogError("[DouQuqu] 找不到 Epic Toon FX 包：" + PackagePath);
+                    if (BattleFxReady())
+                    {
+                        WireDemoScene();
+                        Debug.Log("[DouQuqu] 战斗特效已在 " + DestFolder + "（含 Lib），无需 Epic Toon FX 外部包。");
+                        return;
+                    }
+                    Debug.LogError("[DouQuqu] 仓库里还没有战斗特效，本机也没有 Epic Toon FX。请先拉最新仓库。");
                     return;
                 }
-                AssetDatabase.ImportPackage(PackagePath, false);
+                AssetDatabase.ImportPackage(packagePath, false);
                 AssetDatabase.Refresh();
             }
 
@@ -111,6 +116,12 @@ namespace DouQuqu.Editor
         [MenuItem("DouQuqu/Embed Battle FX Dependencies")]
         public static void EmbedDependencies()
         {
+            if (!Directory.Exists(DestFolder))
+            {
+                Debug.LogWarning("[DouQuqu] 没有 " + DestFolder + "，无需嵌入。");
+                return;
+            }
+
             EnsureFolder(LibFolder);
             EnsureFolder(LibFolder + "/Textures");
             EnsureFolder(LibFolder + "/Materials");
