@@ -33,6 +33,9 @@ namespace DouQuqu
         public int port;
         public int playerCount;
         public string roomCode;
+        public string electionId;
+        public string hostAddress;
+        public bool dedicated;
     }
 
     [Serializable]
@@ -89,8 +92,17 @@ namespace DouQuqu
         // 使用端点文本作为键；UDP 客户端可能使用动态源端口，主机只为该端点分配一次槽位。
         private readonly Dictionary<string, IPEndPoint> clients = new Dictionary<string, IPEndPoint>();
         private readonly Dictionary<string, int> clientIds = new Dictionary<string, int>();
+        private readonly Dictionary<string, float> clientLastSeenAt = new Dictionary<string, float>();
+        private readonly List<string> timedOutClients = new List<string>();
         private float snapshotTimer;
         private float discoveryTimer;
+        private float heartbeatTimer;
+        private bool awaitingWelcome;
+        private float welcomeTimeoutRemaining;
+        private float helloRetryTimer;
+        private string rejectedHostKey = string.Empty;
+        private float rejectedHostUntil;
+        private string hostElectionId = string.Empty;
         private int lastSnapshotTick = -1;
         private const float InputSendInterval = 1f / 30f;
         private int outgoingInputSequence;
@@ -134,6 +146,11 @@ namespace DouQuqu
         private bool searchingRoom;
         private float roomSearchElapsed;
         private const float RoomSearchTimeout = 1.4f;
+        private const float HeartbeatInterval = 1f;
+        private const float ClientTimeout = 5f;
+        private const float WelcomeTimeout = 3f;
+        private const float HelloRetryInterval = 0.35f;
+        private const float RejectedHostCooldown = 8f;
 
         public string RoomCode => roomCode;
         public bool IsRunning => running;
@@ -378,12 +395,16 @@ namespace DouQuqu
             if (!running) return;
             PollDiscovery();
             PollSession();
-            if (!IsHost && discoverySocket != null)
+            TickWelcomeHandshake();
+            TickHeartbeat();
+            TickClientTimeouts();
+            // 客户端持续找房；尚未锁定对局的主机也广播发现，用于检测同房号/随机池双房主。
+            if (discoverySocket != null && (!IsHost || (!matchReady && !battleStarting)))
             {
                 discoveryTimer -= Time.unscaledDeltaTime;
                 if (discoveryTimer <= 0f)
                 {
-                    discoveryTimer = 1f;
+                    discoveryTimer = IsHost ? 0.35f : 1f;
                     SendDiscovery();
                 }
             }
@@ -417,6 +438,7 @@ namespace DouQuqu
             try
             {
                 IsHost = true;
+                hostElectionId = Guid.NewGuid().ToString("N");
                 LocalPlayerId = 0;
                 sessionSocket = new UdpClient(SessionPort);
                 sessionSocket.EnableBroadcast = true;
@@ -458,6 +480,7 @@ namespace DouQuqu
             try
             {
                 IsHost = true;
+                hostElectionId = Guid.NewGuid().ToString("N");
                 // 独立服务器不是玩家，客户端从 0 号槽位开始分配。
                 LocalPlayerId = -1;
                 sessionSocket = new UdpClient(SessionPort);
@@ -535,8 +558,7 @@ namespace DouQuqu
                     return false;
                 }
             }
-            hostEndpoint = new IPEndPoint(ip, SessionPort);
-            SendEnvelope(sessionSocket, hostEndpoint, "HELLO", localPlayerName ?? string.Empty, -1);
+            BeginWelcomeHandshake(new IPEndPoint(ip, SessionPort));
             return true;
         }
 
@@ -558,12 +580,15 @@ namespace DouQuqu
             hostEndpoint = null;
             clients.Clear();
             clientIds.Clear();
+            clientLastSeenAt.Clear();
+            timedOutClients.Clear();
             ResetSlots();
             if (sessionSocket != null) sessionSocket.Close();
             if (discoverySocket != null) discoverySocket.Close();
             sessionSocket = null;
             discoverySocket = null;
             IsHost = false;
+            hostElectionId = string.Empty;
             LocalPlayerId = -1;
             lastSnapshotTick = -1;
             discoveryTimer = 0f;
@@ -593,6 +618,12 @@ namespace DouQuqu
             DeferBattleUntilSelectionTimeout = false;
             pendingSnapshot = null;
             pendingWelcomePlayerCount = 0;
+            heartbeatTimer = 0f;
+            awaitingWelcome = false;
+            welcomeTimeoutRemaining = 0f;
+            helloRetryTimer = 0f;
+            rejectedHostKey = string.Empty;
+            rejectedHostUntil = 0f;
         }
 
         /// <summary>选虫锁定后由房主统一广播开战，客户端不能单方面进入战斗。</summary>
@@ -886,6 +917,35 @@ namespace DouQuqu
             SendEnvelope(sessionSocket, hostEndpoint, "SELECT_READY", JsonUtility.ToJson(submission), LocalPlayerId);
         }
 
+        /// <summary>客户端定时向房主报活；即使停在选虫或加载界面，也能检测到直接关游戏。</summary>
+        private void TickHeartbeat()
+        {
+            if (IsHost || sessionSocket == null || hostEndpoint == null || LocalPlayerId < 0) return;
+            heartbeatTimer -= Time.unscaledDeltaTime;
+            if (heartbeatTimer > 0f) return;
+            heartbeatTimer = HeartbeatInterval;
+            SendEnvelope(sessionSocket, hostEndpoint, "PING", string.Empty, LocalPlayerId);
+        }
+
+        /// <summary>房主将超时客户端移出；房间已锁定后原席位改由人机接管。</summary>
+        private void TickClientTimeouts()
+        {
+            if (!IsHost || clientLastSeenAt.Count == 0) return;
+            float now = Time.unscaledTime;
+            timedOutClients.Clear();
+            foreach (KeyValuePair<string, float> pair in clientLastSeenAt)
+            {
+                if (now - pair.Value >= ClientTimeout)
+                    timedOutClients.Add(pair.Key);
+            }
+
+            if (timedOutClients.Count == 0) return;
+            for (int i = 0; i < timedOutClients.Count; i++)
+                RemoveClientSlot(timedOutClients[i]);
+            BroadcastLobby();
+            TryPrepareBattleFromSelectionReady();
+        }
+
         /// <summary>捕获主机的结束帧；该帧需要冗余发送，不能依赖普通周期快照。</summary>
         private void OnSnapshotReady(MatchSnapshot snapshot)
         {
@@ -978,7 +1038,23 @@ namespace DouQuqu
             if (!clientIds.TryGetValue(key, out id)) return;
             clientIds.Remove(key);
             clients.Remove(key);
+            clientLastSeenAt.Remove(key);
             if (id < 0 || id >= slots.Length || slots[id] == null) return;
+
+            // 进入选虫页后房间阵容已经锁定。此时玩家离开不能再留下一个永远
+            // 等不到确认的空席位，直接沿用该槽位并交给确定性 AI；没有提交阵容
+            // 时 BindMatchController 会自动使用机器人的默认三只虫。
+            if (matchReady)
+            {
+                slots[id].connected = true;
+                slots[id].ready = true;
+                slots[id].selectionReady = true;
+                slots[id].isBot = true;
+                slots[id].playerName = "机器人 " + (id + 1);
+                if (match != null) match.SetPlayerHuman(id, false);
+                return;
+            }
+
             slots[id].connected = false;
             slots[id].ready = false;
             slots[id].selectionReady = false;
@@ -1043,8 +1119,7 @@ namespace DouQuqu
             return -1;
         }
 
-        // 发现流程无状态：客户端可以重复 DISCOVER，主机可以重复 HOST 回复，
-        // 不会因此创建重复槽位。
+        // 客户端通过发现加入房间；未开战的主机也参与发现，以消除同房号/随机池双房主。
         private void PollDiscovery()
         {
             if (discoverySocket == null) return;
@@ -1065,21 +1140,26 @@ namespace DouQuqu
                             hostName = advertisedName,
                             port = SessionPort,
                             playerCount = ConnectedHumanCount(),
-                            roomCode = roomCode
+                            roomCode = roomCode,
+                            electionId = hostElectionId,
+                            dedicated = dedicatedServer
                         };
                         SendRaw(discoverySocket, endpoint, Encoding.UTF8.GetBytes("HOST|" + JsonUtility.ToJson(info)));
                     }
-                    else if (text.StartsWith("HOST|", StringComparison.Ordinal) && !IsHost)
+                    else if (text.StartsWith("HOST|", StringComparison.Ordinal))
                     {
                         LanHostInfo info = JsonUtility.FromJson<LanHostInfo>(text.Substring(5));
-                        if (info == null) continue;
-                        if (!automaticMatchmaking && roomCode.Length > 0
-                            && !string.Equals(info.roomCode, roomCode, StringComparison.OrdinalIgnoreCase))
+                        if (info == null || !MatchesDiscoveryPool(info)) continue;
+                        if (IsHost)
+                        {
+                            if (ShouldYieldHostElection(info))
+                            {
+                                DemoteToDiscoveredHost(endpoint.Address, info);
+                                return;
+                            }
                             continue;
-                        hostEndpoint = new IPEndPoint(endpoint.Address, info.port);
-                        searchingRoom = false;
-                        HostDiscovered?.Invoke(hostEndpoint.Address + ":" + info.port);
-                        SendEnvelope(sessionSocket, hostEndpoint, "HELLO", localPlayerName ?? string.Empty, -1);
+                        }
+                        ConnectToDiscoveredHost(endpoint.Address, info);
                     }
                 }
                 catch (Exception exception)
@@ -1118,6 +1198,7 @@ namespace DouQuqu
         private void HandleHostMessage(IPEndPoint endpoint, LanEnvelope envelope)
         {
             string key = endpoint.ToString();
+            if (clientIds.ContainsKey(key)) clientLastSeenAt[key] = Time.unscaledTime;
             if (envelope.type == "HELLO")
             {
                 if (matchReady) return;
@@ -1127,6 +1208,7 @@ namespace DouQuqu
                     if (assigned < 0) return;
                     clientIds[key] = assigned;
                     clients[key] = endpoint;
+                    clientLastSeenAt[key] = Time.unscaledTime;
                     slots[assigned].connected = true;
                     slots[assigned].ready = automaticMatchmaking;
                     slots[assigned].selectionReady = false;
@@ -1174,6 +1256,7 @@ namespace DouQuqu
             {
                 RemoveClientSlot(key);
                 BroadcastLobby();
+                TryPrepareBattleFromSelectionReady();
             }
         }
 
@@ -1184,6 +1267,11 @@ namespace DouQuqu
             {
                 LanWelcome welcome = JsonUtility.FromJson<LanWelcome>(envelope.body);
                 if (welcome == null) return;
+                awaitingWelcome = false;
+                welcomeTimeoutRemaining = 0f;
+                helloRetryTimer = 0f;
+                rejectedHostKey = string.Empty;
+                rejectedHostUntil = 0f;
                 LocalPlayerId = welcome.playerId;
                 pendingWelcomePlayerCount = Mathf.Clamp(welcome.playerCount, 1, MatchController.MaxPlayers);
                 if (welcome.seed != 0) matchSeed = welcome.seed;
@@ -1243,6 +1331,35 @@ namespace DouQuqu
                 LanLobbySnapshot lobby = JsonUtility.FromJson<LanLobbySnapshot>(envelope.body);
                 HandleHostLeft(lobby);
             }
+            else if (envelope.type == "HOST_REDIRECT")
+            {
+                LanHostInfo info = JsonUtility.FromJson<LanHostInfo>(envelope.body);
+                HandleHostRedirect(info);
+            }
+        }
+
+        private void HandleHostRedirect(LanHostInfo info)
+        {
+            IPAddress address;
+            if (info == null || string.IsNullOrEmpty(info.hostAddress)
+                || !IPAddress.TryParse(info.hostAddress, out address)) return;
+
+            bool keepAutomatic = automaticMatchmaking;
+            float keepElapsed = automaticElapsed;
+            float keepTimeout = automaticTimeout;
+            string keepCode = roomCode;
+            string keepName = localPlayerName;
+
+            StartClient();
+            if (!running) return;
+            automaticMatchmaking = keepAutomatic;
+            automaticElapsed = keepElapsed;
+            automaticTimeout = keepTimeout;
+            hostPromotionDelay = keepElapsed + 3f;
+            roomCode = keepCode;
+            SetLocalPlayerName(keepName);
+            ConnectToDiscoveredHost(address, info);
+            NotifyLobbyChanged();
         }
 
         private void SendDiscovery()
@@ -1328,6 +1445,107 @@ namespace DouQuqu
             {
                 return new LanSelectionSubmission();
             }
+        }
+
+        private bool MatchesDiscoveryPool(LanHostInfo info)
+        {
+            if (info == null) return false;
+            if (automaticMatchmaking)
+                return string.IsNullOrEmpty(info.roomCode);
+            if (!string.IsNullOrEmpty(roomCode))
+                return string.Equals(info.roomCode, roomCode, StringComparison.OrdinalIgnoreCase);
+            return true;
+        }
+
+        private bool ShouldYieldHostElection(LanHostInfo remote)
+        {
+            if (!IsHost || dedicatedServer || matchReady || battleStarting || remote == null || remote.dedicated)
+                return remote != null && remote.dedicated && !dedicatedServer && !matchReady && !battleStarting;
+            // 旧版本没有 electionId，不能参与确定性比较；由新版本主机保持现状。
+            if (string.IsNullOrEmpty(hostElectionId) || string.IsNullOrEmpty(remote.electionId)) return false;
+            // GUID 均匀随机；字典序较小者胜出，因此双方一定对同一结果达成一致。
+            return string.CompareOrdinal(hostElectionId, remote.electionId) > 0;
+        }
+
+        private void ConnectToDiscoveredHost(IPAddress address, LanHostInfo info)
+        {
+            if (address == null || info == null || IsHost || sessionSocket == null || LocalPlayerId >= 0) return;
+            IPEndPoint endpoint = new IPEndPoint(address, info.port > 0 ? info.port : SessionPort);
+            string key = endpoint.ToString();
+            if (key == rejectedHostKey && Time.unscaledTime < rejectedHostUntil) return;
+            if (awaitingWelcome && hostEndpoint != null && hostEndpoint.Equals(endpoint)) return;
+
+            searchingRoom = false;
+            HostDiscovered?.Invoke(endpoint.Address + ":" + endpoint.Port);
+            BeginWelcomeHandshake(endpoint);
+        }
+
+        private void BeginWelcomeHandshake(IPEndPoint endpoint)
+        {
+            if (endpoint == null || sessionSocket == null) return;
+            hostEndpoint = endpoint;
+            awaitingWelcome = true;
+            welcomeTimeoutRemaining = WelcomeTimeout;
+            helloRetryTimer = 0f;
+            SendHello();
+        }
+
+        private void TickWelcomeHandshake()
+        {
+            if (!awaitingWelcome || IsHost || LocalPlayerId >= 0 || hostEndpoint == null) return;
+            welcomeTimeoutRemaining -= Time.unscaledDeltaTime;
+            helloRetryTimer -= Time.unscaledDeltaTime;
+            if (helloRetryTimer <= 0f) SendHello();
+            if (welcomeTimeoutRemaining > 0f) return;
+
+            rejectedHostKey = hostEndpoint.ToString();
+            rejectedHostUntil = Time.unscaledTime + RejectedHostCooldown;
+            hostEndpoint = null;
+            awaitingWelcome = false;
+            helloRetryTimer = 0f;
+
+            // 好友房回到搜房流程；随机匹配会在下一帧按原累计时间自动升为房主。
+            if (!automaticMatchmaking && !string.IsNullOrEmpty(roomCode))
+            {
+                searchingRoom = true;
+                roomSearchElapsed = 0f;
+            }
+            NotifyLobbyChanged();
+        }
+
+        private void SendHello()
+        {
+            if (sessionSocket == null || hostEndpoint == null) return;
+            helloRetryTimer = HelloRetryInterval;
+            SendEnvelope(sessionSocket, hostEndpoint, "HELLO", localPlayerName ?? string.Empty, -1);
+        }
+
+        private void DemoteToDiscoveredHost(IPAddress address, LanHostInfo info)
+        {
+            if (address == null || info == null || !IsHost || matchReady || battleStarting) return;
+
+            info.hostAddress = address.ToString();
+            string redirectBody = JsonUtility.ToJson(info);
+            foreach (IPEndPoint client in clients.Values)
+                for (int attempt = 0; attempt < 3; attempt++)
+                    SendEnvelope(sessionSocket, client, "HOST_REDIRECT", redirectBody, 0);
+
+            bool keepAutomatic = automaticMatchmaking;
+            float keepElapsed = automaticElapsed;
+            float keepTimeout = automaticTimeout;
+            string keepCode = roomCode;
+            string keepName = localPlayerName;
+
+            StartClient();
+            if (!running) return;
+            automaticMatchmaking = keepAutomatic;
+            automaticElapsed = keepElapsed;
+            automaticTimeout = keepTimeout;
+            hostPromotionDelay = keepElapsed + 3f;
+            roomCode = keepCode;
+            SetLocalPlayerName(keepName);
+            ConnectToDiscoveredHost(address, info);
+            NotifyLobbyChanged();
         }
 
         private void StoreSelectionRoster(int playerId, CricketPick[] picks)
