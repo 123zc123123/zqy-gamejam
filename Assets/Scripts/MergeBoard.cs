@@ -76,7 +76,7 @@ namespace DouQuqu
         private const int HighestMergeLevel = 4;
         private const int DrawOptionCount = 4;
         /// <summary>临时测试：下一次成虫合成精品必出极品。测完改 false 或删掉。</summary>
-        public const bool DebugFirstDrawIsJiPin = true;
+        public const bool DebugFirstDrawIsJiPin = false;
         private static bool debugForcedJiPin;
 
         [SerializeField] private int width = 4;
@@ -84,7 +84,7 @@ namespace DouQuqu
         [SerializeField] private int initialPieces = 0;
 
         [Header("成虫合成精品：品质 / 性格")]
-        [SerializeField] private int drawPityLimit = 10;
+        [SerializeField] private int drawPityLimit = 4;
         // 品质：凡品 50%，灵品 28%，仙品 17%，极品 5%。连续未出极品会保底。
         [SerializeField] private float[] weightedDrawWeights = { 50f, 28f, 17f, 5f };
         // 性格：耐战、强攻、灵巧、智谋各 25%。
@@ -359,7 +359,7 @@ namespace DouQuqu
         /// <summary>保证 Inspector 中的两个概率数组始终有四个合法选项。</summary>
         private void NormalizeDrawWeights()
         {
-            weightedDrawWeights = NormalizeWeights(weightedDrawWeights, new[] { 40f, 30f, 25f, 5f });
+            weightedDrawWeights = NormalizeWeights(weightedDrawWeights, new[] { 50f, 28f, 17f, 5f });
             uniformDrawWeights = NormalizeWeights(uniformDrawWeights, new[] { 25f, 25f, 25f, 25f });
         }
 

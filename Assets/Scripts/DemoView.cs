@@ -469,7 +469,7 @@ namespace DouQuqu
             if (nestView == null) return;
             nestView.SetActive(true);
             nestView.transform.position = state.nest.position + Vector3.up * 0.15f;
-            nestView.transform.localScale = Vector3.one * 2f;
+            nestView.transform.localScale = Vector3.one * VisualScale(nestView, state.knobs.nestR, state.knobs.nestR) * 1.45f;
             Tint(nestView, Color.white);
             RefreshNestHits(nestView, Mathf.Max(0, Mathf.CeilToInt(state.nest.hp)));
         }
@@ -481,32 +481,79 @@ namespace DouQuqu
             {
                 GameObject go = new GameObject("HitsBadge");
                 go.transform.SetParent(nestView.transform, false);
-                go.transform.localPosition = new Vector3(0.42f, -0.38f, -0.02f);
-                go.transform.localRotation = Quaternion.identity;
-                go.transform.localScale = Vector3.one * 0.45f;
-                SpriteRenderer icon = go.AddComponent<SpriteRenderer>();
-                icon.sprite = Resources.Load<Sprite>("Battle/Entities/Textures/NestHits");
-                icon.sortingOrder = 16;
-                icon.color = Color.white;
-                GameObject label = new GameObject("Hits");
-                label.transform.SetParent(go.transform, false);
-                label.transform.localPosition = Vector3.zero;
-                label.transform.localRotation = Quaternion.identity;
-                label.transform.localScale = Vector3.one;
-                TextMesh text = label.AddComponent<TextMesh>();
-                text.anchor = TextAnchor.MiddleCenter;
-                text.alignment = TextAlignment.Center;
-                text.characterSize = 0.18f;
-                text.fontSize = 64;
-                text.color = Color.white;
-                text.fontStyle = FontStyle.Bold;
-                MeshRenderer mesh = label.GetComponent<MeshRenderer>();
-                if (mesh != null) mesh.sortingOrder = 17;
                 badge = go.transform;
             }
-            TextMesh hitsText = badge.GetComponentInChildren<TextMesh>();
-            if (hitsText != null) hitsText.text = hits.ToString();
+
+            SpriteRenderer leftover = badge.GetComponent<SpriteRenderer>();
+            if (leftover != null) leftover.enabled = false;
+
+            badge.localRotation = Quaternion.identity;
+            badge.localScale = Vector3.one;
+            badge.localPosition = NestHitLabelLocal(nestView);
+
+            TextMesh hitsText = null;
+            TextMesh[] labels = badge.GetComponentsInChildren<TextMesh>();
+            for (int i = 0; i < labels.Length; i++)
+            {
+                if (labels[i] != null && labels[i].name == "Hits")
+                {
+                    hitsText = labels[i];
+                    break;
+                }
+            }
+            if (hitsText == null)
+                hitsText = CreateNestHitGlyph(badge, "Hits", 18);
+            if (badge.Find("HitsOutline0") == null)
+            {
+                float outline = 0.018f;
+                CreateNestHitGlyph(badge, "HitsOutline0", 17).transform.localPosition = new Vector3(-outline, 0f, 0.01f);
+                CreateNestHitGlyph(badge, "HitsOutline1", 17).transform.localPosition = new Vector3(outline, 0f, 0.01f);
+                CreateNestHitGlyph(badge, "HitsOutline2", 17).transform.localPosition = new Vector3(0f, -outline, 0.01f);
+                CreateNestHitGlyph(badge, "HitsOutline3", 17).transform.localPosition = new Vector3(0f, outline, 0.01f);
+            }
+            string value = hits.ToString();
+            Color fill = new Color(0.06f, 0.05f, 0.04f, 1f);
+            Color outlineColor = new Color(1f, 0.97f, 0.90f, 1f);
+            labels = badge.GetComponentsInChildren<TextMesh>();
+            for (int i = 0; i < labels.Length; i++)
+            {
+                TextMesh label = labels[i];
+                if (label == null) continue;
+                label.text = value;
+                label.color = label.name == "Hits" ? fill : outlineColor;
+            }
             badge.gameObject.SetActive(hits > 0);
+        }
+
+        static TextMesh CreateNestHitGlyph(Transform parent, string objectName, int sortingOrder)
+        {
+            GameObject label = new GameObject(objectName);
+            label.transform.SetParent(parent, false);
+            label.transform.localPosition = Vector3.zero;
+            label.transform.localRotation = Quaternion.identity;
+            label.transform.localScale = Vector3.one;
+            TextMesh text = label.AddComponent<TextMesh>();
+            text.anchor = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignment.Center;
+            text.characterSize = 0.11f;
+            text.fontSize = 80;
+            text.fontStyle = FontStyle.Bold;
+            MeshRenderer mesh = label.GetComponent<MeshRenderer>();
+            if (mesh != null) mesh.sortingOrder = sortingOrder;
+            return text;
+        }
+
+        /// <summary>次数写在巢图右下角自带圆圈里，不再另叠一层 NestHits。</summary>
+        static Vector3 NestHitLabelLocal(GameObject nestView)
+        {
+            SpriteRenderer spriteRenderer = nestView.GetComponent<SpriteRenderer>();
+            if (spriteRenderer == null || spriteRenderer.sprite == null)
+                return new Vector3(0.52f, -0.48f, -0.02f);
+            Bounds bounds = spriteRenderer.sprite.bounds;
+            return new Vector3(
+                bounds.min.x + bounds.size.x * 0.775f,
+                bounds.min.y + bounds.size.y * 0.235f,
+                -0.02f);
         }
 
         private GameObject PrefabForBug(int id)
@@ -834,6 +881,7 @@ namespace DouQuqu
                     spriteRenderer.color = color;
                     continue;
                 }
+                if (renderer.GetComponent<TextMesh>() != null) continue;
                 if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
                 renderer.GetPropertyBlock(propertyBlock);
                 propertyBlock.SetColor("_BaseColor", color);
