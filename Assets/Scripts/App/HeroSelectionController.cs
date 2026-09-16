@@ -120,6 +120,7 @@ namespace DouQuqu
             HookBattleReady();
             HookLobby();
             RefreshAll();
+            TutorialSpotlight.Hide();
             TutorialDirector.OnHeroSelectOpened(this);
         }
 

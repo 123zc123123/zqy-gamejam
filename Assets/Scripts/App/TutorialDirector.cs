@@ -113,6 +113,7 @@ namespace DouQuqu
                 if (PlayerDataService.BackpackCount() <= 0)
                     PlayerDataService.AddFinestToBackpack(1, 1);
                 PlayerDataService.SetTutorialStep(StepBattle);
+                TutorialSpotlight.Hide();
                 selection.NotifyBackpackChanged();
             });
         }
