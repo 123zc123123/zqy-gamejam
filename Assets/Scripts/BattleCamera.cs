@@ -30,6 +30,7 @@ namespace DouQuqu
         private bool godView;
         private bool chasing;
         private MatchController followMatch;
+        private DemoView followView;
         private int followPlayerId;
         private float snapPullDuration;
         private float snapPullElapsed = 1f;
@@ -149,7 +150,7 @@ namespace DouQuqu
             Fit();
         }
 
-        /// <summary>局内窗口用预制体设计尺寸，不按 field-2 铺满。</summary>
+        /// <summary>局内窗口用预制体设计尺寸，不按 field-3 铺满。</summary>
         public void UsePlayDesign(float width, float height)
         {
             playDesignW = Mathf.Max(0.01f, width);
@@ -266,11 +267,12 @@ namespace DouQuqu
             FrameWorld(Vector3.zero, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, 0f);
         }
 
-        /// <summary>对局中软跟随自己的虫；窗口按预制体设计尺寸，1080 铺满时 field-2 留边。</summary>
+        /// <summary>对局中软跟随自己的虫；窗口按预制体设计尺寸，1080 铺满时 field-3 留边。</summary>
         public void FollowLocalPlayer(MatchController match, int playerId)
         {
             godView = false;
             followMatch = match;
+            followView = null;
             followPlayerId = playerId;
             followEnabled = true;
             chasing = true;
@@ -362,9 +364,19 @@ namespace DouQuqu
             ApplySize(toSize);
         }
 
+        /// <summary>测试和调试用：当前跟随目标的世界坐标，优先平滑后的视觉位置。</summary>
+        public bool TryReadFollowPosition(out Vector3 player)
+        {
+            return TryFollowPosition(out player);
+        }
+
         private bool TryFollowPosition(out Vector3 player)
         {
             player = Vector3.zero;
+            if (followView == null && followMatch != null)
+                followView = followMatch.GetComponent<DemoView>() ?? followMatch.GetComponentInChildren<DemoView>(true);
+            if (followView != null && followView.TryGetVisualFollowPosition(followPlayerId, out player))
+                return true;
             if (followMatch == null || followMatch.State == null || followMatch.State.bugs == null)
                 return false;
             BugState[] bugs = followMatch.State.bugs;

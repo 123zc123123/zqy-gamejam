@@ -18,7 +18,6 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
         const string CommonPrefabs = "Assets/Resources/Common/Prefabs";
         const string Scenes = "Assets/Game/UI/BreedingBoard/Scenes";
         const string Textures = Root + "/Textures/Figma";
-        const string PagePath = Prefabs + "/育虫盘.prefab";
         const string CanvasPath = Prefabs + "/Canvas.prefab";
         const string ScenePath = Scenes + "/BreedingBoard.unity";
         const string BackgroundTexture = Textures + "/BreedingBoard_Background_108_93.png";
@@ -108,18 +107,16 @@ namespace ZqyGameJam.UI.BreedingBoard.Editor
             AddNested(canvas, board, new Vector2(0,81.5f));
             AddNested(canvas, gold, new Vector2(381,832));
             GameObject savedCanvas = SavePrefab(canvas, CanvasPath);
-
-            GameObject page = BuildEmptyPart("育虫盘", new Vector2(1080,1920), Vector2.zero);
-            AddNested(page, savedCanvas, Vector2.zero); SavePrefab(page, PagePath);
             AssetDatabase.SaveAssets(); AssetDatabase.Refresh();
-            Selection.activeObject = AssetDatabase.LoadAssetAtPath<GameObject>(PagePath);
-            Debug.Log("Rebuilt Figma 91:8 with peer-level component prefabs and Figma-matching hierarchy.");
+            Selection.activeObject = savedCanvas;
+            Debug.Log("Rebuilt Figma 91:8 Canvas prefab.");
         }
 
         static void DeleteOldAssets()
         {
             // Keep current modular prefab paths so their GUIDs remain stable while rebuilding.
             // Deleting nested assets first causes transient missing-prefab imports in parent prefabs.
+            AssetDatabase.DeleteAsset(Prefabs + "/育虫盘.prefab");
             AssetDatabase.DeleteAsset(Prefabs + "/BreedingBoard_Hud.prefab");
             AssetDatabase.DeleteAsset(Parts + "/BreedingBoard_Background.prefab");
             AssetDatabase.DeleteAsset(Parts + "/BreedingBoard_InteractionOverlay.prefab");
@@ -287,7 +284,7 @@ static GameObject SavePrefab(GameObject go,string path)
         static void SaveScene()
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);
-            GameObject page=PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(PagePath)) as GameObject; SceneManager.MoveGameObjectToScene(page,SceneManager.GetActiveScene());
+            GameObject page=PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(CanvasPath)) as GameObject; SceneManager.MoveGameObjectToScene(page,SceneManager.GetActiveScene());
             GameObject cam=new GameObject("Main Camera"); Camera camera=cam.AddComponent<Camera>(); camera.clearFlags=CameraClearFlags.SolidColor; camera.backgroundColor=new Color(0.03f,0.04f,0.06f); camera.transform.position=new Vector3(0,0,-10); cam.tag="MainCamera";
             GameObject light=new GameObject("Directional Light"); Light l=light.AddComponent<Light>(); l.type=LightType.Directional; l.intensity=1; l.transform.rotation=Quaternion.Euler(50,-30,0);
             GameObject es=new GameObject("EventSystem"); es.AddComponent<EventSystem>(); es.AddComponent<StandaloneInputModule>(); EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(),ScenePath);

@@ -771,9 +771,23 @@ namespace DouQuqu
             CricketBackpackEntry entry = PlayerDataService.FindBackpack(instanceId);
             if (entry == null) return;
             slotEntries[selectedSlot] = entry;
+            AdvanceToNextEmptySlot();
             RefreshSlots();
             RefreshCards();
             RefreshGreenBox();
+        }
+
+        private void AdvanceToNextEmptySlot()
+        {
+            for (int i = 1; i <= SlotCount; i++)
+            {
+                int index = (selectedSlot + i) % SlotCount;
+                if (slotEntries[index] == null)
+                {
+                    selectedSlot = index;
+                    return;
+                }
+            }
         }
 
         private void RefreshAll()

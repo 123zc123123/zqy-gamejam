@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -6,41 +7,51 @@ namespace DouQuqu.Editor.Tests
     [TestFixture]
     public sealed class ZoneScheduleTests
     {
+        readonly List<GameObject> created = new List<GameObject>();
+
         [TearDown]
         public void TearDown()
         {
+            for (int i = 0; i < created.Count; i++)
+            {
+                if (created[i] != null) Object.DestroyImmediate(created[i]);
+            }
+            created.Clear();
             Rules.ResetArenaSize();
         }
 
         [Test]
-        public void Z1_DefaultSnapsAt60_90()
+        public void Z1_DefaultSnapsAt40_70_90()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
             float[] snaps = Rules.ZoneSnapTimes(knobs);
-            Assert.AreEqual(2, snaps.Length);
-            Assert.AreEqual(60f, snaps[0], 1e-4f);
-            Assert.AreEqual(90f, snaps[1], 1e-4f);
+            Assert.AreEqual(3, snaps.Length);
+            Assert.AreEqual(40f, snaps[0], 1e-4f);
+            Assert.AreEqual(70f, snaps[1], 1e-4f);
+            Assert.AreEqual(90f, snaps[2], 1e-4f);
         }
 
         [Test]
         public void Z2_SnapIsInstantNoLerp()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 59.9f));
-            Assert.AreEqual(2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 59.9f)), 1e-4f);
-            Assert.AreEqual(1, Rules.ZoneTierAt(knobs, 60f));
-            Assert.AreEqual(1.2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 60f)), 1e-4f);
+            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 39.9f));
+            Assert.AreEqual(2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 39.9f)), 1e-4f);
+            Assert.AreEqual(1, Rules.ZoneTierAt(knobs, 40f));
+            Assert.AreEqual(1.5f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 40f)), 1e-4f);
+            Assert.AreEqual(2, Rules.ZoneTierAt(knobs, 70f));
+            Assert.AreEqual(1.2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 70f)), 1e-4f);
         }
 
         [Test]
         public void Z3_WarnKeepsCurrentSdf()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Assert.IsTrue(Rules.IsZoneWarn(knobs, 55f));
-            Assert.IsTrue(Rules.IsZoneWarn(knobs, 59.9f));
-            Assert.IsFalse(Rules.IsZoneWarn(knobs, 54.9f));
-            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 57f));
-            Rules.ApplyZoneAt(knobs, 57f);
+            Assert.IsTrue(Rules.IsZoneWarn(knobs, 35f));
+            Assert.IsTrue(Rules.IsZoneWarn(knobs, 39.9f));
+            Assert.IsFalse(Rules.IsZoneWarn(knobs, 34.9f));
+            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 37f));
+            Rules.ApplyZoneAt(knobs, 37f);
             Vector3 inCurrentOutNext = new Vector3(35f, 0f, 0f);
             Assert.IsTrue(Rules.InsideArena(inCurrentOutNext));
             Rules.SetArenaScale(Rules.ZoneScaleOf(knobs, 1));
@@ -48,7 +59,7 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void Z4_SecondSnapIsRageAndNoThird()
+        public void Z4_ThirdSnapIsRageAndNoFourth()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
             Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(knobs, 90f));
@@ -235,37 +246,40 @@ namespace DouQuqu.Editor.Tests
             Assert.AreEqual(120f, Rules.HardStop(training), 1e-4f);
             Assert.IsTrue(training.zoneSchedule);
             Assert.AreEqual(0, Rules.ZoneTierAt(training, 0f));
-            Assert.AreEqual(1, Rules.ZoneTierAt(training, 60f));
+            Assert.AreEqual(1, Rules.ZoneTierAt(training, 40f));
+            Assert.AreEqual(2, Rules.ZoneTierAt(training, 70f));
             Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(training, 90f));
             Assert.AreEqual("2:00", Rules.FormatClock(Rules.RemainingClock(training, 0f, false)));
         }
 
         [Test]
-        public void Z16_OldFourTierMigratesToTwoSnaps()
+        public void Z16_TwoSnapMigratesToThreeSnaps()
         {
             MatchKnobs knobs = new MatchKnobs();
-            knobs.zoneScale1 = 1.5f;
-            knobs.zoneScale2 = 1.2f;
+            knobs.zoneScale1 = 1.2f;
+            knobs.zoneScale2 = 1f;
             knobs.zoneScale3 = 1f;
-            knobs.zoneHold0 = 35f;
+            knobs.zoneHold0 = 55f;
             knobs.zoneHold1 = 25f;
             knobs.zoneHold2 = 15f;
-            knobs.zoneSnapSchema = 0;
+            knobs.zoneSnapSchema = 2;
             knobs.OnAfterDeserialize();
-            Assert.AreEqual(2, knobs.zoneSnapSchema);
-            Assert.AreEqual(1.2f, knobs.zoneScale1, 1e-4f);
-            Assert.AreEqual(1f, knobs.zoneScale2, 1e-4f);
-            Assert.AreEqual(55f, knobs.zoneHold0, 1e-4f);
+            Assert.AreEqual(3, knobs.zoneSnapSchema);
+            Assert.AreEqual(1.5f, knobs.zoneScale1, 1e-4f);
+            Assert.AreEqual(1.2f, knobs.zoneScale2, 1e-4f);
+            Assert.AreEqual(1f, knobs.zoneScale3, 1e-4f);
+            Assert.AreEqual(35f, knobs.zoneHold0, 1e-4f);
             Assert.AreEqual(25f, knobs.zoneHold1, 1e-4f);
-            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 40f));
+            Assert.AreEqual(15f, knobs.zoneHold2, 1e-4f);
             float[] snaps = Rules.ZoneSnapTimes(knobs);
-            Assert.AreEqual(2, snaps.Length);
-            Assert.AreEqual(60f, snaps[0], 1e-4f);
-            Assert.AreEqual(90f, snaps[1], 1e-4f);
+            Assert.AreEqual(3, snaps.Length);
+            Assert.AreEqual(40f, snaps[0], 1e-4f);
+            Assert.AreEqual(70f, snaps[1], 1e-4f);
+            Assert.AreEqual(90f, snaps[2], 1e-4f);
         }
 
         [Test]
-        public void Z19_OriginalField2WidthMapsToCan()
+        public void Z19_OriginalField3WidthMapsToCan()
         {
             Vector2 last = Rules.FieldToArenaHalf(Rules.FieldRulerWidth, 1370f);
             Assert.AreEqual(Rules.DefaultArenaHalfWidth, last.x, 1e-4f);
@@ -273,16 +287,17 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void Z20_ResizingField2ChangesLastTier()
+        public void Z20_ResizingField3ChangesLastTier()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
             Rules.ApplyFieldRects(
                 knobs,
                 new Vector2(1840f, 2740f),
                 new Vector2(1291.3494f, 1921.9755f),
+                new Vector2(1104f, 1644f),
                 new Vector2(1104f, 1644f));
-            Assert.AreEqual(1104f / Rules.FieldRulerWidth, knobs.zoneScale2, 1e-4f);
-            Assert.Greater(knobs.zoneScale2, 1f);
+            Assert.AreEqual(1104f / Rules.FieldRulerWidth, knobs.zoneScale3, 1e-4f);
+            Assert.Greater(knobs.zoneScale3, 1f);
             Vector2 last = Rules.ZoneHalfExtents(knobs, Rules.LastZoneTier);
             Assert.AreEqual(Rules.DefaultArenaHalfWidth * (1104f / 920f), last.x, 1e-3f);
             Assert.AreNotEqual(Rules.DefaultArenaHalfWidth, last.x);
@@ -296,11 +311,14 @@ namespace DouQuqu.Editor.Tests
                 knobs,
                 new Vector2(1840f, 2740f),
                 new Vector2(1291.3494f, 1921.9755f),
+                new Vector2(1104f, 1644f),
                 new Vector2(920f, 1370f));
             Assert.AreEqual(2f, knobs.zoneScale0, 1e-4f);
-            Assert.AreEqual(1f, knobs.zoneScale2, 1e-4f);
+            Assert.AreEqual(1291.3494f / Rules.FieldRulerWidth, knobs.zoneScale1, 1e-4f);
+            Assert.AreEqual(1.2f, knobs.zoneScale2, 1e-4f);
+            Assert.AreEqual(1f, knobs.zoneScale3, 1e-4f);
             Vector2 open = Rules.ZoneHalfExtents(knobs, 0);
-            Vector2 last = Rules.ZoneHalfExtents(knobs, 2);
+            Vector2 last = Rules.ZoneHalfExtents(knobs, Rules.LastZoneTier);
             Assert.AreEqual(42.4f, open.x, 1e-3f);
             Assert.AreEqual(2740f * Rules.MetersPerFieldUnit * 0.5f, open.y, 1e-3f);
             Assert.AreEqual(21.2f, last.x, 1e-3f);
@@ -310,6 +328,111 @@ namespace DouQuqu.Editor.Tests
             Rules.ApplyZoneTier(knobs, 0);
             Assert.AreEqual(open.x, Rules.ArenaHalfWidth, 1e-3f);
             Assert.AreEqual(open.y, Rules.ArenaHalfDepth, 1e-3f);
+        }
+
+        [Test]
+        public void ClientApplySnapshotFiresZoneSnappedWhenElapsedCrossesHold()
+        {
+            MatchKnobs knobs = CompetitiveMatch.WithDuration(Rules.DefaultKnobs());
+            MatchController host = CreateMatch();
+            host.Configure(MatchRunMode.Offline, MatchController.MaxPlayers, knobs);
+            host.ResetMatch(MatchController.MaxPlayers, 20260918);
+            host.StartMatch();
+            MatchSnapshot before = host.CaptureSnapshot();
+            before.elapsed = 39.9f;
+            MatchSnapshot after = host.CaptureSnapshot();
+            after.elapsed = 40f;
+
+            MatchController client = CreateMatch();
+            client.Configure(MatchRunMode.Client, MatchController.MaxPlayers, knobs);
+            client.ResetMatch(MatchController.MaxPlayers, 20260918);
+            int snapped = -1;
+            client.ZoneSnapped += tier => snapped = tier;
+
+            client.ApplySnapshot(before);
+            Assert.AreEqual(-1, snapped);
+            Assert.AreEqual(0, client.ZoneTier);
+
+            client.ApplySnapshot(after);
+            Assert.AreEqual(1, snapped);
+            Assert.AreEqual(1, client.ZoneTier);
+            Assert.AreEqual(Rules.ZoneHalfExtents(knobs, 1).x, Rules.ArenaHalfWidth, 1e-3f);
+        }
+
+        [Test]
+        public void ClientApplySnapshotDoesNotRefireSameTier()
+        {
+            MatchKnobs knobs = CompetitiveMatch.WithDuration(Rules.DefaultKnobs());
+            MatchController host = CreateMatch();
+            host.Configure(MatchRunMode.Offline, MatchController.MaxPlayers, knobs);
+            host.ResetMatch(MatchController.MaxPlayers, 20260918);
+            MatchSnapshot snap = host.CaptureSnapshot();
+            snap.elapsed = 40f;
+
+            MatchController client = CreateMatch();
+            client.Configure(MatchRunMode.Client, MatchController.MaxPlayers, knobs);
+            client.ResetMatch(MatchController.MaxPlayers, 20260918);
+            int fires = 0;
+            client.ZoneSnapped += _ => fires++;
+            client.ApplySnapshot(snap);
+            client.ApplySnapshot(snap);
+            Assert.AreEqual(1, fires);
+        }
+
+        [Test]
+        public void ClientApplySnapshotWithoutKnobsKeepsExistingKnobs()
+        {
+            MatchKnobs knobs = CompetitiveMatch.WithDuration(Rules.DefaultKnobs());
+            knobs.zoneHold0 = 40f;
+            MatchController host = CreateMatch();
+            host.Configure(MatchRunMode.Offline, MatchController.MaxPlayers, knobs);
+            host.ResetMatch(MatchController.MaxPlayers, 20260918);
+            MatchSnapshot withKnobs = host.CaptureSnapshot(true);
+            MatchSnapshot withoutKnobs = host.CaptureSnapshot(false);
+            Assert.IsNotNull(withKnobs.knobs);
+            Assert.IsNull(withoutKnobs.knobs);
+
+            MatchController client = CreateMatch();
+            client.Configure(MatchRunMode.Client, MatchController.MaxPlayers, Rules.DefaultKnobs());
+            client.ResetMatch(MatchController.MaxPlayers, 20260918);
+            client.ApplySnapshot(withKnobs);
+            Assert.AreEqual(40f, client.Knobs.zoneHold0, 1e-4f);
+            withoutKnobs.elapsed = 1f;
+            withoutKnobs.tick = 60;
+            client.ApplySnapshot(withoutKnobs);
+            Assert.AreEqual(40f, client.Knobs.zoneHold0, 1e-4f);
+            Assert.AreEqual(1f, client.Elapsed, 1e-4f);
+        }
+
+        [Test]
+        public void ClientApplySnapshotReusesPickupSlots()
+        {
+            MatchKnobs knobs = CompetitiveMatch.WithDuration(Rules.DefaultKnobs());
+            MatchController host = CreateMatch();
+            host.Configure(MatchRunMode.Offline, MatchController.MaxPlayers, knobs);
+            host.ResetMatch(MatchController.MaxPlayers, 20260918);
+            MatchSnapshot snap = host.CaptureSnapshot();
+            snap.pickups = new[]
+            {
+                new PickupSnapshot { id = 1, alive = true, kind = "heart", position = Vector3.one },
+                new PickupSnapshot { id = 2, alive = true, kind = "shield", position = Vector3.zero }
+            };
+
+            MatchController client = CreateMatch();
+            client.Configure(MatchRunMode.Client, MatchController.MaxPlayers, knobs);
+            client.ResetMatch(MatchController.MaxPlayers, 20260918);
+            client.ApplySnapshot(snap);
+            var first = client.State.pickups[0];
+            client.ApplySnapshot(snap);
+            Assert.AreEqual(2, client.State.pickups.Count);
+            Assert.AreSame(first, client.State.pickups[0]);
+        }
+
+        MatchController CreateMatch()
+        {
+            GameObject go = new GameObject("ZoneScheduleMatch");
+            created.Add(go);
+            return go.AddComponent<MatchController>();
         }
     }
 }

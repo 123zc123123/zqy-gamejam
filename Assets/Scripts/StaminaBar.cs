@@ -1,40 +1,74 @@
 using UnityEngine;
-using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 namespace DouQuqu
 {
     /// <summary>
-    /// 身下分格耐力条。表现层预制体，不参与碰撞 / 出圈。旧圆环可同时保留。
+    /// 身下耐力条：World Space Canvas + Image。
+    /// 底板 / 描边 / 填充九宫；填充从左连续裁；分隔线只负责分格。
     /// </summary>
+    [ExecuteAlways]
     public sealed class StaminaBar : MonoBehaviour
     {
         public const int MaxSlots = 8;
+        private const string TexRoot = "Battle/Entities/Textures/";
+        private const float Pixels = 100f;
+        private const float BgPx = 50f;
+        private const float DefaultHudW = 600f;
+        private const float DefaultHudH = 100f;
+        private const float FillPx = 40f;
+        private const float OutlinePx = 68f;
+        private const float InsetPx = (BgPx - FillPx) * 0.5f;
+        private const float OutlinePadPx = OutlinePx - BgPx;
 
-        [SerializeField] private Color okColor = new Color(0.48f, 0.84f, 0.64f, 0.95f);
-        [SerializeField] private Color warnColor = new Color(0.90f, 0.70f, 0.31f, 0.95f);
-        [SerializeField] private Color lowColor = new Color(0.88f, 0.35f, 0.27f, 0.95f);
-        [SerializeField] private Color hotColor = new Color(1f, 0.38f, 0.12f, 0.95f);
-        [SerializeField] private Color trackColor = new Color(0.08f, 0.12f, 0.11f, 0.72f);
-        [SerializeField] private Color plateColor = new Color(0.05f, 0.07f, 0.07f, 0.55f);
-        [SerializeField] private float widthScale = 2.2f;
-        [SerializeField] private float thicknessScale = 0.22f;
-        [SerializeField] private float belowScale = 1.85f;
-        [SerializeField] private float minWidth = 1.2f;
-        [SerializeField] private float minThickness = 0.12f;
-        [SerializeField] private float minBelow = 0.55f;
-        [SerializeField] private float heightOffset = 0.1f;
-        [SerializeField] private float gap = 0.12f;
+        [SerializeField] private Color okColor = Color.white;
+        [SerializeField] private Color warnColor = new Color(1f, 0.78f, 0.28f, 1f);
+        [SerializeField] private Color lowColor = new Color(1f, 0.38f, 0.32f, 1f);
+        [SerializeField] private Color hotColor = new Color(1f, 0.55f, 0.18f, 1f);
+        [SerializeField, Min(0f)]
+        [Tooltip("长度 = ((成长倍数-1)×此系数+1)×预制体初始长度")]
+        private float lengthGrowScale = 1f;
         [SerializeField] private float pendingAlpha = 0.4f;
-        [SerializeField] private SpriteRenderer plate;
-        [SerializeField] private SpriteRenderer[] tracks = new SpriteRenderer[MaxSlots];
-        [SerializeField] private SpriteRenderer[] fills = new SpriteRenderer[MaxSlots];
-        [SerializeField] private SpriteRenderer[] hotFills = new SpriteRenderer[MaxSlots];
-        [SerializeField] private SpriteRenderer[] previews = new SpriteRenderer[MaxSlots];
-        [SerializeField] private float bakedWidth;
-        [SerializeField] private float bakedThickness;
 
-        private Sprite whiteSprite;
-        private Material spriteMaterial;
+        private Sprite bgSprite;
+        private Sprite outlineSprite;
+        private Sprite fillSprite;
+        private Sprite dividerSprite;
+        private Sprite iconSprite;
+        private RectTransform hud;
+        private RectTransform fillArea;
+        private RectTransform pendingClip;
+        private RectTransform remainClip;
+        private RectTransform hotClip;
+        private RectTransform dividerRoot;
+        private Image bg;
+        private Image outline;
+        private Image icon;
+        private Image pendingFill;
+        private Image remainFill;
+        private Image hotFill;
+        private Image[] dividers;
+        private float authoredHudW;
+        private float authoredHudH;
+        private bool capturedSize;
+        private float grow = 1f;
+        private float lastRatio = 1f;
+        private float lastPending;
+        private float lastHot;
+        private int lastSlots = 5;
+        private bool laidOut;
+
+        private void Awake()
+        {
+            EnsureReady();
+        }
+
+        private void OnEnable()
+        {
+            if (IsPrefabAsset()) return;
+            EnsureReady();
+            if (!Application.isPlaying) ShowAuthored();
+        }
 
         /// <summary>
         /// 实心 = 当前耐力。蓄力时 pendingRatio 是本次将扣的比例，画在当前值往回的半透明段。
@@ -43,96 +77,43 @@ namespace DouQuqu
         {
             EnsureReady();
             gameObject.SetActive(true);
-            float width = Mathf.Max(minWidth, bugRadius * widthScale);
-            float thickness = Mathf.Max(minThickness, bugRadius * thicknessScale);
-            float below = Mathf.Max(minBelow, bugRadius * belowScale);
-            transform.position = worldCenter + Vector3.up * heightOffset + Vector3.back * below;
-            transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            LayoutSlots(currentRatio, slots, pendingRatio, width, thickness, hotGate);
+            transform.position = worldCenter + Vector3.up * 0.1f + Vector3.back * (bugRadius * 1.85f);
+            transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
+            Layout(currentRatio, slots, pendingRatio, hotGate);
         }
 
-        /// <summary>按碰撞半径把格子烘焙进子物体，不改本节点 Transform。</summary>
+        /// <summary>编辑器生成预制体时写入初始 Hud 尺寸，局内不再用半径改宽度。</summary>
         public void Bake(float bugRadius)
         {
             EnsureReady();
-            bakedWidth = Mathf.Max(minWidth, bugRadius * widthScale);
-            bakedThickness = Mathf.Max(minThickness, bugRadius * thicknessScale);
-            LayoutSlots(1f, 5, 0f, bakedWidth, bakedThickness, 0f);
+            if (hud != null && hud.sizeDelta.x < 1f)
+                hud.sizeDelta = new Vector2(DefaultHudW, DefaultHudH);
+            capturedSize = false;
+            grow = 1f;
+            Layout(1f, 5, 0f, 0f);
         }
 
-        /// <summary>只刷新格数和填充，位置大小跟预制体。</summary>
+        /// <summary>只刷新格数和填充。长度跟预制体初始值，再按成长倍数拉长。</summary>
         public void ApplyFill(float currentRatio, int slots, float pendingRatio = 0f, float hotGate = 0f)
         {
             EnsureReady();
             gameObject.SetActive(true);
-            if (bakedWidth < 0.05f) Bake(1.8f);
-            LayoutSlots(currentRatio, slots, pendingRatio, bakedWidth, bakedThickness, hotGate);
+            Layout(currentRatio, slots, pendingRatio, hotGate);
+        }
+
+        /// <summary>蛐蛐成长倍数。长度 = ((grow-1)×缩放系数+1)×初始长度。</summary>
+        public void SetGrow(float nextGrow)
+        {
+            grow = Mathf.Max(0.05f, nextGrow);
+            if (laidOut) Layout(lastRatio, lastSlots, lastPending, lastHot);
         }
 
         public void ShowAuthored()
         {
             EnsureReady();
             gameObject.SetActive(true);
-            if (bakedWidth < 0.05f) Bake(1.8f);
-            else LayoutSlots(1f, 5, 0f, bakedWidth, bakedThickness, 0f);
-        }
-
-        private void LayoutSlots(float currentRatio, int slots, float pendingRatio, float width, float thickness, float hotGate)
-        {
-            currentRatio = Mathf.Clamp01(currentRatio);
-            pendingRatio = Mathf.Clamp(pendingRatio, 0f, currentRatio);
-            float remainRatio = Mathf.Max(0f, currentRatio - pendingRatio);
-            slots = Mathf.Clamp(slots, 3, MaxSlots);
-            hotGate = Mathf.Clamp01(hotGate);
-
-            Color color = currentRatio <= 0.2f ? lowColor : (currentRatio <= 0.4f ? warnColor : okColor);
-            Color ghost = new Color(color.r, color.g, color.b, color.a * pendingAlpha);
-            float gapW = Mathf.Max(0.02f, thickness * gap);
-            float slotW = (width - gapW * (slots - 1)) / slots;
-            float origin = -width * 0.5f;
-
-            Layout(plate, Vector3.zero, new Vector2(width + thickness * 0.45f, thickness + thickness * 0.55f), plateColor, 28);
-            for (int i = 0; i < MaxSlots; i++)
-            {
-                bool on = i < slots;
-                if (tracks[i] != null) tracks[i].enabled = on;
-                if (fills[i] != null) fills[i].enabled = false;
-                if (hotFills != null && hotFills[i] != null) hotFills[i].enabled = false;
-                if (previews[i] != null) previews[i].enabled = false;
-                if (!on) continue;
-
-                float left = origin + i * (slotW + gapW);
-                float centerX = left + slotW * 0.5f;
-                Layout(tracks[i], new Vector3(centerX, 0f, 0f), new Vector2(slotW, thickness), trackColor, 29);
-
-                float remainFill = Mathf.Clamp01(remainRatio * slots - i);
-                float currentFill = Mathf.Clamp01(currentRatio * slots - i);
-                if (currentFill > remainFill + 0.001f)
-                {
-                    float pendingW = slotW * (currentFill - remainFill);
-                    float pendingX = left + slotW * remainFill + pendingW * 0.5f;
-                    Layout(previews[i], new Vector3(pendingX, 0f, 0f), new Vector2(pendingW, thickness), ghost, 30);
-                }
-                if (remainFill <= 0.001f) continue;
-
-                float slotStart = (float)i / slots;
-                float filledEnd = slotStart + remainFill / slots;
-                float normalEnd = hotGate > 0.001f ? Mathf.Min(filledEnd, Mathf.Max(slotStart, hotGate)) : filledEnd;
-                float normalFill = Mathf.Clamp01((normalEnd - slotStart) * slots);
-                if (normalFill > 0.001f)
-                {
-                    float fillW = slotW * normalFill;
-                    float fillX = left + fillW * 0.5f;
-                    Layout(fills[i], new Vector3(fillX, 0f, 0f), new Vector2(fillW, thickness), color, 31);
-                }
-                float hotFill = Mathf.Clamp01(remainFill - normalFill);
-                if (hotFill > 0.001f && hotFills != null && hotFills[i] != null)
-                {
-                    float hotW = slotW * hotFill;
-                    float hotX = left + slotW * normalFill + hotW * 0.5f;
-                    Layout(hotFills[i], new Vector3(hotX, 0f, 0f), new Vector2(hotW, thickness), hotColor, 32);
-                }
-            }
+            grow = 1f;
+            Layout(1f, 5, 0f, 0f);
         }
 
         public void Hide()
@@ -140,85 +121,310 @@ namespace DouQuqu
             if (gameObject.activeSelf) gameObject.SetActive(false);
         }
 
-        /// <summary>预制体可预置子物体；缺省时在实例上补齐，不改预制体资产。</summary>
+        /// <summary>缺节点时在实例上补齐，不改预制体资产。</summary>
         public void EnsureReady()
         {
-            if (tracks == null || tracks.Length != MaxSlots) tracks = new SpriteRenderer[MaxSlots];
-            if (fills == null || fills.Length != MaxSlots) fills = new SpriteRenderer[MaxSlots];
-            if (hotFills == null || hotFills.Length != MaxSlots) hotFills = new SpriteRenderer[MaxSlots];
-            if (previews == null || previews.Length != MaxSlots) previews = new SpriteRenderer[MaxSlots];
-            if (plate == null) plate = CreateSprite("Plate", 28);
+            if (IsPrefabAsset()) return;
+            LoadSprites();
+            StripLegacy();
+            EnsureCanvas();
+            bg = EnsureImage("Bg", hud, true);
+            fillArea = EnsureRect("FillArea", hud);
+            pendingClip = EnsureClip("PendingClip", fillArea);
+            remainClip = EnsureClip("RemainClip", fillArea);
+            hotClip = EnsureClip("HotClip", fillArea);
+            pendingFill = EnsureImage("Pending", pendingClip, true);
+            remainFill = EnsureImage("Remain", remainClip, true);
+            hotFill = EnsureImage("Hot", hotClip, true);
+            dividerRoot = EnsureRect("Dividers", hud);
+            if (dividers == null || dividers.Length != MaxSlots - 1)
+                dividers = new Image[MaxSlots - 1];
+            for (int i = 0; i < MaxSlots - 1; i++)
+                dividers[i] = EnsureImage("Divider_" + i, dividerRoot, false);
+            outline = EnsureImage("Outline", hud, true);
+            icon = EnsureImage("Icon", hud, false);
+            bg.transform.SetSiblingIndex(0);
+            fillArea.SetSiblingIndex(1);
+            dividerRoot.SetSiblingIndex(2);
+            outline.transform.SetSiblingIndex(3);
+            icon.transform.SetSiblingIndex(4);
+        }
+
+        private void Layout(float currentRatio, int slots, float pendingRatio, float hotGate)
+        {
+            currentRatio = Mathf.Clamp01(currentRatio);
+            pendingRatio = Mathf.Clamp(pendingRatio, 0f, currentRatio);
+            float remainRatio = Mathf.Max(0f, currentRatio - pendingRatio);
+            slots = Mathf.Clamp(slots, 3, MaxSlots);
+            hotGate = Mathf.Clamp01(hotGate);
+            lastRatio = currentRatio;
+            lastPending = pendingRatio;
+            lastHot = hotGate;
+            lastSlots = slots;
+            laidOut = true;
+
+            CaptureAuthoredSize();
+            float bgW = authoredHudW * LengthMul();
+            float bgH = authoredHudH;
+            float fillW = Mathf.Max(2f, bgW - InsetPx * 2f);
+            float fillH = Mathf.Max(2f, bgH - InsetPx * 2f);
+            Color tint = currentRatio <= 0.2f ? lowColor : (currentRatio <= 0.4f ? warnColor : okColor);
+            Color ghost = new Color(tint.r, tint.g, tint.b, tint.a * pendingAlpha);
+
+            if (Application.isPlaying || !Mathf.Approximately(LengthMul(), 1f))
+                hud.sizeDelta = new Vector2(bgW, bgH);
+            Stretch(bg.rectTransform);
+            Paint(bg, bgSprite, true, Color.white, true);
+            SetCenter(outline.rectTransform, Vector2.zero, new Vector2(bgW + OutlinePadPx, bgH + OutlinePadPx));
+            Paint(outline, outlineSprite, true, Color.white, true);
+            SetCenter(fillArea, Vector2.zero, new Vector2(fillW, fillH));
+
+            bool showPending = pendingRatio > 0.001f && currentRatio > remainRatio + 0.001f;
+            bool showRemain = remainRatio > 0.001f;
+            bool showHot = hotGate > 0.001f && remainRatio > hotGate + 0.001f;
+            LayoutClip(pendingClip, pendingFill, 0f, fillW * currentRatio, fillW, fillH, ghost, showPending);
+            LayoutClip(remainClip, remainFill, 0f, fillW * remainRatio, fillW, fillH, tint, showRemain);
+            LayoutClip(hotClip, hotFill, fillW * hotGate, fillW * Mathf.Max(0f, remainRatio - hotGate), fillW, fillH, hotColor, showHot);
+            LayoutDividers(slots, fillW, fillH);
+            ApplyIconSprite();
+        }
+
+        private float LengthMul()
+        {
+            return (grow - 1f) * lengthGrowScale + 1f;
+        }
+
+        private void CaptureAuthoredSize()
+        {
+            if (hud == null) return;
+            if (capturedSize && Application.isPlaying) return;
+            authoredHudW = hud.sizeDelta.x;
+            authoredHudH = hud.sizeDelta.y;
+            if (authoredHudW < 1f) authoredHudW = DefaultHudW;
+            if (authoredHudH < 1f) authoredHudH = DefaultHudH;
+            capturedSize = true;
+        }
+
+        private void LayoutClip(
+            RectTransform clip,
+            Image fill,
+            float start,
+            float clipW,
+            float fillW,
+            float fillH,
+            Color color,
+            bool on)
+        {
+            bool show = on && clipW > 0.5f;
+            if (clip != null) clip.gameObject.SetActive(show);
+            if (!show || fill == null) return;
+            SetLeft(clip, start, new Vector2(clipW, fillH));
+            SetLeft(fill.rectTransform, -start, new Vector2(fillW, fillH));
+            Paint(fill, fillSprite, true, color, true);
+        }
+
+        private void LayoutDividers(int slots, float fillW, float fillH)
+        {
+            SetCenter(dividerRoot, Vector2.zero, new Vector2(fillW, fillH));
+            for (int i = 0; i < MaxSlots - 1; i++)
+            {
+                Image image = dividers[i];
+                if (image == null) continue;
+                bool on = dividerSprite != null && i < slots - 1;
+                image.gameObject.SetActive(on);
+                if (!on) continue;
+                float x = -fillW * 0.5f + fillW * ((i + 1) / (float)slots);
+                RectTransform rt = image.rectTransform;
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(x, 0f);
+                Paint(image, dividerSprite, false, Color.white, true);
+            }
+        }
+
+        /// <summary>只挂图，不改预制体里定好的大小和位置。</summary>
+        private void ApplyIconSprite()
+        {
+            if (icon == null) return;
+            if (iconSprite == null)
+            {
+                icon.gameObject.SetActive(false);
+                return;
+            }
+
+            icon.gameObject.SetActive(true);
+            Paint(icon, iconSprite, false, Color.white, true);
+        }
+
+        private void EnsureCanvas()
+        {
+            hud = transform.Find("Hud") as RectTransform;
+            if (hud == null)
+            {
+                GameObject go = new GameObject("Hud", typeof(RectTransform), typeof(Canvas));
+                go.transform.SetParent(transform, false);
+                hud = go.GetComponent<RectTransform>();
+            }
+
+            hud.localPosition = Vector3.zero;
+            hud.localScale = Vector3.one / Pixels;
+            hud.anchorMin = hud.anchorMax = new Vector2(0.5f, 0.5f);
+            hud.pivot = new Vector2(0.5f, 0.5f);
+            Canvas canvas = hud.GetComponent<Canvas>();
+            if (canvas == null) canvas = hud.gameObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 28;
+            GraphicRaycaster raycaster = hud.GetComponent<GraphicRaycaster>();
+            if (raycaster != null) raycaster.enabled = false;
+        }
+
+        private static RectTransform EnsureRect(string childName, Transform parent)
+        {
+            Transform existing = parent.Find(childName);
+            if (existing != null)
+            {
+                RectTransform rt = existing as RectTransform;
+                if (rt != null) return rt;
+                return existing.gameObject.AddComponent<RectTransform>();
+            }
+
+            GameObject child = new GameObject(childName, typeof(RectTransform));
+            child.transform.SetParent(parent, false);
+            return child.GetComponent<RectTransform>();
+        }
+
+        private static RectTransform EnsureClip(string childName, Transform parent)
+        {
+            RectTransform rt = EnsureRect(childName, parent);
+            if (rt.GetComponent<RectMask2D>() == null)
+                rt.gameObject.AddComponent<RectMask2D>();
+            return rt;
+        }
+
+        private Image EnsureImage(string childName, Transform parent, bool sliced)
+        {
+            bool created = parent.Find(childName) == null;
+            RectTransform rt = EnsureRect(childName, parent);
+            Image image = rt.GetComponent<Image>();
+            if (image == null) image = rt.gameObject.AddComponent<Image>();
+            image.raycastTarget = false;
+            image.type = sliced ? Image.Type.Sliced : Image.Type.Simple;
+            image.fillCenter = true;
+            if (created && childName == "Icon") InitIconRect(rt);
+            if (created && childName.StartsWith("Divider_")) InitDividerRect(rt);
+            return image;
+        }
+
+        private void InitIconRect(RectTransform rt)
+        {
+            float height = BgPx * 1.25f;
+            float aspect = iconSprite != null
+                ? iconSprite.rect.width / Mathf.Max(1f, iconSprite.rect.height)
+                : 64f / 93f;
+            SetCenter(rt, new Vector2(-BgPx, 0f), new Vector2(height * aspect, height));
+        }
+
+        private void InitDividerRect(RectTransform rt)
+        {
+            Vector2 size = dividerSprite != null ? dividerSprite.rect.size : new Vector2(5f, FillPx);
+            SetCenter(rt, Vector2.zero, size);
+        }
+
+        private static void Paint(Image image, Sprite sprite, bool sliced, Color color, bool on)
+        {
+            if (image == null) return;
+            if (!on || sprite == null)
+            {
+                image.enabled = false;
+                return;
+            }
+
+            image.sprite = sprite;
+            image.type = sliced ? Image.Type.Sliced : Image.Type.Simple;
+            image.fillCenter = true;
+            image.color = color;
+            image.raycastTarget = false;
+            image.enabled = true;
+        }
+
+        private static void Stretch(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.localRotation = Quaternion.identity;
+            rt.localScale = Vector3.one;
+        }
+
+        private static void SetCenter(RectTransform rt, Vector2 pos, Vector2 size)
+        {
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            rt.localRotation = Quaternion.identity;
+            rt.localScale = Vector3.one;
+        }
+
+        private static void SetLeft(RectTransform rt, float x, Vector2 size)
+        {
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.anchoredPosition = new Vector2(x, 0f);
+            rt.sizeDelta = size;
+            rt.localRotation = Quaternion.identity;
+            rt.localScale = Vector3.one;
+        }
+
+        private void LoadSprites()
+        {
+            if (bgSprite == null) bgSprite = Resources.Load<Sprite>(TexRoot + "bg");
+            if (outlineSprite == null) outlineSprite = Resources.Load<Sprite>(TexRoot + "outline");
+            if (fillSprite == null) fillSprite = Resources.Load<Sprite>(TexRoot + "fill");
+            if (dividerSprite == null) dividerSprite = Resources.Load<Sprite>(TexRoot + "middleLine");
+            if (iconSprite == null) iconSprite = Resources.Load<Sprite>(TexRoot + "体力icon");
+        }
+
+        private void StripLegacy()
+        {
+            DestroyNamed("Plate");
+            DestroyNamed("Bg");
+            DestroyNamed("Outline");
+            DestroyNamed("Icon");
+            DestroyNamed("Pending");
+            DestroyNamed("Remain");
+            DestroyNamed("Hot");
+            DestroyNamed("PendingMask");
+            DestroyNamed("RemainMask");
+            DestroyNamed("HotMask");
+            DestroyNamed("Dividers");
             for (int i = 0; i < MaxSlots; i++)
             {
-                if (tracks[i] == null) tracks[i] = CreateSprite("Track_" + i, 29);
-                if (previews[i] == null) previews[i] = CreateSprite("Preview_" + i, 30);
-                if (fills[i] == null) fills[i] = CreateSprite("Fill_" + i, 31);
-                if (hotFills[i] == null) hotFills[i] = CreateSprite("HotFill_" + i, 32);
+                DestroyNamed("Track_" + i);
+                DestroyNamed("Fill_" + i);
+                DestroyNamed("HotFill_" + i);
+                DestroyNamed("Preview_" + i);
             }
         }
 
-        private void Layout(SpriteRenderer renderer, Vector3 localPos, Vector2 worldSize, Color color, int sorting)
+        private void DestroyNamed(string childName)
         {
-            if (renderer == null)
-                return;
-            if (worldSize.x < 0.001f || worldSize.y < 0.001f)
-            {
-                renderer.enabled = false;
-                return;
-            }
-
-            Sprite sprite = WhiteSprite();
-            renderer.sprite = sprite;
-            renderer.sharedMaterial = SpriteMaterial();
-            renderer.color = color;
-            renderer.sortingOrder = sorting;
-            renderer.enabled = true;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            renderer.transform.localRotation = Quaternion.identity;
-            renderer.transform.localPosition = localPos;
-            Vector3 size = sprite.bounds.size;
-            renderer.transform.localScale = new Vector3(
-                worldSize.x / Mathf.Max(0.01f, size.x),
-                worldSize.y / Mathf.Max(0.01f, size.y),
-                1f);
+            Transform child = transform.Find(childName);
+            if (child == null || child.name == "Hud") return;
+            if (Application.isPlaying) Destroy(child.gameObject);
+            else DestroyImmediate(child.gameObject);
         }
 
-        private SpriteRenderer CreateSprite(string childName, int sorting)
+        bool IsPrefabAsset()
         {
-            Transform existing = transform.Find(childName);
-            GameObject child = existing != null ? existing.gameObject : new GameObject(childName);
-            if (existing == null) child.transform.SetParent(transform, false);
-            SpriteRenderer renderer = child.GetComponent<SpriteRenderer>();
-            if (renderer == null) renderer = child.AddComponent<SpriteRenderer>();
-            renderer.sprite = WhiteSprite();
-            renderer.sharedMaterial = SpriteMaterial();
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            renderer.sortingOrder = sorting;
-            renderer.enabled = false;
-            child.transform.localRotation = Quaternion.identity;
-            child.transform.localPosition = Vector3.zero;
-            child.transform.localScale = Vector3.one;
-            return renderer;
-        }
-
-        private Sprite WhiteSprite()
-        {
-            if (whiteSprite != null) return whiteSprite;
-            Texture2D texture = Texture2D.whiteTexture;
-            whiteSprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), texture.width);
-            whiteSprite.name = "StaminaBarWhite";
-            return whiteSprite;
-        }
-
-        private Material SpriteMaterial()
-        {
-            if (spriteMaterial != null) return spriteMaterial;
-            Shader shader = Shader.Find("Sprites/Default");
-            if (shader == null) shader = Shader.Find("Unlit/Color");
-            spriteMaterial = shader != null ? new Material(shader) : null;
-            return spriteMaterial;
+#if UNITY_EDITOR
+            return !Application.isPlaying && UnityEditor.PrefabUtility.IsPartOfPrefabAsset(gameObject);
+#else
+            return false;
+#endif
         }
     }
 }

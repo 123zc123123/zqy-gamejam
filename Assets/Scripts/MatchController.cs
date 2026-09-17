@@ -454,15 +454,14 @@ namespace DouQuqu
             dt = Mathf.Min(dt, 0.1f);
             MatchKnobs active = ActiveKnobs;
             float previousElapsed = state.elapsed;
-            int previousTier = state.playerCount <= 1 ? Rules.LastZoneTier : Rules.ZoneTierAt(active, previousElapsed);
+            int previousTier = ZoneTier;
             if (!tutorialHoldClock) state.elapsed += dt;
             state.tick++;
-            int tier = state.playerCount <= 1 ? Rules.LastZoneTier : Rules.ZoneTierAt(active, state.elapsed);
+            int tier = ZoneTier;
             if (tier != previousTier)
             {
                 Rules.ApplyZoneTier(active, tier);
-                ZoneSnapped?.Invoke(tier);
-                GameplayEvent?.Invoke("zone-snap", Vector3.zero);
+                NotifyZoneIfChanged(previousTier);
             }
 
             ai.Tick(state, inputs, dt);
@@ -491,13 +490,13 @@ namespace DouQuqu
                 GameplayEvent?.Invoke("rage-start", Vector3.zero);
             }
             CheckEnd(phase);
-            if (runMode == MatchRunMode.Host) SnapshotReady?.Invoke(CaptureSnapshot());
+            if (runMode == MatchRunMode.Host && state.over) SnapshotReady?.Invoke(CaptureSnapshot());
             StateChanged?.Invoke(state);
             for (int i = 0; i < inputs.Length; i++) if (inputs[i] != null) inputs[i].released = false;
         }
 
         /// <summary>将权威状态复制为可由 Unity JSON 序列化的快照。</summary>
-        public MatchSnapshot CaptureSnapshot()
+        public MatchSnapshot CaptureSnapshot(bool includeKnobs = true)
         {
             if (state == null) return null;
             MatchSnapshot snapshot = new MatchSnapshot
@@ -511,7 +510,7 @@ namespace DouQuqu
                 over = state.over,
                 winnerId = state.winnerId,
                 phase = Rules.Phase(ActiveKnobs, state.elapsed),
-                knobs = ActiveKnobs,
+                knobs = includeKnobs ? ActiveKnobs : null,
                 bugs = new BugSnapshot[state.bugs.Length],
                 pickups = new PickupSnapshot[state.pickups.Count],
                 eggs = new EggSnapshot[state.eggs.Count],
@@ -578,11 +577,15 @@ namespace DouQuqu
             if (snapshot == null || snapshot.bugs == null) return;
             int snapshotPlayers = Mathf.Clamp(snapshot.playerCount, 1, MaxPlayers);
             if (snapshot.bugs.Length != snapshotPlayers) return;
-            if (snapshot.knobs != null) knobs = snapshot.knobs;
+            // 客户端不跑 Tick，收口事件只能在这里按档位变化补发，桌面裁切和镜头才跟得上。
+            int previousTier = ZoneTier;
+            bool knobsChanged = snapshot.knobs != null;
+            if (knobsChanged) knobs = snapshot.knobs;
             if (state == null || state.bugs.Length != snapshot.playerCount)
             {
                 knobs = knobs ?? Rules.DefaultKnobs();
                 ResetMatch(snapshot.playerCount, snapshot.randomSeed);
+                knobsChanged = true;
             }
             state.knobs = knobs;
             state.tick = snapshot.tick;
@@ -594,6 +597,7 @@ namespace DouQuqu
             state.winnerId = snapshot.winnerId;
             if (state.playerCount <= 1) Rules.ApplyZoneTier(knobs, Rules.LastZoneTier);
             else Rules.ApplyZoneAt(knobs, state.elapsed);
+            NotifyZoneIfChanged(previousTier);
             if (snapshot.version >= 4)
             {
                 state.lastHeartAt = snapshot.lastHeartAt;
@@ -624,47 +628,15 @@ namespace DouQuqu
                 b.luBuArmorT = s.luBuArmorT;
                 b.diaochanStealArmed = s.diaochanStealArmed;
             }
-            state.pickups.Clear();
-            if (snapshot.pickups != null)
-                for (int i = 0; i < snapshot.pickups.Length; i++)
-                {
-                    PickupSnapshot p = snapshot.pickups[i];
-                    state.pickups.Add(new PickupState(p.id, p.position, p.kind) { alive = p.alive });
-                }
+            ApplyPickupSnapshots(snapshot.pickups);
             if (snapshot.version < 4)
             {
                 state.nextPickupId = 0;
                 for (int i = 0; i < state.pickups.Count; i++)
                     state.nextPickupId = Mathf.Max(state.nextPickupId, state.pickups[i].id + 1);
             }
-            state.eggs.Clear();
-            if (snapshot.eggs != null)
-                for (int i = 0; i < snapshot.eggs.Length; i++)
-                {
-                    EggSnapshot e = snapshot.eggs[i];
-                    state.eggs.Add(new EggState { position = e.position, previousPosition = e.position - e.velocity * FixedDeltaTime, velocity = e.velocity, ownerId = e.ownerId, hatchAt = state.elapsed + e.remaining, alive = e.alive });
-                }
-            state.babies.Clear();
-            if (snapshot.babies != null)
-                for (int i = 0; i < snapshot.babies.Length; i++)
-                {
-                    BabySnapshot b = snapshot.babies[i];
-                    Vector2 restoredDirection = snapshot.version >= 9 ? b.chargeDirection : new Vector2(b.velocity.x, b.velocity.z);
-                    restoredDirection = restoredDirection.sqrMagnitude > 0.0001f ? restoredDirection.normalized : Vector2.up;
-                    BabyState restoredBaby = new BabyState { id = b.id, ownerId = b.ownerId, position = b.position, previousPosition = b.position - b.velocity * FixedDeltaTime,
-                        velocity = b.velocity, chargeDirection = restoredDirection, height = b.height, verticalVelocity = b.verticalVelocity, charging = b.charging,
-                        airborne = b.height > 0.03f || b.verticalVelocity > 0f, grow = b.grow, score = b.score,
-                        buffSizeT = b.buffSizeT, buffShieldT = b.buffShieldT, buffChargeT = b.buffChargeT,
-                        hitTier = Rules.CanonicalHitTier((HitTier)Mathf.Clamp(b.hitTier, 0, (int)HitTier.Slip)),
-                        lifeEnd = state.elapsed + b.remaining, alive = b.alive,
-                        radius = knobs.bugR * knobs.babyRScale, mass = knobs.babyMass,
-                        launchVelocity = snapshot.version >= 8 ? b.launchVelocity : Rules.Planar(b.velocity),
-                        initialSpeed = snapshot.version >= 8
-                            ? new Vector2(b.launchVelocity.x, b.launchVelocity.z).magnitude
-                            : new Vector2(b.velocity.x, b.velocity.z).magnitude };
-                    Rules.RefreshBabyBody(knobs, restoredBaby);
-                    state.babies.Add(restoredBaby);
-                }
+            ApplyEggSnapshots(snapshot.eggs);
+            ApplyBabySnapshots(snapshot.babies, snapshot.version);
             if (snapshot.version < 4)
             {
                 state.nextBabyId = 100;
@@ -676,16 +648,24 @@ namespace DouQuqu
             {
                 for (int i = 0; i < state.bugs.Length; i++)
                 {
-                    ApplyPickToBug(state.bugs[i], i, CricketIndex(i), false);
+                    BugState bug = state.bugs[i];
+                    CricketPick pick = GetPick(i, CricketIndex(i));
+                    int catalog = pick == null ? 0 : pick.catalogId;
+                    int quality = pick == null ? 1 : Mathf.Clamp(pick.quality, 1, 4);
+                    int temperament = pick == null ? 1 : Mathf.Clamp(pick.temperament, 1, 4);
+                    if (knobsChanged || bug.catalogId != catalog || bug.quality != quality || bug.temperament != temperament)
+                        ApplyPickToBug(bug, i, CricketIndex(i), false);
                     if (snapshot.bugs == null || i >= snapshot.bugs.Length) continue;
-                    state.bugs[i].guanYuReviveLeft = snapshot.bugs[i].guanYuReviveLeft;
-                    state.bugs[i].luBuArmorT = snapshot.bugs[i].luBuArmorT;
-                    state.bugs[i].diaochanStealArmed = snapshot.bugs[i].diaochanStealArmed;
+                    bug.guanYuReviveLeft = snapshot.bugs[i].guanYuReviveLeft;
+                    bug.luBuArmorT = snapshot.bugs[i].luBuArmorT;
+                    bug.diaochanStealArmed = snapshot.bugs[i].diaochanStealArmed;
                     if (snapshot.bugs[i].guanYuGhost)
-                        Rules.EnterGuanYuGhost(knobs, state.bugs[i]);
+                        Rules.EnterGuanYuGhost(knobs, bug);
+                    else
+                        bug.guanYuGhost = false;
                 }
             }
-            state.nest = snapshot.nest == null ? null : new NestState { position = snapshot.nest.position, hp = snapshot.nest.hp, alive = snapshot.nest.alive };
+            ApplyNestSnapshot(snapshot.nest);
             if (snapshot.version < 4)
             {
                 state.nestChainActive = (state.nest != null && state.nest.alive) || state.eggs.Count > 0 || state.babies.Count > 0;
@@ -694,6 +674,114 @@ namespace DouQuqu
                     : (state.elapsed < knobs.nestFirstT ? knobs.nestFirstT : state.elapsed + Mathf.Max(0f, knobs.nestGap));
             }
             StateChanged?.Invoke(state);
+        }
+
+        void ApplyPickupSnapshots(PickupSnapshot[] snaps)
+        {
+            if (snaps == null)
+            {
+                state.pickups.Clear();
+                return;
+            }
+            ResizeList(state.pickups, snaps.Length, () => new PickupState(0, Vector3.zero, string.Empty));
+            for (int i = 0; i < snaps.Length; i++)
+            {
+                PickupSnapshot s = snaps[i];
+                PickupState p = state.pickups[i];
+                p.id = s.id;
+                p.position = s.position;
+                p.kind = s.kind;
+                p.alive = s.alive;
+            }
+        }
+
+        void ApplyEggSnapshots(EggSnapshot[] snaps)
+        {
+            if (snaps == null)
+            {
+                state.eggs.Clear();
+                return;
+            }
+            ResizeList(state.eggs, snaps.Length, () => new EggState());
+            for (int i = 0; i < snaps.Length; i++)
+            {
+                EggSnapshot s = snaps[i];
+                EggState e = state.eggs[i];
+                e.position = s.position;
+                e.previousPosition = s.position - s.velocity * FixedDeltaTime;
+                e.velocity = s.velocity;
+                e.ownerId = s.ownerId;
+                e.hatchAt = state.elapsed + s.remaining;
+                e.alive = s.alive;
+            }
+        }
+
+        void ApplyBabySnapshots(BabySnapshot[] snaps, int version)
+        {
+            if (snaps == null)
+            {
+                state.babies.Clear();
+                return;
+            }
+            ResizeList(state.babies, snaps.Length, () => new BabyState());
+            for (int i = 0; i < snaps.Length; i++)
+            {
+                BabySnapshot s = snaps[i];
+                Vector2 restoredDirection = version >= 9 ? s.chargeDirection : new Vector2(s.velocity.x, s.velocity.z);
+                restoredDirection = restoredDirection.sqrMagnitude > 0.0001f ? restoredDirection.normalized : Vector2.up;
+                BabyState baby = state.babies[i];
+                baby.id = s.id;
+                baby.ownerId = s.ownerId;
+                baby.position = s.position;
+                baby.previousPosition = s.position - s.velocity * FixedDeltaTime;
+                baby.velocity = s.velocity;
+                baby.chargeDirection = restoredDirection;
+                baby.height = s.height;
+                baby.verticalVelocity = s.verticalVelocity;
+                baby.charging = s.charging;
+                baby.airborne = s.height > 0.03f || s.verticalVelocity > 0f;
+                baby.grow = s.grow;
+                baby.score = s.score;
+                baby.buffSizeT = s.buffSizeT;
+                baby.buffShieldT = s.buffShieldT;
+                baby.buffChargeT = s.buffChargeT;
+                baby.hitTier = Rules.CanonicalHitTier((HitTier)Mathf.Clamp(s.hitTier, 0, (int)HitTier.Slip));
+                baby.lifeEnd = state.elapsed + s.remaining;
+                baby.alive = s.alive;
+                baby.launchVelocity = version >= 8 ? s.launchVelocity : Rules.Planar(s.velocity);
+                baby.initialSpeed = version >= 8
+                    ? new Vector2(s.launchVelocity.x, s.launchVelocity.z).magnitude
+                    : new Vector2(s.velocity.x, s.velocity.z).magnitude;
+                Rules.RefreshBabyBody(knobs, baby);
+            }
+        }
+
+        void ApplyNestSnapshot(NestSnapshot snap)
+        {
+            if (snap == null)
+            {
+                state.nest = null;
+                return;
+            }
+            if (state.nest == null) state.nest = new NestState();
+            state.nest.position = snap.position;
+            state.nest.hp = snap.hp;
+            state.nest.alive = snap.alive;
+        }
+
+        static void ResizeList<T>(List<T> list, int count, Func<T> create)
+        {
+            while (list.Count < count) list.Add(create());
+            if (list.Count > count) list.RemoveRange(count, list.Count - count);
+        }
+
+        /// <summary>档位变化时通知表现层。主机走 Tick，客户端走 ApplySnapshot。</summary>
+        void NotifyZoneIfChanged(int previousTier)
+        {
+            int tier = ZoneTier;
+            if (tier == previousTier) return;
+            ZoneSnapped?.Invoke(tier);
+            GameplayEvent?.Invoke("zone-snap", Vector3.zero);
         }
 
         private void OnNestHit(BugState bug)
@@ -1074,28 +1162,28 @@ namespace DouQuqu
                 return;
             }
 
-            state.cricketIndex = CopyInts(snapshot.cricketIndex, count);
-            state.playerIn = CopyBools(snapshot.playerIn, count);
-            state.place = CopyInts(snapshot.place, count);
-            state.matchScore = CopyInts(snapshot.matchScore, count);
-            state.killStreak = snapshot.version >= 7
-                ? CopyInts(snapshot.killStreak, count)
-                : new int[count];
-            state.roster = new CricketPick[count][];
+            CopyIntsInPlace(ref state.cricketIndex, snapshot.cricketIndex, count);
+            CopyBoolsInPlace(ref state.playerIn, snapshot.playerIn, count);
+            CopyIntsInPlace(ref state.place, snapshot.place, count);
+            CopyIntsInPlace(ref state.matchScore, snapshot.matchScore, count);
+            if (snapshot.version >= 7)
+                CopyIntsInPlace(ref state.killStreak, snapshot.killStreak, count);
+            else if (state.killStreak == null || state.killStreak.Length != count)
+                state.killStreak = new int[count];
+            EnsureRoster(count);
+            if (snapshot.rosterCatalog == null) return;
             for (int i = 0; i < count; i++)
             {
-                state.roster[i] = DefaultPicks();
-                if (snapshot.rosterCatalog == null) continue;
+                CricketPick[] picks = state.roster[i];
                 for (int s = 0; s < LivesPerPlayer; s++)
                 {
                     int index = i * LivesPerPlayer + s;
                     if (index >= snapshot.rosterCatalog.Length) break;
-                    state.roster[i][s] = new CricketPick
-                    {
-                        catalogId = snapshot.rosterCatalog[index],
-                        quality = snapshot.rosterQuality != null && index < snapshot.rosterQuality.Length ? snapshot.rosterQuality[index] : 1,
-                        temperament = snapshot.rosterTemperament != null && index < snapshot.rosterTemperament.Length ? snapshot.rosterTemperament[index] : 1
-                    };
+                    CricketPick pick = picks[s] ?? new CricketPick();
+                    pick.catalogId = snapshot.rosterCatalog[index];
+                    pick.quality = snapshot.rosterQuality != null && index < snapshot.rosterQuality.Length ? snapshot.rosterQuality[index] : 1;
+                    pick.temperament = snapshot.rosterTemperament != null && index < snapshot.rosterTemperament.Length ? snapshot.rosterTemperament[index] : 1;
+                    picks[s] = pick;
                 }
             }
         }
@@ -1107,6 +1195,19 @@ namespace DouQuqu
             int[] copy = new int[count];
             Array.Copy(source, copy, Mathf.Min(source.Length, count));
             return copy;
+        }
+
+        static void CopyIntsInPlace(ref int[] dest, int[] source, int length)
+        {
+            if (dest == null || dest.Length != length) dest = new int[length];
+            if (source == null)
+            {
+                Array.Clear(dest, 0, length);
+                return;
+            }
+            int n = Mathf.Min(source.Length, length);
+            Array.Copy(source, dest, n);
+            if (n < length) Array.Clear(dest, n, length - n);
         }
 
         private static bool[] CopyBools(bool[] source, int length = -1)
@@ -1121,6 +1222,19 @@ namespace DouQuqu
             bool[] copy = new bool[count];
             Array.Copy(source, copy, Mathf.Min(source.Length, count));
             return copy;
+        }
+
+        static void CopyBoolsInPlace(ref bool[] dest, bool[] source, int length)
+        {
+            if (dest == null || dest.Length != length) dest = new bool[length];
+            if (source == null)
+            {
+                for (int i = 0; i < length; i++) dest[i] = true;
+                return;
+            }
+            int n = Mathf.Min(source.Length, length);
+            Array.Copy(source, dest, n);
+            for (int i = n; i < length; i++) dest[i] = true;
         }
 
         private void Emit(string kind, Vector3 position)

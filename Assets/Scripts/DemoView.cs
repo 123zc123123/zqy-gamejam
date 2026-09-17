@@ -69,12 +69,17 @@ namespace DouQuqu
         private readonly Dictionary<int, int> assignedBugProfiles = new Dictionary<int, int>();
         private readonly Dictionary<int, string> assignedSkinLabels = new Dictionary<int, string>();
         private readonly HashSet<int> initializedBugPositions = new HashSet<int>();
+        private readonly HashSet<int> initializedBabyPositions = new HashSet<int>();
+        private readonly HashSet<int> initializedPickupPositions = new HashSet<int>();
+        private readonly HashSet<int> initializedEggPositions = new HashSet<int>();
         private Sprite[] premiumBugSprites;
         private MatchState assignedProfileState;
         private int assignedProfileSeed = int.MinValue;
         private bool warnedMissingOverlays;
         private int observedClientTick = -1;
         private float clientSnapshotAge;
+        private ArenaZoneView zoneView;
+        private int lastNestHits = int.MinValue;
 
 
 
@@ -117,7 +122,6 @@ namespace DouQuqu
 
         private void OnEnable()
         {
-            if (match != null) match.StateChanged += OnStateChanged;
             BattleFx fx = GetComponent<BattleFx>();
             if (fx != null) fx.Bind(match);
         }
@@ -151,16 +155,6 @@ namespace DouQuqu
             }
         }
 
-        private void OnDisable()
-        {
-            if (match != null) match.StateChanged -= OnStateChanged;
-        }
-
-        private void OnStateChanged(MatchState state)
-        {
-            RefreshView();
-        }
-
         /// <summary>由战斗场景流程关闭旧的自动开局，防止客户端等待快照时误启动单机局。</summary>
         public void SetAutoStart(bool enabled)
         {
@@ -171,9 +165,11 @@ namespace DouQuqu
         public void BindMatch(MatchController controller)
         {
             if (match == controller) return;
-            if (isActiveAndEnabled && match != null) match.StateChanged -= OnStateChanged;
             match = controller;
-            if (isActiveAndEnabled && match != null) match.StateChanged += OnStateChanged;
+            initializedBugPositions.Clear();
+            initializedBabyPositions.Clear();
+            initializedPickupPositions.Clear();
+            initializedEggPositions.Clear();
             BattleFx fx = GetComponent<BattleFx>();
             if (fx != null) fx.Bind(match);
         }
@@ -226,12 +222,12 @@ namespace DouQuqu
             RefreshZoneView(state);
         }
 
-        private static void RefreshZoneView(MatchState state)
+        private void RefreshZoneView(MatchState state)
         {
-            ArenaZoneView view = ArenaZoneView.Ensure();
-            if (view == null || state == null) return;
+            if (zoneView == null) zoneView = ArenaZoneView.Ensure();
+            if (zoneView == null || state == null) return;
             bool schedule = state.playerCount > 1 && state.knobs != null && state.knobs.zoneSchedule;
-            view.Refresh(state.knobs, state.elapsed, schedule);
+            zoneView.Refresh(state.knobs, state.elapsed, schedule);
         }
 
         private void RefreshBugs(MatchState state)
@@ -241,6 +237,9 @@ namespace DouQuqu
                 assignedBugProfiles.Clear();
                 assignedSkinLabels.Clear();
                 initializedBugPositions.Clear();
+                initializedBabyPositions.Clear();
+                initializedPickupPositions.Clear();
+                initializedEggPositions.Clear();
                 assignedProfileState = state;
                 assignedProfileSeed = state.randomSeed;
             }
@@ -263,7 +262,6 @@ namespace DouQuqu
                 GameObject view = GetOrCreate(bugViews, bug.id, prefab, bugsRoot, "Bug_" + bug.id);
                 if (view == null) continue;
                 CricketUnit unit = view.GetComponent<CricketUnit>();
-                if (unit != null) unit.Bind();
                 GameObject body = BodyOf(view);
                 if (body == null) continue;
                 CricketVisual skeletal = body.GetComponent<CricketVisual>();
@@ -283,7 +281,11 @@ namespace DouQuqu
                     assignedSkinLabels[bug.id] = skinLabel;
                 }
                 view.SetActive(bug.alive);
-                if (!bug.alive) continue;
+                if (!bug.alive)
+                {
+                    initializedBugPositions.Remove(bug.id);
+                    continue;
+                }
                 Vector3 predictedPosition = bug.position;
                 if (match.RunMode == MatchRunMode.Client)
                 {
@@ -293,7 +295,7 @@ namespace DouQuqu
                 if (unit != null)
                 {
                     Vector3 target = new Vector3(predictedPosition.x, 0f, predictedPosition.z);
-                    view.transform.position = SmoothClientBugPosition(bug.id, view.transform.position, target);
+                    view.transform.position = SmoothClientWorldPosition(initializedBugPositions, bug.id, view.transform.position, target);
                     view.transform.rotation = Quaternion.identity;
                     view.transform.localScale = Vector3.one;
                     float grow = bug.radius / Mathf.Max(0.01f, state.knobs.bugR);
@@ -303,7 +305,7 @@ namespace DouQuqu
                 {
                     float visualScale = VisualScale(body, bug.radius, state.knobs.bugR);
                     Vector3 target = predictedPosition + Vector3.up * (groundOffset + bug.height);
-                    view.transform.position = SmoothClientBugPosition(bug.id, view.transform.position, target);
+                    view.transform.position = SmoothClientWorldPosition(initializedBugPositions, bug.id, view.transform.position, target);
                     view.transform.localScale = Vector3.one * visualScale;
                 }
                 // 蓄力中跟摇杆（图片上部=头）；飞行中跟速度。空中不改朝向。
@@ -332,18 +334,35 @@ namespace DouQuqu
             HideUnseen(bugViews, seenIds);
         }
 
+        /// <summary>镜头跟随平滑后的本机 Transform；没有表现对象时返回 false，由镜头退回权威坐标。</summary>
+        public bool TryGetVisualFollowPosition(int playerId, out Vector3 position)
+        {
+            position = Vector3.zero;
+            if (match == null || match.State == null || match.State.bugs == null) return false;
+            if (playerId < 0 || playerId >= match.State.bugs.Length) return false;
+            BugState bug = match.State.bugs[playerId];
+            if (bug == null || !bug.alive) return false;
+            GameObject view;
+            if (!bugViews.TryGetValue(bug.id, out view) || view == null || !view.activeSelf) return false;
+            position = view.transform.position;
+            return true;
+        }
+
         /// <summary>
         /// 客户端只平滑表现 Transform，不改权威 MatchState。出生、复活或大幅纠正时直接对齐，
         /// 普通移动则用与帧率无关的指数插值消除低频快照造成的跳格。
         /// </summary>
-        private Vector3 SmoothClientBugPosition(int bugId, Vector3 current, Vector3 target)
+        private Vector3 SmoothClientWorldPosition(HashSet<int> initialized, int id, Vector3 current, Vector3 target)
         {
-            if (match == null || match.RunMode != MatchRunMode.Client) return target;
-            float snapDistanceSqr = clientSnapDistance * clientSnapDistance;
-            if (initializedBugPositions.Add(bugId) || (target - current).sqrMagnitude >= snapDistanceSqr)
-                return target;
-            float blend = 1f - Mathf.Exp(-clientPositionSmoothing * Time.unscaledDeltaTime);
-            return Vector3.LerpUnclamped(current, target, blend);
+            return ClientVisualSmoothing.Step(
+                current,
+                target,
+                initialized,
+                id,
+                clientSnapDistance,
+                clientPositionSmoothing,
+                Time.unscaledDeltaTime,
+                match != null && match.RunMode == MatchRunMode.Client);
         }
 
         private int VisualProfileForBug(MatchState state, BugState bug)
@@ -402,8 +421,20 @@ namespace DouQuqu
                 GameObject view = GetOrCreate(babyViews, baby.id, babyPrefab, babiesRoot, "Baby_" + baby.id);
                 if (view == null) continue;
                 view.SetActive(baby.alive);
-                if (!baby.alive) continue;
-                view.transform.position = baby.position + Vector3.up * (groundOffset + baby.height);
+                if (!baby.alive)
+                {
+                    initializedBabyPositions.Remove(baby.id);
+                    continue;
+                }
+                Vector3 babyTarget = baby.position;
+                if (match.RunMode == MatchRunMode.Client)
+                {
+                    float predictionTime = Mathf.Min(clientSnapshotAge, clientExtrapolationLimit);
+                    babyTarget += new Vector3(baby.velocity.x, 0f, baby.velocity.z) * predictionTime;
+                }
+                babyTarget += Vector3.up * (groundOffset + baby.height);
+                view.transform.position = SmoothClientWorldPosition(
+                    initializedBabyPositions, baby.id, view.transform.position, babyTarget);
                 float babyRef = Mathf.Max(0.01f, state.knobs.bugR * Mathf.Max(0.01f, state.knobs.babyRScale));
                 view.transform.localScale = Vector3.one * VisualScale(view, baby.radius, babyRef);
                 FaceXz(view, baby.velocity, baby.chargeDirection);
@@ -423,8 +454,19 @@ namespace DouQuqu
                 GameObject view = eggViews[i];
                 if (view == null) continue;
                 view.SetActive(egg.alive);
-                if (!egg.alive) continue;
-                view.transform.position = egg.position + Vector3.up * groundOffset;
+                if (!egg.alive)
+                {
+                    initializedEggPositions.Remove(i);
+                    continue;
+                }
+                Vector3 eggTarget = egg.position + Vector3.up * groundOffset;
+                if (match.RunMode == MatchRunMode.Client)
+                {
+                    float predictionTime = Mathf.Min(clientSnapshotAge, clientExtrapolationLimit);
+                    eggTarget += new Vector3(egg.velocity.x, 0f, egg.velocity.z) * predictionTime;
+                }
+                view.transform.position = SmoothClientWorldPosition(
+                    initializedEggPositions, i, view.transform.position, eggTarget);
                 view.transform.localScale = Vector3.one;
                 Tint(view, new Color(0.95f, 0.95f, 0.72f));
             }
@@ -451,8 +493,14 @@ namespace DouQuqu
                 }
                 if (view == null) continue;
                 view.SetActive(pickup.alive);
-                if (!pickup.alive) continue;
-                view.transform.position = pickup.position + Vector3.up * groundOffset;
+                if (!pickup.alive)
+                {
+                    initializedPickupPositions.Remove(pickup.id);
+                    continue;
+                }
+                Vector3 pickupTarget = pickup.position + Vector3.up * groundOffset;
+                view.transform.position = SmoothClientWorldPosition(
+                    initializedPickupPositions, pickup.id, view.transform.position, pickupTarget);
                 bool shield = pickup.kind == "shield" || pickup.kind == "charge";
                 view.transform.localScale = Vector3.one * (shield ? 3.4f : 2f);
             }
@@ -466,7 +514,11 @@ namespace DouQuqu
                 if (nestView != null) nestView.SetActive(false);
                 return;
             }
-            if (nestView == null) nestView = CreateView(nestPrefab, nestRoot, "NestView");
+            if (nestView == null)
+            {
+                nestView = CreateView(nestPrefab, nestRoot, "NestView");
+                lastNestHits = int.MinValue;
+            }
             if (nestView == null) return;
             nestView.SetActive(true);
             nestView.transform.position = state.nest.position + Vector3.up * 0.15f;
@@ -477,6 +529,8 @@ namespace DouQuqu
 
         private void RefreshNestHits(GameObject nestView, int hits)
         {
+            if (hits == lastNestHits) return;
+            lastNestHits = hits;
             Transform badge = nestView.transform.Find("HitsBadge");
             if (badge == null)
             {
@@ -720,6 +774,8 @@ namespace DouQuqu
             float ratio = current / max;
             float pendingRatio = pending / max;
             float hotGate = Rules.IsLuBu(bug) ? Mathf.Clamp01(knobs.luBuArmorStamina) : 0f;
+            float grow = bug.radius / Mathf.Max(0.01f, knobs.bugR);
+            bar.SetGrow(grow);
             if (BarOfUnit(bug.id) != null) bar.ApplyFill(ratio, slots, pendingRatio, hotGate);
             else bar.Apply(ratio, slots, bug.position + Vector3.up * bug.height, bug.radius, pendingRatio, hotGate);
         }

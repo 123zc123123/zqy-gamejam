@@ -1,4 +1,5 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
@@ -7,19 +8,23 @@ namespace DouQuqu
 {
     /// <summary>
     /// 新账号登录后播 PV：播完停最后一帧 2 秒，后台进斗蛐蛐进战页，再淡出。
+    /// 播放 5 秒后右上角出跳过；点了立刻结束 PV，不再停最后一帧。
     /// </summary>
     public sealed class IntroPvPlayer : MonoBehaviour
     {
         public const string ClipResourcePath = "Login/Videos/newpv";
         public const float HoldLastFrameSeconds = 2f;
         public const float FadeSeconds = 0.85f;
+        public const float SkipButtonDelaySeconds = 5f;
         const int SortingOrder = 520;
 
         public static bool IsCovering { get; private set; }
 
         CanvasGroup group;
         VideoPlayer player;
+        GameObject skipButton;
         bool ended;
+        bool skipped;
 
         public static void BeginThenLoadMainMenu()
         {
@@ -58,11 +63,14 @@ namespace DouQuqu
             if (clip != null)
                 yield return PlayClip(clip);
 
-            float hold = 0f;
-            while (hold < HoldLastFrameSeconds)
+            if (!skipped)
             {
-                hold += Time.unscaledDeltaTime;
-                yield return null;
+                float hold = 0f;
+                while (hold < HoldLastFrameSeconds)
+                {
+                    hold += Time.unscaledDeltaTime;
+                    yield return null;
+                }
             }
 
             TutorialDirector.RouteAfterLogin();
@@ -146,15 +154,65 @@ namespace DouQuqu
             }
 
             player.Play();
+            skipButton = CreateSkipButton();
             float playWait = 0f;
             while (!ended && player != null && playWait < clip.length + 4f)
             {
                 playWait += Time.unscaledDeltaTime;
+                if (skipButton != null && !skipButton.activeSelf && playWait >= SkipButtonDelaySeconds)
+                    skipButton.SetActive(true);
                 if (!player.isPlaying && player.time >= clip.length - 0.05)
                     break;
                 yield return null;
             }
 
+            if (skipButton != null) skipButton.SetActive(false);
+            if (player != null) player.Pause();
+        }
+
+        GameObject CreateSkipButton()
+        {
+            GameObject go = new GameObject("Skip", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            go.transform.SetParent(transform, false);
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.sizeDelta = new Vector2(180f, 72f);
+            rect.anchoredPosition = new Vector2(-40f, -48f);
+
+            Image image = go.GetComponent<Image>();
+            image.color = new Color(0f, 0f, 0f, 0.45f);
+            image.raycastTarget = true;
+
+            GameObject labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            RectTransform labelRect = labelGo.GetComponent<RectTransform>();
+            labelRect.SetParent(go.transform, false);
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            TextMeshProUGUI label = labelGo.GetComponent<TextMeshProUGUI>();
+            label.font = UiFactory.Font;
+            label.text = "跳过";
+            label.fontSize = 40f;
+            label.color = Color.white;
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
+
+            Button button = go.GetComponent<Button>();
+            button.onClick.AddListener(Skip);
+            go.SetActive(false);
+            go.transform.SetAsLastSibling();
+            return go;
+        }
+
+        void Skip()
+        {
+            if (skipped) return;
+            skipped = true;
+            ended = true;
+            if (skipButton != null) skipButton.SetActive(false);
             if (player != null) player.Pause();
         }
 

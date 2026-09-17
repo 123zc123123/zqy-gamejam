@@ -25,6 +25,7 @@ namespace DouQuqu
         private RectTransform boardRoot;
         private RectTransform designRoot;
         private BattleTableShrink tableShrink;
+        private int visualZoneTier = -1;
         private static BattleHudBinder instance;
 
         private void Awake()
@@ -114,6 +115,7 @@ namespace DouQuqu
             if (boardRoot != null && !boardRoot.gameObject.activeSelf)
                 boardRoot.gameObject.SetActive(true);
             FitDesignSize();
+            TickVisualZone();
             TickTableShrinkWarn();
             if (pit == null || battleCam == null || view == null) return;
             RefreshTarget(false);
@@ -295,11 +297,36 @@ namespace DouQuqu
             RectTransform tableHost = boardRoot != null ? boardRoot : transform as RectTransform;
             tableShrink = BattleTableShrink.Bind(tableHost, pit, transform as RectTransform);
             if (tableShrink == null || boundMatch == null) return;
-            tableShrink.SnapTo(boundMatch.ZoneTier, 0f, true);
+            visualZoneTier = boundMatch.ZoneTier;
+            tableShrink.SnapTo(visualZoneTier, 0f, true);
         }
 
         /// <summary>
-        /// 三档 field 按锁定比例尺换成世界有效区。末档跟着 field-2，不锁死 21.2。
+        /// 客户端只吃快照、可能错过 ZoneSnapped。每帧对照当前档，桌面裁切和镜头才能跟上房主。
+        /// </summary>
+        private void TickVisualZone()
+        {
+            if (tableShrink == null || boundMatch == null) return;
+            int tier = boundMatch.ZoneTier;
+            if (tier == visualZoneTier) return;
+            ApplyVisualZone(tier, visualZoneTier < 0);
+        }
+
+        private void ApplyVisualZone(int tier, bool instant)
+        {
+            if (tier == visualZoneTier) return;
+            visualZoneTier = tier;
+            float fade = boundMatch != null && boundMatch.Knobs != null
+                ? boundMatch.Knobs.zoneFadeT
+                : 0.5f;
+            if (tableShrink != null) tableShrink.SnapTo(tier, fade, instant);
+            if (instant || fitter == null || boundMatch == null) return;
+            float settle = boundMatch.Knobs != null ? boundMatch.Knobs.camSettleT : 0.8f;
+            fitter.PullIntoZone(settle);
+        }
+
+        /// <summary>
+        /// 四档 field-0…field-3 按锁定比例尺换成世界有效区。末档跟着 field-3，不锁死 21.2。
         /// </summary>
         private void ApplyFieldZoneScales()
         {
@@ -309,9 +336,10 @@ namespace DouQuqu
             RectTransform field0 = FindNamed(pit, "field-0") as RectTransform;
             RectTransform field1 = FindNamed(pit, "field-1") as RectTransform;
             RectTransform field2 = FindNamed(pit, "field-2") as RectTransform;
-            if (field0 == null || field1 == null || field2 == null) return;
+            RectTransform field3 = FindNamed(pit, "field-3") as RectTransform;
+            if (field0 == null || field1 == null || field2 == null || field3 == null) return;
 
-            Rules.ApplyFieldRects(knobs, FieldSize(field0), FieldSize(field1), FieldSize(field2));
+            Rules.ApplyFieldRects(knobs, FieldSize(field0), FieldSize(field1), FieldSize(field2), FieldSize(field3));
             if (boundMatch.State != null) boundMatch.State.knobs = knobs;
             if (boundMatch.ConfiguredPlayers <= 1)
                 Rules.ApplyZoneTier(knobs, Rules.LastZoneTier);
@@ -348,13 +376,7 @@ namespace DouQuqu
 
         private void OnZoneSnapped(int tier)
         {
-            float fade = boundMatch != null && boundMatch.Knobs != null
-                ? boundMatch.Knobs.zoneFadeT
-                : 0.5f;
-            if (tableShrink != null) tableShrink.SnapTo(tier, fade, false);
-            if (fitter == null || boundMatch == null) return;
-            float settle = boundMatch.Knobs != null ? boundMatch.Knobs.camSettleT : 0.8f;
-            fitter.PullIntoZone(settle);
+            ApplyVisualZone(tier, false);
         }
 
         private void PreparePitView()
@@ -449,7 +471,16 @@ namespace DouQuqu
             if (host == null) return;
             if (pit.parent != host)
                 pit.SetParent(host, false);
-            pit.SetAsFirstSibling();
+            if (pit.GetSiblingIndex() != 0)
+                pit.SetAsFirstSibling();
+            if (pit.anchorMin == Vector2.zero
+                && pit.anchorMax == Vector2.one
+                && pit.pivot.x == 0.5f && pit.pivot.y == 0.5f
+                && pit.offsetMin == Vector2.zero
+                && pit.offsetMax == Vector2.zero
+                && pit.localScale == Vector3.one
+                && pit.localRotation == Quaternion.identity)
+                return;
             pit.anchorMin = Vector2.zero;
             pit.anchorMax = Vector2.one;
             pit.pivot = new Vector2(0.5f, 0.5f);
@@ -465,9 +496,17 @@ namespace DouQuqu
             if (design == null) return 1f;
             designWidth = Mathf.Max(1f, designWidth);
             designHeight = Mathf.Max(1f, designHeight);
-            design.anchorMin = design.anchorMax = design.pivot = new Vector2(0.5f, 0.5f);
+            Vector2 center = new Vector2(0.5f, 0.5f);
+            Vector2 size = new Vector2(designWidth, designHeight);
+            if (design.anchorMin == center && design.anchorMax == center && design.pivot == center
+                && design.anchoredPosition == Vector2.zero
+                && design.sizeDelta == size
+                && design.localRotation == Quaternion.identity
+                && design.localScale == Vector3.one)
+                return 1f;
+            design.anchorMin = design.anchorMax = design.pivot = center;
             design.anchoredPosition = Vector2.zero;
-            design.sizeDelta = new Vector2(designWidth, designHeight);
+            design.sizeDelta = size;
             design.localRotation = Quaternion.identity;
             design.localScale = Vector3.one;
             return 1f;

@@ -24,12 +24,15 @@ namespace DouQuqu.Editor
         private const string CirclePath = "Assets/Resources/Battle/Entities/Textures/Circle.png";
         private const string ShadowPath = "Assets/Art/Characters/shadow-default.png";
         private const string BattleScene = "Assets/Scenes/Demo.unity";
+        private const string StaminaFill = "Assets/Resources/Battle/Entities/Textures/fill.png";
 
         [InitializeOnLoadMethod]
         private static void AutoBuildBarIfMissing()
         {
             EditorApplication.delayCall += () =>
             {
+                if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+                if (OverlayPrefabIsOpen()) return;
                 bool built = false;
                 if (!File.Exists(BarPath))
                 {
@@ -44,6 +47,12 @@ namespace DouQuqu.Editor
                 if (!File.Exists(UnitPath) && File.Exists(MarkerPath) && File.Exists(BarPath))
                 {
                     BuildUnit();
+                    built = true;
+                }
+                if (NeedsStaminaArt())
+                {
+                    BuildBar();
+                    if (File.Exists(UnitPath)) BuildUnit();
                     built = true;
                 }
                 if (!built) return;
@@ -72,6 +81,7 @@ namespace DouQuqu.Editor
         public static void RebuildBarMenu()
         {
             BuildBar();
+            if (File.Exists(UnitPath)) BuildUnit();
             AssignBarToBattleScene(true);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -252,6 +262,8 @@ namespace DouQuqu.Editor
 
         private static void BuildBar()
         {
+            StaminaBarImporter.ImportAll();
+            ClearInspection(BarPath);
             GameObject root;
             bool existed = File.Exists(BarPath);
             if (existed) root = PrefabUtility.LoadPrefabContents(BarPath);
@@ -263,10 +275,13 @@ namespace DouQuqu.Editor
                 root.transform.localPosition = Vector3.zero;
                 root.transform.localRotation = Quaternion.identity;
                 root.transform.localScale = Vector3.one;
+                while (root.transform.childCount > 0)
+                    Object.DestroyImmediate(root.transform.GetChild(0).gameObject);
 
                 StaminaBar bar = root.GetComponent<StaminaBar>();
                 if (bar == null) bar = root.AddComponent<StaminaBar>();
                 bar.EnsureReady();
+                bar.Bake(1.8f);
 
                 if (existed) PrefabUtility.SaveAsPrefabAsset(root, BarPath);
                 else
@@ -280,6 +295,13 @@ namespace DouQuqu.Editor
             {
                 if (root != null && existed) PrefabUtility.UnloadPrefabContents(root);
             }
+        }
+
+        private static bool NeedsStaminaArt()
+        {
+            if (!File.Exists(BarPath) || !File.Exists(StaminaFill)) return false;
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BarPath);
+            return prefab != null && prefab.transform.Find("Hud") == null;
         }
 
         private static void AssignToBattleScene()
@@ -387,6 +409,7 @@ namespace DouQuqu.Editor
                 return;
             }
 
+            ClearInspection(UnitPath);
             GameObject root;
             bool existed = File.Exists(UnitPath);
             if (existed) root = PrefabUtility.LoadPrefabContents(UnitPath);
@@ -410,8 +433,8 @@ namespace DouQuqu.Editor
                     body = bodyGo.transform;
                 }
 
-                Transform markerT = EnsureNested(root.transform, "GroundMarker", markerPrefab);
-                Transform barT = EnsureNested(root.transform, "StaminaBar", barPrefab);
+                Transform markerT = ReplaceNested(root.transform, "GroundMarker", markerPrefab);
+                Transform barT = ReplaceNested(root.transform, "StaminaBar", barPrefab);
 
                 SerializedObject so = new SerializedObject(unit);
                 if (body != null) SetObject(so, "body", body);
@@ -468,18 +491,35 @@ namespace DouQuqu.Editor
                 barT.localPosition = new Vector3(0f, -2.12f, 0f);
                 barT.localRotation = Quaternion.identity;
                 barT.localScale = Vector3.one;
-                StaminaBar bar = barT.GetComponent<StaminaBar>();
-                if (bar != null) bar.Bake(bugR);
             }
         }
 
-        private static Transform EnsureNested(Transform parent, string objectName, GameObject prefab)
+        /// <summary>嵌套实例整份换掉，避免旧覆盖指向已删除的子物体。</summary>
+        private static Transform ReplaceNested(Transform parent, string objectName, GameObject prefab)
         {
             Transform existing = parent.Find(objectName);
-            if (existing != null) return existing;
+            if (existing != null) Object.DestroyImmediate(existing.gameObject);
             GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
             instance.name = objectName;
             return instance.transform;
+        }
+
+        private static bool OverlayPrefabIsOpen()
+        {
+            PrefabStage stage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (stage == null || string.IsNullOrEmpty(stage.assetPath)) return false;
+            return stage.assetPath == BarPath || stage.assetPath == UnitPath
+                || stage.assetPath == MarkerPath || stage.assetPath == RingPath
+                || stage.assetPath == ArrowPath;
+        }
+
+        private static void ClearInspection(string path)
+        {
+            if (Selection.activeObject == null) return;
+            string selected = AssetDatabase.GetAssetPath(Selection.activeObject);
+            if (string.IsNullOrEmpty(selected) && Selection.activeGameObject != null)
+                selected = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(Selection.activeGameObject);
+            if (selected == path) Selection.activeObject = null;
         }
 
         private static Sprite EnsureCircleSprite()

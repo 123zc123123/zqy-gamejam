@@ -803,9 +803,9 @@ namespace DouQuqu
             EnsureLobbyPlayerFrames();
             Transform root = playersRoot.transform;
             int count = Mathf.Min(4, root.childCount);
-            IReadOnlyList<LanPlayerSlot> slots = AppServices.Instance != null && AppServices.Instance.Network != null
-                ? AppServices.Instance.Network.Slots
-                : null;
+            LanSession network = AppServices.Instance != null ? AppServices.Instance.Network : null;
+            IReadOnlyList<LanPlayerSlot> slots = network != null ? network.Slots : null;
+            int localId = network != null ? network.LocalPlayerId : -1;
             for (int i = 0; i < count; i++)
             {
                 Transform card = root.GetChild(i);
@@ -815,6 +815,7 @@ namespace DouQuqu
                 PlayerPalette.PaintOutline(frame, i);
                 PlayerPalette.BindAvatar(frame, true);
                 PlayerPalette.TintAvatar(frame, occupied ? Color.white : EmptyAvatarGray);
+                PlayerPalette.SetMeSign(frame, occupied && i == localId);
             }
         }
 

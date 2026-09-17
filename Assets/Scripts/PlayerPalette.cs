@@ -71,9 +71,10 @@ namespace DouQuqu
             return "蓝";
         }
 
-        /// <summary>PlayerFrame 里的头像贴图是玩家形象，不是上场虫。</summary>
+        /// <summary>PlayerFrame 里的头像贴图是玩家形象，不是上场虫。meSign 默认关掉，进房大厅和结算页再打开。</summary>
         public static void BindAvatar(Transform root, bool visible = true)
         {
+            SetMeSign(root, false);
             Image image = FindAvatarImage(root);
             if (image == null) return;
             if (!visible)
@@ -86,6 +87,14 @@ namespace DouQuqu
             image.preserveAspect = true;
             Sprite sprite = Resources.Load<Sprite>(AvatarResource);
             if (sprite != null) image.sprite = sprite;
+        }
+
+        /// <summary>进房大厅和结算页用来标本机玩家。其它页不要开。</summary>
+        public static void SetMeSign(Transform root, bool visible)
+        {
+            if (root == null) return;
+            Transform sign = FindNamed(root, "meSign");
+            if (sign != null) sign.gameObject.SetActive(visible);
         }
 
         /// <summary>匹配空位等：把头像底图染成指定色，不换框。</summary>

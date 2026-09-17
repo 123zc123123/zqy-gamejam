@@ -110,6 +110,7 @@ namespace DouQuqu.Editor.Tests
                 knobs,
                 new Vector2(1840f, 2740f),
                 new Vector2(1291f, 1922f),
+                new Vector2(1104f, 1644f),
                 new Vector2(920f, 1370f));
             Vector2 open = Rules.ZoneHalfExtents(knobs, 0);
 
@@ -263,7 +264,7 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void PlayViewUsesDesignWidthNotField2()
+        public void PlayViewUsesDesignWidthNotField3()
         {
             BattleCamera cam = CreateCam();
             cam.UseDesignFrame(1080f, 1920f);

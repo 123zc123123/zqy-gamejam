@@ -102,7 +102,7 @@ namespace DouQuqu
             captured = true;
         }
 
-        /// <summary>局内：根跟着虫子走，圈和条躺到地面，缩放按预制体 × 成长。</summary>
+        /// <summary>局内：根跟着虫子走，圈和条躺到地面。圈按成长缩放；条只按系数拉长。</summary>
         public void ApplyMotion(float jumpHeight, float grow)
         {
             if (!captured) CaptureAuthored();
@@ -127,8 +127,9 @@ namespace DouQuqu
             {
                 Vector3 p = barRestPosition;
                 bar.transform.localPosition = new Vector3(p.x, 0.1f, p.y);
-                bar.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-                bar.transform.localScale = barRestScale * grow;
+                bar.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+                bar.transform.localScale = barRestScale;
+                bar.SetGrow(grow);
             }
         }
 

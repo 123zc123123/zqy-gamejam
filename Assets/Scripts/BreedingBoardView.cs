@@ -14,6 +14,10 @@ namespace DouQuqu
     public sealed class BreedingBoardView : MonoBehaviour
     {
         public const int CellCount = 20;
+        private const string SideRulesPrefab = "Common/Prefabs/SideButton_Description";
+        private const string SidePackPrefab = "Common/Prefabs/SideButton_Pack";
+        private const float SideButtonSize = 200f;
+        private const float SideButtonY = 320f;
 
         [SerializeField] private MergeBoard board;
         [SerializeField] private GameObject canvasPrefab;
@@ -34,6 +38,7 @@ namespace DouQuqu
         private Sprite[] qualitySprites;
         private QuquXiangqingView detailView;
         private MergeBackpackPanel backpackPanel;
+        private RectTransform backpackButton;
         private int detailPieceId = -1;
         private string detailBackpackId;
         private int draggingPieceId = -1;
@@ -110,16 +115,35 @@ namespace DouQuqu
 
         private void OnMergeCompleted(MergePiece result, MergePiece consumed)
         {
-            if (result == null || result.level < 4 || result.drawA < 4) return;
+            if (result == null || result.level < 4 || !result.isDrawResult) return;
             RefreshBoard();
             RectTransform cell = result.cell >= 0 && result.cell < CellCount ? cells[result.cell] : null;
-            Sprite face = cell != null && result.cell < pieceImages.Length && pieceImages[result.cell] != null
-                ? pieceImages[result.cell].sprite : null;
-            FinestRevealFx.Play(
-                cell,
-                CricketCatalog.CricketName(result.drawA, result.drawB),
-                CricketCatalog.Idiom(result.drawB),
-                face);
+            Sprite face = SpriteForQuality(result.drawA, result.drawB);
+            if (face == null && result.cell >= 0 && result.cell < pieceImages.Length && pieceImages[result.cell] != null)
+                face = pieceImages[result.cell].sprite;
+            bool legendary = result.drawA >= 4;
+            string title = legendary
+                ? "极 品"
+                : CricketCatalog.QualityName(result.drawA);
+            string nameLine = CricketCatalog.CricketName(result.drawA, result.drawB);
+            string detail = legendary
+                ? (string.IsNullOrEmpty(CricketCatalog.Idiom(result.drawB))
+                    ? nameLine
+                    : nameLine + "  ·  " + CricketCatalog.Idiom(result.drawB))
+                : CricketCatalog.TemperamentName(result.drawB);
+            Color accent = CricketCatalog.QualityColors[Mathf.Clamp(result.drawA, 1, 4)];
+            int pieceId = result.id;
+            int quality = result.drawA;
+            int temperament = result.drawB;
+            FinestRevealFx.Play(cell, title, nameLine, detail, face, legendary, accent, backpackButton, () => CollectRevealed(pieceId, quality, temperament));
+        }
+
+        private void CollectRevealed(int pieceId, int quality, int temperament)
+        {
+            if (board == null || !board.TryTakeFinest(pieceId)) return;
+            PlayerDataService.AddFinestToBackpack(quality, temperament);
+            RefreshBoard();
+            if (backpackPanel != null) backpackPanel.Refresh();
         }
 
         /// <summary>棋盘模型按美术 4×5 对齐。</summary>
@@ -267,13 +291,8 @@ namespace DouQuqu
                 }
             }
 
-            Button rules = FindButtonByChildName(canvasInstance.transform, "btn-left-rules");
-            if (rules == null) rules = FindButtonByLabel("玩法规则");
-            if (rules != null)
-            {
-                rules.onClick.RemoveListener(ActivityPopup.ShowMerge);
-                rules.onClick.AddListener(ActivityPopup.ShowMerge);
-            }
+            HideLegacySideButtons();
+            BindCommonSideButtons();
 
             Transform[] all = canvasInstance.GetComponentsInChildren<Transform>(true);
             for (int i = 0; i < all.Length; i++)
@@ -292,7 +311,6 @@ namespace DouQuqu
                     if (texts[i] != null && texts[i].text.IndexOf(',') >= 0) { goldText = texts[i]; break; }
             }
 
-            BindBackpackButton();
             RefreshEconomyHud();
         }
 
@@ -389,37 +407,118 @@ namespace DouQuqu
             RefreshBoard();
         }
 
-        private void BindBackpackButton()
+        private void HideLegacySideButtons()
         {
             if (canvasInstance == null) return;
-            Transform named = FindNamed(canvasInstance.transform, "BackpackButton");
-            if (named == null) named = FindNamed(canvasInstance.transform, "背包");
-            if (named == null) return;
-            HookBackpackClick(named.gameObject);
-            if (named.parent != null && named.parent.name.IndexOf("btn-left", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                HookBackpackClick(named.parent.gameObject);
+            Transform[] all = canvasInstance.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                string n = all[i].name;
+                if (n == "RulesButton" || n == "BackpackButton" || n == "btn-left-rules")
+                    all[i].gameObject.SetActive(false);
+            }
         }
 
-        private void HookBackpackClick(GameObject go)
+        private void BindCommonSideButtons()
+        {
+            if (canvasInstance == null) return;
+            GameObject rules = FindSideButton("SideButton_玩法说明", "SideButton_Description", "SideButton_活动介绍");
+            if (rules == null) rules = SpawnSideButton(SideRulesPrefab, "SideButton_玩法说明", true);
+            else PlaceSideButton(rules.transform as RectTransform, true);
+            BindSideClick(rules, ActivityPopup.ShowMerge);
+
+            GameObject pack = FindSideButton("SideButton_背包", "SideButton_Pack");
+            if (pack == null) pack = SpawnSideButton(SidePackPrefab, "SideButton_背包", false);
+            else PlaceSideButton(pack.transform as RectTransform, false);
+            backpackButton = pack != null ? pack.transform as RectTransform : null;
+            BindSideClick(pack, OpenMergeBackpack);
+        }
+
+        private GameObject FindSideButton(params string[] names)
+        {
+            if (canvasInstance == null || names == null) return null;
+            for (int i = 0; i < names.Length; i++)
+            {
+                Transform found = FindNamed(canvasInstance.transform, names[i]);
+                if (found != null) return found.gameObject;
+            }
+            return null;
+        }
+
+        private GameObject SpawnSideButton(string resourcesPath, string objectName, bool left)
+        {
+            GameObject prefab = Resources.Load<GameObject>(resourcesPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[DouQuqu] 找不到侧栏按钮 " + resourcesPath);
+                return null;
+            }
+
+            GameObject go = Instantiate(prefab, canvasInstance.transform, false);
+            go.name = objectName;
+            PlaceSideButton(go.transform as RectTransform, left);
+            go.transform.SetAsLastSibling();
+            return go;
+        }
+
+        private static void PlaceSideButton(RectTransform rect, bool left)
+        {
+            if (rect == null) return;
+            rect.anchorMin = left ? Vector2.zero : new Vector2(1f, 0f);
+            rect.anchorMax = rect.anchorMin;
+            rect.pivot = left ? new Vector2(0f, 0.5f) : new Vector2(1f, 0.5f);
+            rect.sizeDelta = new Vector2(SideButtonSize, SideButtonSize);
+            rect.anchoredPosition = new Vector2(0f, SideButtonY);
+            rect.localScale = Vector3.one;
+        }
+
+        private static void BindSideClick(GameObject go, UnityEngine.Events.UnityAction clicked)
         {
             if (go == null) return;
             Image image = go.GetComponent<Image>();
-            if (image == null) image = go.GetComponentInChildren<Image>(true);
-            if (image != null)
+            if (image == null)
             {
-                image.raycastTarget = true;
-                if (image.color.a < 0.02f) image.color = new Color(image.color.r, image.color.g, image.color.b, 0.02f);
+                image = go.AddComponent<Image>();
+                image.color = new Color(1f, 1f, 1f, 0.01f);
             }
+            image.enabled = true;
+            image.raycastTarget = true;
+            if (!HasVisibleSprite(image) || image.color.a < 0.02f)
+            {
+                Color color = image.color;
+                image.color = new Color(color.r, color.g, color.b, 0.01f);
+            }
+
             Graphic[] graphics = go.GetComponentsInChildren<Graphic>(true);
             for (int i = 0; i < graphics.Length; i++)
-                if (graphics[i] != null) graphics[i].raycastTarget = true;
-            Button bag = go.GetComponent<Button>();
-            if (bag == null) bag = go.AddComponent<Button>();
-            bag.transition = Selectable.Transition.None;
-            bag.interactable = true;
-            if (image != null) bag.targetGraphic = image;
-            bag.onClick.RemoveAllListeners();
-            bag.onClick.AddListener(OpenMergeBackpack);
+            {
+                if (graphics[i] == null || graphics[i] == image) continue;
+                graphics[i].raycastTarget = false;
+            }
+
+            Button button = go.GetComponent<Button>();
+            if (button == null) button = go.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.interactable = true;
+            button.targetGraphic = image;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(clicked);
+
+            Button[] nested = go.GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < nested.Length; i++)
+            {
+                if (nested[i] == null || nested[i] == button) continue;
+                nested[i].interactable = true;
+                nested[i].onClick.RemoveAllListeners();
+                nested[i].onClick.AddListener(clicked);
+            }
+        }
+
+        private static bool HasVisibleSprite(Image image)
+        {
+            if (image == null || image.sprite == null) return false;
+            string name = image.sprite.name;
+            return name != "UISprite" && name != "Background" && name != "Knob";
         }
 
         private void OpenMergeBackpack()

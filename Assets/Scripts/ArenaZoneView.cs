@@ -35,14 +35,25 @@ namespace DouQuqu
         private float fadeInnerW;
         private float fadeInnerD;
         private bool tutorialBoundPulse;
+        private static ArenaZoneView cached;
+        private float lastDashW = -1f;
+        private float lastDashD = -1f;
+        private float lastDashWidth = -1f;
+        private Color lastDashColor;
 
         public static ArenaZoneView Ensure()
         {
-            ArenaZoneView view = FindObjectOfType<ArenaZoneView>();
-            if (view != null) return view;
+            if (cached != null) return cached;
+            cached = FindObjectOfType<ArenaZoneView>();
+            if (cached != null) return cached;
             GameObject go = new GameObject("ArenaZoneView");
-            view = go.AddComponent<ArenaZoneView>();
-            return view;
+            cached = go.AddComponent<ArenaZoneView>();
+            return cached;
+        }
+
+        void OnDestroy()
+        {
+            if (cached == this) cached = null;
         }
 
         public void SetTutorialBoundPulse(bool on)
@@ -64,7 +75,7 @@ namespace DouQuqu
                 dash = new Color(1f, 0.16f + 0.2f * (1f - pulse), 0.08f, 0.55f + 0.45f * pulse);
                 dashWidth = 0.62f;
             }
-            DrawDashedRect(currentMesh, currentRenderer, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, dash, dashWidth);
+            DrawCurrentDash(dash, dashWidth);
 
             if (elapsed + 0.05f < lastElapsed)
             {
@@ -248,6 +259,23 @@ namespace DouQuqu
         {
             if (fillRenderer != null) fillRenderer.enabled = false;
             fadeStartElapsed = -1f;
+        }
+
+        void DrawCurrentDash(Color dash, float dashWidth)
+        {
+            float halfW = Rules.ArenaHalfWidth;
+            float halfD = Rules.ArenaHalfDepth;
+            if (currentRenderer != null && currentRenderer.enabled
+                && Mathf.Abs(lastDashW - halfW) < 0.001f
+                && Mathf.Abs(lastDashD - halfD) < 0.001f
+                && Mathf.Abs(lastDashWidth - dashWidth) < 0.001f
+                && lastDashColor == dash)
+                return;
+            lastDashW = halfW;
+            lastDashD = halfD;
+            lastDashWidth = dashWidth;
+            lastDashColor = dash;
+            DrawDashedRect(currentMesh, currentRenderer, halfW, halfD, dash, dashWidth);
         }
 
         private void DrawDashedRect(Mesh mesh, MeshRenderer renderer, float halfW, float halfD, Color color, float width)

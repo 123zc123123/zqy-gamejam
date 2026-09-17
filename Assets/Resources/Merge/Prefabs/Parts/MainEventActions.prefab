@@ -131,6 +131,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: btn-left-rules
       objectReference: {fileID: 0}
+    - target: {fileID: 7760111188624874927, guid: 6ab78ad01aec2e7479e34464570b0528, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -334,6 +338,10 @@ PrefabInstance:
     - target: {fileID: 4404907724754296428, guid: 877550f27f7ee4b4aa2191dac98022c0, type: 3}
       propertyPath: m_Name
       value: btn-left-rules
+      objectReference: {fileID: 0}
+    - target: {fileID: 4404907724754296428, guid: 877550f27f7ee4b4aa2191dac98022c0, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

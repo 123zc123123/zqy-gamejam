@@ -25,7 +25,7 @@ namespace DouQuqu
         RectTransform liewen;
         CanvasGroup fadeGroup;
         Material revealMat;
-        readonly RectTransform[] fields = new RectTransform[3];
+        readonly RectTransform[] fields = new RectTransform[4];
         Vector2 tableSize;
         Vector2 liewenSize;
         Vector2 outlinePadMin;
@@ -114,6 +114,7 @@ namespace DouQuqu
             fields[0] = FindNamed(pit, "field-0") as RectTransform;
             fields[1] = FindNamed(pit, "field-1") as RectTransform;
             fields[2] = FindNamed(pit, "field-2") as RectTransform;
+            fields[3] = FindNamed(pit, "field-3") as RectTransform;
         }
 
         void CaptureLiewen(RectTransform hudRoot)

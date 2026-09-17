@@ -58,6 +58,7 @@ namespace DouQuqu
                 BindRank(row, place);
                 PlayerPalette.BindAvatar(row);
                 PlayerPalette.PaintOutline(row, playerId);
+                PlayerPalette.SetMeSign(row, playerId == localPlayerId);
 
                 if (award && playerId == localPlayerId)
                     PlayerDataService.AwardMatchRewards(place, killScore);

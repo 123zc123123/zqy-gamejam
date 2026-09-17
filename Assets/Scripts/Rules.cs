@@ -96,16 +96,18 @@ namespace DouQuqu
                 if (zoneFadeT <= 0f) zoneFadeT = 0.5f;
                 zoneCamSchema = 1;
             }
-            if (zoneSnapSchema < 1)
+            if (zoneSnapSchema < 3)
             {
-                zoneScale1 = zoneScale2;
-                zoneScale2 = zoneScale3;
-            }
-            if (zoneSnapSchema < 2)
-            {
-                zoneHold0 = 55f;
-                zoneHold1 = 25f;
-                zoneSnapSchema = 2;
+                if (zoneSnapSchema >= 1)
+                {
+                    zoneScale1 = 1.5f;
+                    zoneScale2 = 1.2f;
+                    zoneScale3 = 1f;
+                    zoneHold0 = 35f;
+                    zoneHold1 = 25f;
+                    zoneHold2 = 15f;
+                }
+                zoneSnapSchema = 3;
             }
             if (resistSchema >= 1) return;
             resistK = 1f;
@@ -258,25 +260,28 @@ namespace DouQuqu
         public float nestGap = 24f;
 
         [Header("场地与缩圈")]
-        [InspectorCn("开局边长倍率", "第 0 档相对标定罐（原 field-2 宽 = 21.2 半宽）的宽度倍率")]
+        [InspectorCn("开局边长倍率", "第 0 档相对标定罐（field-3 宽 = 21.2 半宽）的宽度倍率")]
         public float zoneScale0 = 2f;
         [InspectorCn("第 1 档倍率", "第一次收口后相对标定罐的宽度倍率")]
-        public float zoneScale1 = 1.2f;
-        [InspectorCn("第 2 档倍率", "最后一档相对标定罐的宽度倍率；改 field-2 后不再锁死为 1")]
-        public float zoneScale2 = 1f;
-        [HideInInspector] public float zoneScale3 = 1f;
+        public float zoneScale1 = 1.5f;
+        [InspectorCn("第 2 档倍率", "第二次收口后相对标定罐的宽度倍率")]
+        public float zoneScale2 = 1.2f;
+        [InspectorCn("第 3 档倍率", "最后一档相对标定罐的宽度倍率；改 field-3 后不再锁死为 1")]
+        public float zoneScale3 = 1f;
         [HideInInspector] public float zoneDepthScale0;
         [HideInInspector] public float zoneDepthScale1;
         [HideInInspector] public float zoneDepthScale2;
+        [HideInInspector] public float zoneDepthScale3;
         [InspectorCn("档 0 持稳", "开局后、第一次预告前（秒）")]
-        public float zoneHold0 = 55f;
+        public float zoneHold0 = 35f;
         [InspectorCn("档 1 持稳", "第一次收口后、第二次预告前（秒）")]
         public float zoneHold1 = 25f;
-        [HideInInspector] public float zoneHold2 = 15f;
+        [InspectorCn("档 2 持稳", "第二次收口后、第三次预告前（秒）")]
+        public float zoneHold2 = 15f;
         [InspectorCn("预告时长", "将消失的环带红色脉动；当前档仍算出局边（秒）")]
         public float zoneWarnT = 5f;
-        [InspectorCn("出生离边", "开局位距当前档有效区边向内的距离")]
-        public float spawnEdge = 4f;
+        [InspectorCn("出生离边", "开局位距当前档有效区边向内的距离；默认对齐中性满蓄跳距")]
+        public float spawnEdge = 12f;
         [InspectorCn("跟随死区", "人偏出画面半宽/半深的该比例才开始跟")]
         public float camDeadzone = 0.15f;
         [InspectorCn("跟随时长", "镜头追上自己的时长（秒）")]
@@ -287,7 +292,7 @@ namespace DouQuqu
         public float zoneFadeT = 0.5f;
         [HideInInspector] public bool zoneSchedule = true;
         [HideInInspector] public int zoneCamSchema;
-        [HideInInspector] public int zoneSnapSchema = 2;
+        [HideInInspector] public int zoneSnapSchema = 3;
     }
 
     /// <summary>
@@ -298,13 +303,13 @@ namespace DouQuqu
         public const float DefaultArenaHalfWidth = 21.2f;
         public const float DefaultArenaHalfDepth = 31.8f;
         public const float DefaultArenaCorner = 7.2f;
-        /// <summary>当初 field-2 的宽，对应世界半宽 21.2。比例尺锁在这，不随以后改 field 重算。</summary>
+        /// <summary>当初末档（现 field-3）的宽，对应世界半宽 21.2。比例尺锁在这，不随以后改 field 重算。</summary>
         public const float FieldRulerWidth = 920f;
         public const float MetersPerFieldUnit = (DefaultArenaHalfWidth * 2f) / FieldRulerWidth;
 
         /// <summary>
         /// 局内镜头窗口：预制体设计框（默认 1080×1920）按 field 尺换成世界半宽/半深。
-        /// 920 的 field-2 比 1080 窄，所以这个窗口比最后一档有效区大，1080 铺满时 field-2 留边。
+        /// 920 的 field-3 比 1080 窄，所以这个窗口比最后一档有效区大，1080 铺满时 field-3 留边。
         /// </summary>
         public static Vector2 DesignViewHalfExtents(float designW, float designH)
         {
@@ -359,17 +364,19 @@ namespace DouQuqu
             ArenaCorner = 0f;
         }
 
-        /// <summary>把三档 field 矩形写成相对标定罐的宽/高倍率。末档不锁死为 1。</summary>
-        public static void ApplyFieldRects(MatchKnobs knobs, Vector2 field0, Vector2 field1, Vector2 field2)
+        /// <summary>四档 field 按锁定比例尺换成世界有效区。末档跟着 field-3，不锁死 21.2。</summary>
+        public static void ApplyFieldRects(MatchKnobs knobs, Vector2 field0, Vector2 field1, Vector2 field2, Vector2 field3)
         {
             if (knobs == null) return;
             float ruler = Mathf.Max(0.01f, FieldRulerWidth);
             knobs.zoneScale0 = Mathf.Max(0.01f, Mathf.Abs(field0.x) / ruler);
             knobs.zoneScale1 = Mathf.Max(0.01f, Mathf.Abs(field1.x) / ruler);
             knobs.zoneScale2 = Mathf.Max(0.01f, Mathf.Abs(field2.x) / ruler);
+            knobs.zoneScale3 = Mathf.Max(0.01f, Mathf.Abs(field3.x) / ruler);
             knobs.zoneDepthScale0 = Mathf.Max(0.01f, Mathf.Abs(field0.y) / ruler);
             knobs.zoneDepthScale1 = Mathf.Max(0.01f, Mathf.Abs(field1.y) / ruler);
             knobs.zoneDepthScale2 = Mathf.Max(0.01f, Mathf.Abs(field2.y) / ruler);
+            knobs.zoneDepthScale3 = Mathf.Max(0.01f, Mathf.Abs(field3.y) / ruler);
         }
 
         public static void ApplyZoneTier(MatchKnobs knobs, int tier)
@@ -397,7 +404,7 @@ namespace DouQuqu
             return CornerSigns[index];
         }
 
-        public const int LastZoneTier = 2;
+        public const int LastZoneTier = 3;
 
         public static float ZoneScaleOf(MatchKnobs knobs, int tier)
         {
@@ -406,7 +413,8 @@ namespace DouQuqu
             {
                 case 0: return Mathf.Max(0.01f, knobs.zoneScale0);
                 case 1: return Mathf.Max(0.01f, knobs.zoneScale1);
-                default: return Mathf.Max(0.01f, knobs.zoneScale2);
+                case 2: return Mathf.Max(0.01f, knobs.zoneScale2);
+                default: return Mathf.Max(0.01f, knobs.zoneScale3);
             }
         }
 
@@ -425,7 +433,8 @@ namespace DouQuqu
                 {
                     case 0: depth = knobs.zoneDepthScale0; break;
                     case 1: depth = knobs.zoneDepthScale1; break;
-                    default: depth = knobs.zoneDepthScale2; break;
+                    case 2: depth = knobs.zoneDepthScale2; break;
+                    default: depth = knobs.zoneDepthScale3; break;
                 }
             }
             if (depth >= 0.01f) return depth;
@@ -439,15 +448,17 @@ namespace DouQuqu
                 DefaultArenaHalfWidth * ZoneDepthScaleOf(knobs, tier));
         }
 
-        /// <summary>两口收口时刻 = 各档持稳 + 预告。改持稳或预告则时刻跟着改。</summary>
+        /// <summary>三口收口时刻 = 各档持稳 + 预告。改持稳或预告则时刻跟着改。</summary>
         public static float[] ZoneSnapTimes(MatchKnobs knobs)
         {
             float warn = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneWarnT);
             float hold0 = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneHold0);
             float hold1 = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneHold1);
+            float hold2 = knobs == null ? 0f : Mathf.Max(0f, knobs.zoneHold2);
             float first = hold0 + warn;
             float second = first + hold1 + warn;
-            return new[] { first, second };
+            float third = second + hold2 + warn;
+            return new[] { first, second, third };
         }
 
         public static int ZoneTierAt(MatchKnobs knobs, float elapsed)
@@ -456,6 +467,7 @@ namespace DouQuqu
             float[] snaps = ZoneSnapTimes(knobs);
             if (elapsed + 1e-9f < snaps[0]) return 0;
             if (elapsed + 1e-9f < snaps[1]) return 1;
+            if (elapsed + 1e-9f < snaps[2]) return 2;
             return LastZoneTier;
         }
 

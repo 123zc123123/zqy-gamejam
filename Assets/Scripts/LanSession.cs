@@ -13,6 +13,7 @@ namespace DouQuqu
     {
         public string type;
         public int senderId;
+        public int tick;
         public string body;
     }
 
@@ -83,6 +84,8 @@ namespace DouQuqu
         // 20Hz 快照配合客户端表现插值。原来的 12.5Hz 在真机上会明显看到逐帧跳动，
         // 再继续提高则会让完整 JSON 快照带来更多 GC 和带宽压力。
         [SerializeField] private float snapshotInterval = 0.05f;
+        private const float KnobsSnapshotInterval = 1f;
+        private float knobsSnapshotTimer;
         [SerializeField] private string advertisedName = "DouQuqu Host";
         [SerializeField] private string localPlayerName = "Player";
 
@@ -104,11 +107,9 @@ namespace DouQuqu
         private float rejectedHostUntil;
         private string hostElectionId = string.Empty;
         private int lastSnapshotTick = -1;
-        private const float InputSendInterval = 1f / 30f;
+        public const int UdpSafePayloadBytes = 1200;
         private int outgoingInputSequence;
-        private float nextInputSendAt;
-        private bool hasSentInput;
-        private bool lastSentInputHeld;
+        private readonly LanClientInputGate inputGate = new LanClientInputGate();
         private int roomCapacity = MatchController.MaxPlayers;
         private LanPlayerSlot[] slots = new LanPlayerSlot[MatchController.MaxPlayers];
         private bool running;
@@ -217,6 +218,8 @@ namespace DouQuqu
         public event Action<LanLobbySnapshot> LobbyChanged;
         public event Action MatchReady;
         public event Action BattleReady;
+        /// <summary>最近一次发出或收到的 SNAPSHOT 数据包字节数，供真机对照 UDP 预算。</summary>
+        public int LastSnapshotByteCount { get; private set; }
 
         /// <summary>设置下一次 HELLO 数据包中发送的本地玩家名。</summary>
         public void SetLocalPlayerName(string playerName)
@@ -317,6 +320,7 @@ namespace DouQuqu
             finalSnapshotBroadcastTick = 0f;
             if (IsHost)
             {
+                knobsSnapshotTimer = 0f;
                 match.Configure(MatchRunMode.Host, roomCapacity, CompetitiveMatch.WithDuration(match.Knobs));
                 match.ResetMatch(roomCapacity, matchSeed);
                 for (int i = 0; i < roomCapacity && i < slots.Length; i++)
@@ -425,6 +429,7 @@ namespace DouQuqu
             }
             TickStartBroadcast();
             TickFinalSnapshotBroadcast();
+            TickClientInputRepeat();
         }
 
         private void OnDestroy()
@@ -593,6 +598,9 @@ namespace DouQuqu
             hostElectionId = string.Empty;
             LocalPlayerId = -1;
             lastSnapshotTick = -1;
+            LastSnapshotByteCount = 0;
+            outgoingInputSequence = 0;
+            inputGate.Reset();
             discoveryTimer = 0f;
             automaticMatchmaking = false;
             automaticElapsed = 0f;
@@ -707,21 +715,37 @@ namespace DouQuqu
             if (IsHost)
             {
                 if (match != null) match.SetInput(new InputFrame(LocalPlayerId, direction, held, released));
+                return;
             }
-            else if (hostEndpoint != null)
-            {
-                // 摇杆脚本会逐渲染帧调用这里。限制普通采样频率，避免高刷手机用大量
-                // 重复 JSON/UDP 包堵住房主主线程；按下、松开边沿始终立即发送。
-                float now = Time.unscaledTime;
-                bool inputEdge = released || !hasSentInput || held != lastSentInputHeld;
-                if (!inputEdge && now < nextInputSendAt) return;
+            if (hostEndpoint == null) return;
 
-                InputFrame frame = new InputFrame(LocalPlayerId, direction, held, released, ++outgoingInputSequence);
-                SendEnvelope(sessionSocket, hostEndpoint, "INPUT", JsonUtility.ToJson(frame), LocalPlayerId);
-                hasSentInput = true;
-                lastSentInputHeld = held;
-                nextInputSendAt = now + InputSendInterval;
-            }
+            // 摇杆脚本会逐渲染帧调用这里。限制普通采样频率，避免高刷手机用大量
+            // 重复 JSON/UDP 包堵住房主主线程；按下、松开边沿立刻发，松开再连发几次。
+            float now = Time.unscaledTime;
+            int copies = inputGate.CopiesFor(now, held, released);
+            if (copies <= 0) return;
+            for (int i = 0; i < copies; i++)
+                SendInputPacket(direction, held, released);
+            inputGate.NoteSent(now, direction, held, released);
+        }
+
+        /// <summary>HudStick 松手后不再调用 SendInput；这里按 30Hz 把 held=false 再送一小段时间。</summary>
+        private void TickClientInputRepeat()
+        {
+            if (IsHost || sessionSocket == null || hostEndpoint == null || LocalPlayerId < 0) return;
+            Vector2 direction;
+            bool held;
+            bool released;
+            float now = Time.unscaledTime;
+            if (!inputGate.TryRepeat(now, out direction, out held, out released)) return;
+            SendInputPacket(direction, held, released);
+            inputGate.NoteSent(now, direction, held, released);
+        }
+
+        private void SendInputPacket(Vector2 direction, bool held, bool released)
+        {
+            InputFrame frame = new InputFrame(LocalPlayerId, direction, held, released, ++outgoingInputSequence);
+            SendEnvelope(sessionSocket, hostEndpoint, "INPUT", JsonUtility.ToJson(frame), LocalPlayerId);
         }
 
         /// <summary>推进自动匹配计时、自动建房以及四人满员/超时补机器人逻辑。</summary>
@@ -1176,6 +1200,8 @@ namespace DouQuqu
         private void PollSession()
         {
             if (sessionSocket == null) return;
+            string latestSnapshotBody = null;
+            int latestSnapshotTick = int.MinValue;
             while (sessionSocket.Available > 0)
             {
                 try
@@ -1184,6 +1210,14 @@ namespace DouQuqu
                     byte[] data = sessionSocket.Receive(ref endpoint);
                     LanEnvelope envelope = JsonUtility.FromJson<LanEnvelope>(Encoding.UTF8.GetString(data));
                     if (envelope == null || string.IsNullOrEmpty(envelope.type)) continue;
+                    if (!IsHost && envelope.type == "SNAPSHOT")
+                    {
+                        LastSnapshotByteCount = data.Length;
+                        if (envelope.tick < latestSnapshotTick) continue;
+                        latestSnapshotTick = envelope.tick;
+                        latestSnapshotBody = envelope.body;
+                        continue;
+                    }
                     if (IsHost) HandleHostMessage(endpoint, envelope);
                     else HandleClientMessage(envelope);
                 }
@@ -1193,6 +1227,7 @@ namespace DouQuqu
                     break;
                 }
             }
+            if (latestSnapshotBody != null) ApplyIncomingSnapshot(latestSnapshotBody);
         }
 
         // 只有主机以权威身份接受 HELLO/INPUT/READY；槽位由网络端点决定，
@@ -1283,13 +1318,7 @@ namespace DouQuqu
             }
             else if (envelope.type == "SNAPSHOT")
             {
-                MatchSnapshot snapshot = JsonUtility.FromJson<MatchSnapshot>(envelope.body);
-                if (snapshot != null && snapshot.tick >= lastSnapshotTick)
-                {
-                    lastSnapshotTick = snapshot.tick;
-                    if (match != null) match.ApplySnapshot(snapshot);
-                    else pendingSnapshot = snapshot;
-                }
+                ApplyIncomingSnapshot(envelope.body);
             }
             else if (envelope.type == "LOBBY")
             {
@@ -1371,10 +1400,34 @@ namespace DouQuqu
             SendRaw(discoverySocket, new IPEndPoint(IPAddress.Broadcast, DiscoveryPort), Encoding.UTF8.GetBytes(payload));
         }
 
+        void ApplyIncomingSnapshot(string body)
+        {
+            if (string.IsNullOrEmpty(body)) return;
+            MatchSnapshot snapshot = JsonUtility.FromJson<MatchSnapshot>(body);
+            if (snapshot == null || snapshot.tick < lastSnapshotTick) return;
+            if (lastSnapshotTick >= 0 && snapshot.tick - lastSnapshotTick > 5)
+                Debug.LogWarning("[Lan] client snapshot gap " + (snapshot.tick - lastSnapshotTick)
+                    + " ticks (" + lastSnapshotTick + "->" + snapshot.tick + ")");
+            lastSnapshotTick = snapshot.tick;
+            if (match != null) match.ApplySnapshot(snapshot);
+            else pendingSnapshot = snapshot;
+        }
+
         // 对局快照以主机为权威；客户端不自行模拟后再尝试回滚同步。
         private void BroadcastSnapshot()
         {
-            foreach (IPEndPoint endpoint in clients.Values) SendSnapshot(endpoint);
+            if (match == null) return;
+            bool includeKnobs = knobsSnapshotTimer <= 0f;
+            if (includeKnobs) knobsSnapshotTimer = KnobsSnapshotInterval;
+            else knobsSnapshotTimer -= snapshotInterval;
+            string body = JsonUtility.ToJson(match.CaptureSnapshot(includeKnobs));
+            int tick = match.State != null ? match.State.tick : 0;
+            int bytes = 0;
+            foreach (IPEndPoint endpoint in clients.Values)
+                bytes = SendEnvelope(sessionSocket, endpoint, "SNAPSHOT", body, 0, tick);
+            if (bytes > 0) LastSnapshotByteCount = bytes;
+            if (bytes > UdpSafePayloadBytes)
+                Debug.LogWarning("[Lan] SNAPSHOT " + bytes + "B tick=" + tick + " exceeds UDP budget " + UdpSafePayloadBytes);
         }
 
         private void BroadcastLobby()
@@ -1586,15 +1639,18 @@ namespace DouQuqu
         private void SendSnapshot(IPEndPoint endpoint)
         {
             if (match == null || endpoint == null) return;
-            SendEnvelope(sessionSocket, endpoint, "SNAPSHOT", JsonUtility.ToJson(match.CaptureSnapshot()), 0);
+            int tick = match.State != null ? match.State.tick : 0;
+            SendEnvelope(sessionSocket, endpoint, "SNAPSHOT", JsonUtility.ToJson(match.CaptureSnapshot(true)), 0, tick);
         }
 
         // 所有协议消息共用此信封，新增指令时无需增加 Socket 或序列化路径。
-        private void SendEnvelope(UdpClient socket, IPEndPoint endpoint, string type, string body, int senderId)
+        private int SendEnvelope(UdpClient socket, IPEndPoint endpoint, string type, string body, int senderId, int tick = 0)
         {
-            if (socket == null || endpoint == null) return;
-            LanEnvelope envelope = new LanEnvelope { type = type, body = body ?? string.Empty, senderId = senderId };
-            SendRaw(socket, endpoint, Encoding.UTF8.GetBytes(JsonUtility.ToJson(envelope)));
+            if (socket == null || endpoint == null) return 0;
+            LanEnvelope envelope = new LanEnvelope { type = type, body = body ?? string.Empty, senderId = senderId, tick = tick };
+            byte[] data = Encoding.UTF8.GetBytes(JsonUtility.ToJson(envelope));
+            SendRaw(socket, endpoint, data);
+            return data.Length;
         }
 
         private void SendRaw(UdpClient socket, IPEndPoint endpoint, byte[] data)
