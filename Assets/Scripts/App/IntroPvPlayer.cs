@@ -10,7 +10,7 @@ namespace DouQuqu
     /// </summary>
     public sealed class IntroPvPlayer : MonoBehaviour
     {
-        public const string ClipResourcePath = "Login/Videos/pv";
+        public const string ClipResourcePath = "Login/Videos/newpv";
         public const float HoldLastFrameSeconds = 2f;
         public const float FadeSeconds = 0.85f;
         const int SortingOrder = 520;
