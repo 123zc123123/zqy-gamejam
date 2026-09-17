@@ -177,6 +177,12 @@ namespace DouQuqu
 
             BindAllNamed(root, "BackButton", Back);
             BindAllNamed(root, "back-button", Back);
+            if (TutorialDirector.HidesMatchExit)
+            {
+                Transform back = FindNamed(root, "BackButton");
+                if (back == null) back = FindNamed(root, "back-button");
+                if (back != null) back.gameObject.SetActive(false);
+            }
 
             Transform status = FindNamed(root, "MatchStatus");
             if (status != null) status.gameObject.SetActive(false);

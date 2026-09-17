@@ -59,6 +59,9 @@ namespace DouQuqu
 
         public static bool OneSlotStart => Step == StepBattle;
         public static bool OneLifeBattle => Step == StepBattle;
+        /// <summary>新手训练营关卡暂时关掉匹配/选虫左上角退出，避免跳过引导。</summary>
+        public static bool HidesMatchExit =>
+            Step == StepClickTraining || Step == StepHeroSelectTalk || Step == StepBattle;
         public static bool BlocksHeroReady => Step == StepHeroSelectTalk || DialogueBoxView.IsPlaying;
         public static bool BlocksStarterGrant(PlayerProfile player)
         {

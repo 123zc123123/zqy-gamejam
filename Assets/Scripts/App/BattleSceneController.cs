@@ -271,6 +271,7 @@ namespace DouQuqu
         private void BuildTrainingExitUi()
         {
             if (matchKind != MatchKind.Training || trainingExitRoot != null) return;
+            if (TutorialDirector.HidesMatchExit) return;
             RectTransform overlay = UiFactory.CreateOverlay("TrainingExitCanvas", 240);
             GameObject buttonRoot = CreateTrainingExitFromRoomButton(overlay);
             if (buttonRoot == null)
