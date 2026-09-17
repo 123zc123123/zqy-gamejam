@@ -491,6 +491,7 @@ namespace DouQuqu
 
         private static void OpenTrainingCamp()
         {
+            TutorialDirector.OnTrainingClicked();
             AppServices.PendingMatchKind = MatchKind.Training;
             Lobby.Show(Lobby.Page.HeroSelection);
         }

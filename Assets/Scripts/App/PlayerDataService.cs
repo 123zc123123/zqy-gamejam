@@ -74,6 +74,7 @@ namespace DouQuqu
         private static PlayerDatabase database;
 
         public static PlayerProfile CurrentPlayer { get; private set; }
+        public static bool JustCreated { get; private set; }
         public static bool IsLoggedIn => CurrentPlayer != null;
         public static string CurrentPlayerName => CurrentPlayer == null ? string.Empty : CurrentPlayer.playerName;
         public static int Score => CurrentPlayer == null ? 0 : CurrentPlayer.score;
@@ -131,6 +132,7 @@ namespace DouQuqu
             EnsureLoaded();
             CurrentPlayer = database.players.Find(player =>
                 player != null && string.Equals(player.playerName, playerName, StringComparison.OrdinalIgnoreCase));
+            JustCreated = CurrentPlayer == null;
             if (CurrentPlayer == null)
             {
                 CurrentPlayer = new PlayerProfile
@@ -144,7 +146,7 @@ namespace DouQuqu
                     economyReady = true,
                     crickets = new List<CricketCollectionEntry>(),
                     backpack = new List<CricketBackpackEntry>(),
-                    tutorialStep = TutorialDirector.StepHeroSelectTalk
+                    tutorialStep = TutorialDirector.StepClickTraining
                 };
                 database.players.Add(CurrentPlayer);
             }

@@ -59,7 +59,8 @@ namespace DouQuqu
                 return true;
             }
 
-            SetPending(page);
+            if (!HasPendingPage)
+                SetPending(page);
             if (SceneManager.GetActiveScene().name == SceneNames.MainMenu)
                 return false;
 

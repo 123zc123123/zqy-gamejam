@@ -187,6 +187,12 @@ namespace DouQuqu
                 SetStatus("登录成功");
             }
 
+            if (PlayerDataService.JustCreated)
+            {
+                IntroPvPlayer.BeginThenLoadMainMenu();
+                yield break;
+            }
+
             TutorialDirector.RouteAfterLogin();
             SceneNames.Load(SceneNames.MainMenu);
         }

@@ -26,6 +26,7 @@ namespace DouQuqu
         public const int StepPlaceEgg1 = 13;
         public const int StepPlaceEgg2 = 14;
         public const int StepMergeLarva = 15;
+        public const int StepClickTraining = 16;
 
         public const string IdHeroSelect = "dlg.tutorial.hero_select";
         public const string IdSettlement = "dlg.tutorial.settlement";
@@ -50,6 +51,7 @@ namespace DouQuqu
             get
             {
                 int step = Step;
+                if (step == StepClickTraining) return true;
                 if (step >= StepSwipeNav && step <= StepMergeLarva) return true;
                 return step > StepOff && step < StepDone;
             }
@@ -62,6 +64,7 @@ namespace DouQuqu
         {
             if (player == null) return false;
             int step = player.tutorialStep;
+            if (step == StepClickTraining) return true;
             if (step >= StepSwipeNav && step <= StepMergeLarva) return true;
             return step > StepOff && step < StepDone;
         }
@@ -77,6 +80,11 @@ namespace DouQuqu
         {
             int step = Step;
             if (step <= StepOff) return;
+            if (step == StepClickTraining)
+            {
+                Lobby.SetPending(Lobby.Page.BattleEnter);
+                return;
+            }
             if (step == StepSwipeNav || step == StepClickBreed)
             {
                 Lobby.SetPending(Lobby.Page.Shop);
@@ -139,6 +147,13 @@ namespace DouQuqu
 
         public static void OnBattleEnterReady()
         {
+            if (Step == StepClickTraining)
+            {
+                if (IntroPvPlayer.IsCovering) return;
+                SpotlightTraining();
+                return;
+            }
+
             if (Step == StepClickExit || Step == StepBattleEnterTalk)
             {
                 TutorialSpotlight.Hide();
@@ -221,6 +236,20 @@ namespace DouQuqu
             if (Step != StepBattle && Step != StepClickExit) return;
             PlayerDataService.SetTutorialStep(StepClickExit);
             TutorialSpotlight.Show(FindExitButton(root), "点击退出");
+        }
+
+        public static void OnTrainingClicked()
+        {
+            if (Step != StepClickTraining) return;
+            TutorialSpotlight.Hide();
+            PlayerDataService.SetTutorialStep(StepHeroSelectTalk);
+        }
+
+        static void SpotlightTraining()
+        {
+            GameObject training = FindActive("训练营");
+            if (training == null) training = FindActive("训练");
+            TutorialSpotlight.Show(training, "点击训练");
         }
 
         static void SpotlightBackIcon()
