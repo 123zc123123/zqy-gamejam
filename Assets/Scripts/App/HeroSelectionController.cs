@@ -779,9 +779,11 @@ namespace DouQuqu
 
         private void AdvanceToNextEmptySlot()
         {
-            for (int i = 1; i <= SlotCount; i++)
+            int need = TutorialDirector.OneSlotStart ? 1 : SlotCount;
+            for (int step = 1; step <= SlotCount; step++)
             {
-                int index = (selectedSlot + i) % SlotCount;
+                int index = (selectedSlot + step) % SlotCount;
+                if (index >= need) continue;
                 if (slotEntries[index] == null)
                 {
                     selectedSlot = index;
