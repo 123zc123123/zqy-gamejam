@@ -1,31 +1,25 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace DouQuqu
 {
     /// <summary>
-    /// 合成盘按设计尺寸等比缩放到标题/底栏之间的可用区域。
-    /// 棋盘底和 20 格都是子节点，跟着这一层一起变，避免只拉伸外框。
+    /// 合成盘按 BoardBase 设计尺寸，等比缩放到顶/底栏之间。
+    /// 尺寸和边距从预制体节点读取；只在 Play 里改坐标。
     /// </summary>
     [DisallowMultipleComponent]
-    [ExecuteAlways]
     [RequireComponent(typeof(RectTransform))]
     public sealed class FitMergeBoard : MonoBehaviour
     {
-        public const float DefaultSidePadding = 64f;
-        public const float DefaultGap = 12f;
-        public const float DefaultFallbackTop = 320f;
-        public const float DefaultFallbackBottom = 240f;
-        public static readonly Vector2 DefaultDesignSize = new Vector2(952f, 1193f);
-        public static readonly Vector2 DefaultBoardSize = new Vector2(912f, 1145f);
-
-        [SerializeField] Vector2 designSize = new Vector2(952f, 1193f);
-        [SerializeField] Vector2 boardSize = new Vector2(912f, 1145f);
-        [SerializeField] float sidePadding = 64f;
-        [SerializeField] float gap = 12f;
-        [SerializeField] float fallbackTop = 320f;
-        [SerializeField] float fallbackBottom = 240f;
-        [SerializeField] string topLimitName = "main-event-actions";
-        [SerializeField] string bottomLimitName = "bottom-event-carousel";
+        static readonly string[] TopLimitNames =
+        {
+            "main-event-actions", "MainEventActions",
+            "event-title-panel", "EventTitlePanel"
+        };
+        static readonly string[] BottomLimitNames =
+        {
+            "bottom-event-carousel", "BottomEventCarousel"
+        };
 
         RectTransform rect;
         RectTransform cachedParent;
@@ -41,7 +35,7 @@ namespace DouQuqu
         {
             rect = transform as RectTransform;
             lastScale = -1f;
-            Apply();
+            if (Application.isPlaying) Apply();
         }
 
         void Start()
@@ -52,18 +46,23 @@ namespace DouQuqu
 
         void LateUpdate()
         {
+            if (!Application.isPlaying) return;
             Apply();
         }
 
         void OnRectTransformDimensionsChange()
         {
             if (applying) return;
+            if (!Application.isPlaying) return;
+            if (!isActiveAndEnabled || !gameObject.activeInHierarchy) return;
             lastScale = -1f;
             Apply();
         }
 
         void Apply()
         {
+            if (!Application.isPlaying) return;
+            if (!isActiveAndEnabled || !gameObject.activeInHierarchy) return;
             if (applying) return;
             if (rect == null) rect = transform as RectTransform;
             if (rect == null) return;
@@ -87,6 +86,10 @@ namespace DouQuqu
             if (parent.rect.width < 2f || parent.rect.height < 2f) return;
 
             Vector2 parentSize = parent.rect.size;
+            RectTransform frameRt = ResolveFrame();
+            Vector2 designSize = frameRt.sizeDelta;
+            Vector2 boardSize = rect.sizeDelta;
+            float side = SidePadding(ReferenceWidth(parent), designSize.x);
             ResolvePads(parent, parentSize, out float top, out float bottom);
 
             if (cachedParent == parent
@@ -98,10 +101,10 @@ namespace DouQuqu
 
             Vector2 pos;
             float scale;
-            if (!TryLayout(parentSize, designSize, top, bottom, sidePadding, sidePadding, out pos, out scale))
+            if (!TryLayout(parentSize, designSize, top, bottom, side, side, out pos, out scale))
                 return;
 
-            LockBoardRect();
+            LockBoardRect(boardSize);
             if (Mathf.Abs(scale - lastScale) > 0.001f || (pos - lastPos).sqrMagnitude > 0.05f)
             {
                 rect.localScale = new Vector3(scale, scale, 1f);
@@ -116,7 +119,7 @@ namespace DouQuqu
             lastPos = pos;
         }
 
-        void LockBoardRect()
+        void LockBoardRect(Vector2 boardSize)
         {
             Vector2 pivot = new Vector2(0.5f, 0.5f);
             if ((rect.anchorMin - pivot).sqrMagnitude > 0.0001f
@@ -135,39 +138,94 @@ namespace DouQuqu
 
         void ResolvePads(RectTransform parent, Vector2 parentSize, out float top, out float bottom)
         {
-            top = Mathf.Max(0f, fallbackTop);
-            bottom = Mathf.Max(0f, fallbackBottom);
+            top = 0f;
+            bottom = 0f;
 
-            RectTransform topLimit = FindLimit(parent, topLimitName, "MainEventActions");
+            RectTransform topLimit = FindNamed(parent, TopLimitNames);
+            if (topLimit == null) topLimit = FindNamed(parent.root, TopLimitNames);
             if (topLimit != null)
-            {
-                float topBottom = LocalMinY(topLimit, parent);
-                top = Mathf.Max(0f, parent.rect.yMax - topBottom + gap);
-            }
+                top = Mathf.Max(0f, parent.rect.yMax - LocalMinY(topLimit, parent));
 
-            RectTransform bottomLimit = FindLimit(parent, bottomLimitName, "BottomEventCarousel");
-            float bottomTop = parent.rect.yMin + bottom;
+            float bottomTop = parent.rect.yMin;
+            bool foundBottom = false;
+            RectTransform bottomLimit = FindNamed(parent, BottomLimitNames);
+            if (bottomLimit == null) bottomLimit = FindNamed(parent.root, BottomLimitNames);
             if (bottomLimit != null)
-                bottomTop = Mathf.Max(bottomTop, LocalMaxY(bottomLimit, parent));
+            {
+                bottomTop = LocalMaxY(bottomLimit, parent);
+                foundBottom = true;
+            }
 
             GameObject lobbyNavGo = GameObject.Find("LobbyNavCanvas");
             if (lobbyNavGo != null && lobbyNavGo.activeInHierarchy)
             {
                 RectTransform lobbyNav = lobbyNavGo.transform as RectTransform;
                 if (lobbyNav != null)
+                {
                     bottomTop = Mathf.Max(bottomTop, LocalMaxY(lobbyNav, parent));
+                    foundBottom = true;
+                }
             }
 
-            bottom = Mathf.Max(0f, bottomTop - parent.rect.yMin + gap);
+            if (foundBottom)
+                bottom = Mathf.Max(0f, bottomTop - parent.rect.yMin);
+
             if (top + bottom >= parentSize.y - 2f)
             {
-                top = Mathf.Max(0f, fallbackTop);
-                bottom = Mathf.Max(0f, fallbackBottom);
+                top = 0f;
+                bottom = 0f;
             }
+        }
+
+        RectTransform ResolveFrame()
+        {
+            RectTransform named = FindNamed(rect, "棋盘底", "BoardBase");
+            if (named != null) return named;
+
+            RectTransform best = rect;
+            float bestArea = -1f;
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                RectTransform child = transform.GetChild(i) as RectTransform;
+                if (child == null) continue;
+                float area = Mathf.Abs(child.sizeDelta.x * child.sizeDelta.y);
+                if (area > bestArea)
+                {
+                    bestArea = area;
+                    best = child;
+                }
+            }
+
+            return best != null ? best : rect;
+        }
+
+        static RectTransform FindNamed(Transform root, params string[] names)
+        {
+            if (root == null || names == null) return null;
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (string.IsNullOrEmpty(names[i])) continue;
+                RectTransform hit = FindNamedOne(root, names[i]);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+
+        static RectTransform FindNamedOne(Transform root, string objectName)
+        {
+            if (root == null || string.IsNullOrEmpty(objectName)) return null;
+            if (root.name == objectName) return root as RectTransform;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                RectTransform hit = FindNamedOne(root.GetChild(i), objectName);
+                if (hit != null) return hit;
+            }
+            return null;
         }
 
         float LocalMinY(RectTransform target, RectTransform parent)
         {
+            if (target == null || !target.gameObject.activeInHierarchy) return parent.rect.yMax;
             target.GetWorldCorners(corners);
             float min = float.MaxValue;
             for (int i = 0; i < 4; i++)
@@ -180,6 +238,7 @@ namespace DouQuqu
 
         float LocalMaxY(RectTransform target, RectTransform parent)
         {
+            if (target == null || !target.gameObject.activeInHierarchy) return parent.rect.yMin;
             target.GetWorldCorners(corners);
             float max = float.MinValue;
             for (int i = 0; i < 4; i++)
@@ -190,29 +249,18 @@ namespace DouQuqu
             return max;
         }
 
-        static RectTransform FindLimit(RectTransform parent, params string[] names)
+        static float ReferenceWidth(RectTransform parent)
         {
-            if (parent == null || names == null) return null;
-            for (int i = 0; i < names.Length; i++)
-            {
-                if (string.IsNullOrEmpty(names[i])) continue;
-                RectTransform found = FindNamed(parent, names[i]);
-                if (found == null) found = FindNamed(parent.root, names[i]);
-                if (found != null) return found;
-            }
-            return null;
+            CanvasScaler scaler = parent.GetComponentInParent<CanvasScaler>();
+            if (scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize)
+                return scaler.referenceResolution.x;
+            return parent.rect.width;
         }
 
-        static RectTransform FindNamed(Transform root, string objectName)
+        public static float SidePadding(float referenceWidth, float designWidth)
         {
-            if (root == null || string.IsNullOrEmpty(objectName)) return null;
-            if (root.name == objectName) return root as RectTransform;
-            for (int i = 0; i < root.childCount; i++)
-            {
-                RectTransform hit = FindNamed(root.GetChild(i), objectName);
-                if (hit != null) return hit;
-            }
-            return null;
+            if (referenceWidth < 1f || designWidth < 1f) return 0f;
+            return Mathf.Max(0f, (referenceWidth - designWidth) * 0.5f);
         }
 
         /// <summary>

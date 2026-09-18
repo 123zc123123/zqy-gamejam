@@ -284,21 +284,43 @@ namespace DouQuqu
 
             trainingExitRoot = overlay.gameObject;
             BindNamedButton(buttonRoot.transform, "退出训练", ReturnToBattleEntrance);
-            BindNamedButton(buttonRoot.transform, "离开房间", ReturnToBattleEntrance);
             BindNamedButton(buttonRoot.transform, buttonRoot.name, ReturnToBattleEntrance);
         }
 
         private static GameObject CreateTrainingExitFromRoomButton(RectTransform overlay)
         {
-            GameObject battleEntrance = Resources.Load<GameObject>("BattleEntrance/Prefabs/BattleEntrance");
-            Transform source = battleEntrance != null ? FindNamed(battleEntrance.transform, "Group 11") : null;
-            if (source == null) source = battleEntrance != null ? FindNamed(battleEntrance.transform, "离开房间") : null;
-            if (source == null) return null;
+            GameObject prefab = Resources.Load<GameObject>("Common/Prefabs/btn-ready");
+            Sprite red = Resources.Load<Sprite>("Common/Textures/红色取消");
+            if (prefab == null && red == null) return null;
 
-            GameObject clone = UnityEngine.Object.Instantiate(source.gameObject, overlay, false);
-            clone.name = "退出训练";
-            clone.SetActive(true);
-            RectTransform rect = clone.transform as RectTransform;
+            GameObject go;
+            if (prefab != null)
+            {
+                go = UnityEngine.Object.Instantiate(prefab, overlay, false);
+            }
+            else
+            {
+                go = new GameObject("退出训练", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button));
+                go.transform.SetParent(overlay, false);
+                GameObject label = new GameObject("退出训练", typeof(RectTransform), typeof(TextMeshProUGUI));
+                RectTransform labelRect = label.GetComponent<RectTransform>();
+                labelRect.SetParent(go.transform, false);
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = Vector2.zero;
+                labelRect.offsetMax = Vector2.zero;
+                TextMeshProUGUI text = label.GetComponent<TextMeshProUGUI>();
+                text.font = UiFactory.Font;
+                text.text = "退出训练";
+                text.fontSize = 32f;
+                text.color = Color.white;
+                text.alignment = TextAlignmentOptions.Center;
+                text.raycastTarget = false;
+            }
+
+            go.name = "退出训练";
+            go.SetActive(true);
+            RectTransform rect = go.transform as RectTransform;
             if (rect != null)
             {
                 rect.anchorMin = new Vector2(0f, 1f);
@@ -309,35 +331,74 @@ namespace DouQuqu
                 rect.localScale = Vector3.one;
             }
 
-            TMP_Text[] labels = clone.GetComponentsInChildren<TMP_Text>(true);
+            UnityEngine.UI.LayoutElement rootLayout = go.GetComponent<UnityEngine.UI.LayoutElement>();
+            if (rootLayout != null)
+            {
+                rootLayout.minWidth = 183f;
+                rootLayout.minHeight = 81f;
+                rootLayout.preferredWidth = 183f;
+                rootLayout.preferredHeight = 81f;
+            }
+
+            UnityEngine.UI.Image image = go.GetComponent<UnityEngine.UI.Image>();
+            if (image != null)
+            {
+                if (red != null) image.sprite = red;
+                image.color = Color.white;
+                image.preserveAspect = true;
+                image.raycastTarget = true;
+            }
+
+            TMP_Text[] labels = go.GetComponentsInChildren<TMP_Text>(true);
             for (int i = 0; i < labels.Length; i++)
             {
                 if (labels[i] == null) continue;
                 labels[i].text = "退出训练";
+                labels[i].fontSize = 32f;
+                labels[i].enableAutoSizing = false;
                 labels[i].enableWordWrapping = false;
+                labels[i].color = Color.white;
+                labels[i].alignment = TextAlignmentOptions.Center;
+                labels[i].raycastTarget = false;
+
+                UnityEngine.UI.ContentSizeFitter fitter = labels[i].GetComponent<UnityEngine.UI.ContentSizeFitter>();
+                if (fitter != null) fitter.enabled = false;
+                UnityEngine.UI.LayoutElement layout = labels[i].GetComponent<UnityEngine.UI.LayoutElement>();
+                if (layout != null) layout.enabled = false;
+
+                RectTransform labelRect = labels[i].rectTransform;
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = Vector2.zero;
+                labelRect.offsetMax = Vector2.zero;
+                labelRect.anchoredPosition = Vector2.zero;
+                labelRect.sizeDelta = Vector2.zero;
             }
 
-            return clone;
+            return go;
         }
 
         private static bool BindNamedButton(Transform root, string objectName, UnityEngine.Events.UnityAction clicked)
         {
             Transform found = FindNamed(root, objectName);
             if (found == null) return false;
+            found = ButtonRootFor(found);
             UnityEngine.UI.Button button = found.GetComponent<UnityEngine.UI.Button>();
             if (button == null) button = found.gameObject.AddComponent<UnityEngine.UI.Button>();
-            UnityEngine.UI.Image image = found.GetComponent<UnityEngine.UI.Image>();
-            bool addedImage = image == null;
-            if (addedImage) image = found.gameObject.AddComponent<UnityEngine.UI.Image>();
-            if (image != null)
+            UnityEngine.UI.Graphic graphic = found.GetComponent<UnityEngine.UI.Graphic>();
+            UnityEngine.UI.Image image = graphic as UnityEngine.UI.Image;
+            bool addedImage = false;
+            if (graphic == null)
             {
-                image.raycastTarget = true;
-                if (addedImage)
-                    image.color = new Color(1f, 1f, 1f, 0.01f);
-                else if (image.color.a <= 0.01f && image.sprite == null)
-                    image.color = new Color(1f, 1f, 1f, 0.01f);
-                button.targetGraphic = image;
+                image = found.gameObject.AddComponent<UnityEngine.UI.Image>();
+                image.color = new Color(1f, 1f, 1f, 0.01f);
+                graphic = image;
+                addedImage = true;
             }
+            graphic.raycastTarget = true;
+            if (image != null && !addedImage && image.color.a <= 0.01f && image.sprite == null)
+                image.color = new Color(1f, 1f, 1f, 0.01f);
+            button.targetGraphic = graphic;
             // Figma 的 btn-ready 把 TMP 字放在子节点且 raycastTarget=1。
             // 字体套上后文字矩形会盖住父 Button，点击就进不了 onClick。
             UnityEngine.UI.Graphic[] graphics = found.GetComponentsInChildren<UnityEngine.UI.Graphic>(true);
@@ -349,6 +410,16 @@ namespace DouQuqu
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(clicked);
             return true;
+        }
+
+        private static Transform ButtonRootFor(Transform found)
+        {
+            if (found == null) return null;
+            if (found.GetComponent<TMP_Text>() != null
+                && found.GetComponent<UnityEngine.UI.Image>() == null
+                && found.parent != null)
+                return found.parent;
+            return found;
         }
 
         private static Transform FindNamed(Transform root, string objectName)

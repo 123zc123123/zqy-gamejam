@@ -1,3 +1,4 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -9,10 +10,14 @@ namespace DouQuqu
     public sealed class LoginController : MonoBehaviour
     {
         public const string PrefabResourcePath = "Login/Prefabs/Login";
+        public const float LoginBackgroundScale = 1.2f;
+        const float FormFadeSeconds = 0.22f;
 
         private TMP_InputField nameInput;
         private TMP_Text statusText;
         private Button loginButton;
+        private RectTransform villageBackground;
+        private CanvasGroup formGroup;
 
         private void Awake()
         {
@@ -44,6 +49,16 @@ namespace DouQuqu
             nameInput = FindInput(root.transform);
             loginButton = FindButton(root.transform);
             statusText = FindText(root.transform, "Status");
+            villageBackground = FindRect(root.transform, "VillageBackground");
+            Transform panel = FindNamed(root.transform, "LoginPanel");
+            if (panel != null)
+            {
+                formGroup = panel.GetComponent<CanvasGroup>();
+                if (formGroup == null) formGroup = panel.gameObject.AddComponent<CanvasGroup>();
+            }
+
+            if (villageBackground != null)
+                villageBackground.localScale = new Vector3(LoginBackgroundScale, LoginBackgroundScale, 1f);
 
             if (nameInput == null || loginButton == null)
             {
@@ -128,6 +143,12 @@ namespace DouQuqu
             return named != null ? named.GetComponent<TMP_Text>() : null;
         }
 
+        private static RectTransform FindRect(Transform root, string objectName)
+        {
+            Transform named = FindNamed(root, objectName);
+            return named as RectTransform;
+        }
+
         private static Transform FindNamed(Transform root, string objectName)
         {
             if (root.name == objectName) return root;
@@ -152,7 +173,7 @@ namespace DouQuqu
             if (statusText != null) statusText.text = text;
         }
 
-        private System.Collections.IEnumerator LoginRoutine()
+        private IEnumerator LoginRoutine()
         {
             string errorLocal;
             if (!PlayerDataService.LoginOrCreate(nameInput.text, out errorLocal))
@@ -187,6 +208,8 @@ namespace DouQuqu
                 SetStatus("登录成功");
             }
 
+            yield return PlayLoginSuccessTransition();
+
             if (PlayerDataService.JustCreated)
             {
                 IntroPvPlayer.BeginThenLoadMainMenu();
@@ -194,7 +217,24 @@ namespace DouQuqu
             }
 
             TutorialDirector.RouteAfterLogin();
+            MainMenuController.PendingEnterReveal = true;
             SceneNames.Load(SceneNames.MainMenu);
+        }
+
+        private IEnumerator PlayLoginSuccessTransition()
+        {
+            if (formGroup == null) yield break;
+            formGroup.blocksRaycasts = false;
+            formGroup.interactable = false;
+            float fade = 0f;
+            float startAlpha = formGroup.alpha;
+            while (fade < FormFadeSeconds)
+            {
+                fade += Time.unscaledDeltaTime;
+                formGroup.alpha = Mathf.Lerp(startAlpha, 0f, fade / FormFadeSeconds);
+                yield return null;
+            }
+            formGroup.alpha = 0f;
         }
     }
 }

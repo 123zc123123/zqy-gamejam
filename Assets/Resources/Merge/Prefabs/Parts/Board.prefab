@@ -69,14 +69,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 948c7a120e4ce8a47b3966b399b324f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  designSize: {x: 952, y: 1193}
-  boardSize: {x: 912, y: 1145}
-  sidePadding: 64
-  gap: 12
-  fallbackTop: 320
-  fallbackBottom: 240
-  topLimitName: main-event-actions
-  bottomLimitName: bottom-event-carousel
 --- !u!1001 &750062413682373307
 PrefabInstance:
   m_ObjectHideFlags: 0
