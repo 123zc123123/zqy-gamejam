@@ -10,9 +10,9 @@ namespace DouQuqu
     [ExecuteAlways]
     public sealed class CricketUnit : MonoBehaviour
     {
-        [SerializeField] private Transform body;
-        [SerializeField] private GroundMarker marker;
-        [SerializeField] private StaminaBar bar;
+        [SerializeField, HideInInspector] private Transform body;
+        [SerializeField, HideInInspector] private GroundMarker marker;
+        [SerializeField, HideInInspector] private StaminaBar bar;
 
         private bool captured;
         private Vector3 bodyRestPosition;
@@ -127,7 +127,7 @@ namespace DouQuqu
             {
                 Vector3 p = barRestPosition;
                 bar.transform.localPosition = new Vector3(p.x, 0.1f, p.y);
-                bar.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+                bar.transform.localRotation = StaminaBar.GroundRotation;
                 bar.transform.localScale = barRestScale;
                 bar.SetGrow(grow);
             }

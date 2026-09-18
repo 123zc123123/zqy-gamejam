@@ -11,6 +11,8 @@ namespace DouQuqu
     public sealed class StaminaBar : MonoBehaviour
     {
         public const int MaxSlots = 8;
+        /// <summary>顶视相机 / 场地都是 Euler(90)。-90 会从 Canvas 背面看，体力条上下颠倒。</summary>
+        public static readonly Quaternion GroundRotation = Quaternion.Euler(90f, 0f, 0f);
         private const string TexRoot = "Battle/Entities/Textures/";
         private const float Pixels = 100f;
         private const float BgPx = 50f;
@@ -78,7 +80,7 @@ namespace DouQuqu
             EnsureReady();
             gameObject.SetActive(true);
             transform.position = worldCenter + Vector3.up * 0.1f + Vector3.back * (bugRadius * 1.85f);
-            transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
+            transform.rotation = GroundRotation;
             Layout(currentRatio, slots, pendingRatio, hotGate);
         }
 

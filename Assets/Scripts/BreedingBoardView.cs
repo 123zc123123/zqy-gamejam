@@ -75,7 +75,7 @@ namespace DouQuqu
         private void Awake()
         {
             if (board == null) board = GetComponent<MergeBoard>();
-            if (canvasPrefab == null) canvasPrefab = Resources.Load<GameObject>("Merge/Prefabs/Canvas");
+            if (canvasPrefab == null) canvasPrefab = Resources.Load<GameObject>("Merge/Prefabs/BreedingBoardCanvas");
             if (xiangqingPrefab == null) xiangqingPrefab = Resources.Load<GameObject>(QuquXiangqingView.PrefabResourcePath);
             EnsureEventSystem();
         }

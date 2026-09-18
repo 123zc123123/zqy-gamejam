@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3040277920400368124}
+  - component: {fileID: 1376530024244271754}
   m_Layer: 0
   m_Name: Board
   m_TagString: Untagged
@@ -56,6 +57,26 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 81.5}
   m_SizeDelta: {x: 912, y: 1145}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1376530024244271754
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6057524023617680215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 948c7a120e4ce8a47b3966b399b324f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  designSize: {x: 952, y: 1193}
+  boardSize: {x: 912, y: 1145}
+  sidePadding: 64
+  gap: 12
+  fallbackTop: 320
+  fallbackBottom: 240
+  topLimitName: main-event-actions
+  bottomLimitName: bottom-event-carousel
 --- !u!1001 &750062413682373307
 PrefabInstance:
   m_ObjectHideFlags: 0

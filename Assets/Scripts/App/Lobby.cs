@@ -21,7 +21,7 @@ namespace DouQuqu
             Ranking = 6
         }
 
-        public const string MergePrefab = "Merge/Prefabs/Canvas";
+        public const string MergePrefab = "Merge/Prefabs/BreedingBoardCanvas";
         public const string CollectionPrefab = "Collection/Prefabs/collection";
         public const string BattleEnterPrefab = "BattleEntrance/Prefabs/BattleEntrance";
         public const string HeroSelectionPrefab = "HeroSelection/Prefabs/FigmaImport_cricket-battle-royale_55_4";

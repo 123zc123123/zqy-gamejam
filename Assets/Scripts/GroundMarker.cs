@@ -27,19 +27,26 @@ namespace DouQuqu
         private const int RingPoints = 48;
         private const float PreviewRadius = 0.5f;
 
-        [SerializeField] private Sprite circleSprite;
-        [SerializeField] private Sprite shadowSprite;
-        [SerializeField] private SpriteRenderer shadow;
-        [SerializeField] private SpriteRenderer fill;
-        [SerializeField] private LineRenderer ring;
-        [SerializeField] private Material lineMaterial;
-        [SerializeField] private float ringScale = 1.38f;
-        [SerializeField] private float ringWidthScale = 0.1f;
-        [SerializeField] private float fillAlpha = 0.22f;
-        [SerializeField] private float chargeFillAlpha = 0.34f;
-        [SerializeField] private float shadowScale = 1.08f;
-        [SerializeField] private float shadowOffsetScale = 0.22f;
-        [SerializeField] private float heightOffset = 0.03f;
+        [SerializeField, HideInInspector] private Sprite circleSprite;
+        [SerializeField, HideInInspector] private Sprite shadowSprite;
+        [SerializeField, HideInInspector] private SpriteRenderer shadow;
+        [SerializeField, HideInInspector] private SpriteRenderer fill;
+        [SerializeField, HideInInspector] private LineRenderer ring;
+        [SerializeField, HideInInspector] private Material lineMaterial;
+        [SerializeField, InspectorCn("圈半径倍率", "底盘半径 = 碰撞半径 × 此值。改完要点 Bake。")]
+        private float ringScale = 1.38f;
+        [SerializeField, InspectorCn("金边粗细", "相对圈半径。改完要点 Bake。")]
+        private float ringWidthScale = 0.1f;
+        [SerializeField, InspectorCn("底盘透明度", "平时棕色圆的透明度。局内立刻生效。")]
+        private float fillAlpha = 0.22f;
+        [SerializeField, InspectorCn("蓄力透明度", "蓄力时底盘更实一点。局内立刻生效。")]
+        private float chargeFillAlpha = 0.34f;
+        [SerializeField, InspectorCn("阴影大小", "相对碰撞半径。改完要点 Bake。")]
+        private float shadowScale = 1.08f;
+        [SerializeField, InspectorCn("阴影错位", "阴影往脚下挪多远。改完要点 Bake。")]
+        private float shadowOffsetScale = 0.22f;
+        [SerializeField, InspectorCn("贴地抬高", "独立脚下圈离地高度。挂在 CricketUnit 里时不走这条。")]
+        private float heightOffset = 0.03f;
         private Material spriteMaterial;
 
         public static Color ColorForPlayer(int playerId)
@@ -99,6 +106,13 @@ namespace DouQuqu
         {
             EnsureReady();
             LayoutMarker(Mathf.Max(0.2f, bugRadius), 1f, ColorForPlayer(0), fillAlpha);
+        }
+
+        /// <summary>用开局碰撞半径 Bake。改圈倍率 / 阴影后在 Inspector 点 Bake。</summary>
+        public void Bake()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            Bake(knobs != null ? knobs.bugR : 1.8f);
         }
 
         /// <summary>预制体 / 编辑器里正对镜头，不躺到地面、不改父节点。</summary>

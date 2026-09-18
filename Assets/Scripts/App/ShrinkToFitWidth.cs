@@ -3,7 +3,8 @@ using UnityEngine;
 namespace DouQuqu
 {
     /// <summary>
-    /// 父节点宽度小于设计宽度时等比缩小；超过设计宽度时不放大，只把宽度拉到父节点。
+    /// 父节点宽度小于设计宽度时等比缩小。超过设计宽度时不放大；
+    /// stretchWhenWider 为真时把宽度拉到父节点，为假时保持原尺寸。
     /// </summary>
     [DisallowMultipleComponent]
     [ExecuteAlways]
@@ -11,6 +12,7 @@ namespace DouQuqu
     public sealed class ShrinkToFitWidth : MonoBehaviour
     {
         [SerializeField] float designWidth = 1080f;
+        [SerializeField] bool stretchWhenWider = true;
 
         RectTransform rect;
         float lastParentWidth = -1f;
@@ -57,17 +59,17 @@ namespace DouQuqu
             {
                 float scale = parentWidth / width;
                 rect.localScale = new Vector3(scale, scale, 1f);
-                Vector2 size = rect.sizeDelta;
-                size.x = width;
-                rect.sizeDelta = size;
             }
             else
             {
                 rect.localScale = Vector3.one;
-                Vector2 size = rect.sizeDelta;
-                size.x = parentWidth;
-                rect.sizeDelta = size;
             }
+
+            if (!stretchWhenWider) return;
+
+            Vector2 size = rect.sizeDelta;
+            size.x = parentWidth < width ? width : parentWidth;
+            rect.sizeDelta = size;
         }
     }
 }

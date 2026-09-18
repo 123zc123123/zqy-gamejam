@@ -9,15 +9,16 @@ namespace DouQuqu
     /// 主体（头 / 胸腹 / 腿）共用描边 shader：八向平移 + 贴图 alpha，再靠 stencil 合成外轮廓。
     /// 触角、尾刺不描边。
     /// </summary>
+    [ExecuteAlways]
     public sealed class CricketVisual : MonoBehaviour
     {
-        [SerializeField] private SpriteRenderer body;
-        [SerializeField] private SpriteRenderer antenna;
-        [SerializeField] private SpriteRenderer[] antennae;
-        [SerializeField] private SpriteRenderer[] parts;
-        [SerializeField] private Color outlineColor = Color.black;
-        [SerializeField] private float outlineWidth = 16f;
-        [SerializeField] private float outlineSoftness = 4f;
+        [SerializeField, HideInInspector] private SpriteRenderer body;
+        [SerializeField, HideInInspector] private SpriteRenderer antenna;
+        [SerializeField, HideInInspector] private SpriteRenderer[] antennae;
+        [SerializeField, HideInInspector] private SpriteRenderer[] parts;
+        [SerializeField, InspectorCn("描边颜色", "主体外轮廓。触角和尾刺不描边。")] private Color outlineColor = Color.black;
+        [SerializeField, Range(0f, 64f), InspectorCn("描边宽度", "像素宽度。改完看 Scene / Prefab 视图。")] private float outlineWidth = 16f;
+        [SerializeField, Range(0f, 16f), InspectorCn("描边软边", "外边缘羽化。改完看 Scene / Prefab 视图。")] private float outlineSoftness = 4f;
 
         private MaterialPropertyBlock propertyBlock;
         private SpriteRenderer armorGlow;
@@ -62,9 +63,26 @@ namespace DouQuqu
 
         private void OnEnable()
         {
-            BindHierarchy();
+            if (parts == null || parts.Length == 0) BindHierarchy();
             ApplyOutline();
         }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            UnityEditor.EditorApplication.delayCall -= PreviewOutlineIfAlive;
+            UnityEditor.EditorApplication.delayCall += PreviewOutlineIfAlive;
+        }
+
+        private void PreviewOutlineIfAlive()
+        {
+            UnityEditor.EditorApplication.delayCall -= PreviewOutlineIfAlive;
+            if (this == null) return;
+            if (parts == null || parts.Length == 0) BindHierarchy();
+            ApplyOutline();
+            UnityEditor.SceneView.RepaintAll();
+        }
+#endif
 
         public void BindParts(SpriteRenderer bodyRenderer, SpriteRenderer antennaRenderer)
         {
@@ -189,7 +207,7 @@ namespace DouQuqu
             }
         }
 
-        private void ApplyOutline()
+        public void ApplyOutline()
         {
             if (parts == null || parts.Length == 0) return;
             if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();

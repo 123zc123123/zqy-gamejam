@@ -89,7 +89,7 @@ namespace DouQuqu
                 {
                     scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
                     scaler.referenceResolution = new Vector2(1080f, 1920f);
-                    scaler.matchWidthOrHeight = 1f;
+                    scaler.matchWidthOrHeight = 0f;
                 }
             }
 

@@ -77,7 +77,7 @@ MonoBehaviour:
   - {fileID: 1542400273119454872}
   - {fileID: 4017199983589987694}
   outlineColor: {r: 0, g: 0, b: 0, a: 1}
-  outlineWidth: 16
+  outlineWidth: 24
   outlineSoftness: 4
 --- !u!114 &5678347385470781281
 MonoBehaviour:
