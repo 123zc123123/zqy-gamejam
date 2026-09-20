@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>第一场训练营六课：跳、出圈、吃饲料、吃护盾、撞房子、撞人得分。</summary>
+    /// <summary>第一场训练营七课：跳、出圈、吃饲料、吃护盾、撞房子、落点完美击、撞人得分。</summary>
     public static class TutorialBattleDirector
     {
         const int DummyId = 1;
@@ -32,6 +32,7 @@ namespace DouQuqu
             if (!Failed(match, localId)) yield return LessonPickup(match, localId, "heart", TutorialDirector.IdBattleHeart);
             if (!Failed(match, localId)) yield return LessonPickup(match, localId, "shield", TutorialDirector.IdBattleShield);
             if (!Failed(match, localId)) yield return LessonNest(match, localId);
+            if (!Failed(match, localId)) yield return LessonSweet(match, localId);
             if (!Failed(match, localId)) yield return LessonKill(match, localId);
 
             TutorialFingerHint.Hide();
@@ -181,13 +182,57 @@ namespace DouQuqu
             }
         }
 
+        static IEnumerator LessonSweet(MatchController match, int localId)
+        {
+            yield return WaitUntilLanded(match, localId);
+            Vector3 at = PlaceAway(match, localId, 8.5f);
+            match.RestoreTutorialDummy(DummyId, at);
+            ShowMarker(at);
+            bool sweet = false;
+            bool pullBack = false;
+            System.Action<string, Vector3> onEvent = (kind, _) =>
+            {
+                if (HitPairInvolves(kind, "perfect-ids:", localId, DummyId)) sweet = true;
+                else if (HitPairInvolves(kind, "hit-ids:", localId, DummyId)) pullBack = true;
+            };
+            match.GameplayEvent += onEvent;
+            try
+            {
+                bool done = false;
+                DialogueBoxView.Play(TutorialDirector.IdBattleSweet, () => done = true);
+                while (!done && !Failed(match, localId)) yield return null;
+                while (!Failed(match, localId) && !sweet)
+                {
+                    if (pullBack || !match.PlayerStillIn(DummyId))
+                    {
+                        BugState dummy = Bug(match, DummyId);
+                        bool dummySettled = dummy == null || !dummy.alive
+                            || (!dummy.airborne && dummy.height <= 0.08f
+                                && new Vector2(dummy.velocity.x, dummy.velocity.z).sqrMagnitude < 0.04f);
+                        if (PlayerGrounded(match, localId) && dummySettled)
+                        {
+                            match.RestoreTutorialDummy(DummyId, at);
+                            ShowMarker(at);
+                            pullBack = false;
+                        }
+                    }
+                    yield return null;
+                }
+            }
+            finally
+            {
+                match.GameplayEvent -= onEvent;
+            }
+            HideMarker();
+            yield return WaitUntilLanded(match, localId);
+        }
+
         static IEnumerator LessonKill(MatchController match, int localId)
         {
             yield return WaitUntilLanded(match, localId);
             int before = match.MatchScore(localId);
             Vector3 at = match.PointOutward(localId, 5.5f);
-            match.MovePlayerTo(DummyId, at);
-            match.SetPlayerIdle(DummyId, true);
+            match.RestoreTutorialDummy(DummyId, at);
             ShowMarker(at);
             bool done = false;
             DialogueBoxView.Play(TutorialDirector.IdBattleKill, () => done = true);
@@ -195,6 +240,20 @@ namespace DouQuqu
             while (!Failed(match, localId) && match.MatchScore(localId) <= before && match.PlayerStillIn(DummyId))
                 yield return null;
             HideMarker();
+        }
+
+        public static bool HitPairInvolves(string kind, string prefix, int a, int b)
+        {
+            if (string.IsNullOrEmpty(kind) || string.IsNullOrEmpty(prefix) || !kind.StartsWith(prefix))
+                return false;
+            string rest = kind.Substring(prefix.Length);
+            int split = rest.IndexOf(':');
+            if (split <= 0) return false;
+            int x;
+            int y;
+            if (!int.TryParse(rest.Substring(0, split), out x)) return false;
+            if (!int.TryParse(rest.Substring(split + 1), out y)) return false;
+            return (x == a && y == b) || (x == b && y == a);
         }
 
         static bool PlayerJumped(MatchController match, int localId)

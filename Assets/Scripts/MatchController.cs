@@ -265,9 +265,12 @@ namespace DouQuqu
             else Rules.ApplyZoneAt(knobs, 0f);
             state.homeSpawn = new Vector3[configuredPlayers];
             for (int i = 0; i < configuredPlayers; i++)
-                state.homeSpawn[i] = configuredPlayers <= 1
-                    ? Rules.SoloPullbackPoint()
-                    : Rules.OpeningSpawn(i, knobs.spawnEdge);
+            {
+                if (configuredPlayers <= 1) state.homeSpawn[i] = Rules.SoloPullbackPoint();
+                else if (TutorialDirector.NeedsBattleLesson)
+                    state.homeSpawn[i] = TutorialDirector.BattleOpeningSpawn(i, knobs.spawnEdge);
+                else state.homeSpawn[i] = Rules.OpeningSpawn(i, knobs.spawnEdge);
+            }
             state.bugs = new BugState[configuredPlayers];
             state.humanPlayers = new bool[configuredPlayers];
             state.idlePlayers = new bool[configuredPlayers];
@@ -407,6 +410,21 @@ namespace DouQuqu
             nestSystem.TickAfterCollision(state, Emit);
             StateChanged?.Invoke(state);
             return true;
+        }
+
+        /// <summary>教学木桩被弹出局后拉回原位，避免下一课没靶子。</summary>
+        public void RestoreTutorialDummy(int playerId, Vector3 at)
+        {
+            if (state == null || state.bugs == null || playerId < 0 || playerId >= state.bugs.Length) return;
+            BugState bug = state.bugs[playerId];
+            if (bug == null) return;
+            if (state.playerIn != null && playerId < state.playerIn.Length)
+                state.playerIn[playerId] = true;
+            if (state.place != null && playerId < state.place.Length)
+                state.place[playerId] = 0;
+            RecycleBug(bug, at);
+            SetPlayerIdle(playerId, true);
+            StateChanged?.Invoke(state);
         }
 
         public void MovePlayerTo(int playerId, Vector3 at)

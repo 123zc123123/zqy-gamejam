@@ -140,6 +140,46 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
+        public void BattleOpeningSpawnIsCloserToCenterThanCorner()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            Rules.SetArenaScale(knobs.zoneScale0);
+            try
+            {
+                Vector3 corner = Rules.OpeningSpawn(0, knobs.spawnEdge);
+                Vector3 tut = TutorialDirector.BattleOpeningSpawn(0, knobs.spawnEdge);
+                Assert.Less(tut.sqrMagnitude, corner.sqrMagnitude);
+                Assert.Greater(tut.x * corner.x, 0f);
+                Assert.Greater(tut.z * corner.z, 0f);
+            }
+            finally
+            {
+                Rules.ResetArenaSize();
+            }
+        }
+
+        [Test]
+        public void HitPairInvolvesEitherOrder()
+        {
+            Assert.IsTrue(TutorialBattleDirector.HitPairInvolves("perfect-ids:0:1", "perfect-ids:", 0, 1));
+            Assert.IsTrue(TutorialBattleDirector.HitPairInvolves("perfect-ids:1:0", "perfect-ids:", 0, 1));
+            Assert.IsFalse(TutorialBattleDirector.HitPairInvolves("hit-ids:0:1", "perfect-ids:", 0, 1));
+            Assert.IsFalse(TutorialBattleDirector.HitPairInvolves("perfect-ids:0:2", "perfect-ids:", 0, 1));
+        }
+
+        [Test]
+        public void SweetDialogueParses()
+        {
+            TextAsset asset = Resources.Load<TextAsset>("Dialogue/dlg.tutorial.battle_sweet");
+            Assert.IsNotNull(asset);
+            DialogueGroup group = DialogueMarkdown.Parse(asset.text, asset.name);
+            Assert.IsNotNull(group);
+            Assert.AreEqual(TutorialDirector.IdBattleSweet, group.id);
+            Assert.AreEqual(2, group.lines.Count);
+            Assert.IsTrue(group.lines[0].text.IndexOf("圈", System.StringComparison.Ordinal) >= 0);
+        }
+
+        [Test]
         public void NestHatchDialogueParses()
         {
             TextAsset asset = Resources.Load<TextAsset>("Dialogue/dlg.tutorial.battle_nest_hatch");

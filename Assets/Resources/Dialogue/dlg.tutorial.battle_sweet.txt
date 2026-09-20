@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.battle_sweet
+title: 新手 · 第一场落点完美击
+---
+
+## 1. 老头 · 落点圈
+> mood: warm
+> avatar: oldman
+
+老头：蓄力时身前那个圈是落点。跳起来，在圈里撞上人，对方会滑得远得多。
+
+## 2. 老头 · 试一下
+> mood: warm
+> avatar: oldman
+
+老头：先对着前面这只，对准圈再撞一下。

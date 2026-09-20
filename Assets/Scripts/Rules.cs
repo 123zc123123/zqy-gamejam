@@ -482,7 +482,7 @@ namespace DouQuqu
             return LastZoneTier;
         }
 
-        /// <summary>六课进行中时钟不超过第一次预告，避免边上课边缩到最后一档。</summary>
+        /// <summary>课上进行中时钟不超过第一次预告，避免边上课边缩到最后一档。</summary>
         public static float TutorialElapsedCap(MatchKnobs knobs)
         {
             float[] snaps = ZoneSnapTimes(knobs);

@@ -40,6 +40,7 @@ namespace DouQuqu
         public const string IdBattleShield = "dlg.tutorial.battle_shield";
         public const string IdBattleNest = "dlg.tutorial.battle_nest";
         public const string IdBattleNestHatch = "dlg.tutorial.battle_nest_hatch";
+        public const string IdBattleSweet = "dlg.tutorial.battle_sweet";
         public const string IdBattleKill = "dlg.tutorial.battle_kill";
         public const string IdBattleZone = "dlg.tutorial.battle_zone";
         public const string IdBreedDone = "dlg.tutorial.breed_done";
@@ -51,8 +52,15 @@ namespace DouQuqu
         public const float NestLookSeconds = 0.7f;
         public const float NestHatchWaitSeconds = 8f;
         public const float NestLookBackSeconds = 0.55f;
+        /// <summary>第一场教学出生：开局角再乘该值，离中心更近。第二场训练营不读。</summary>
+        public const float BattleSpawnTowardCenter = 0.5f;
 
         public static bool NeedsBattleLesson => Step == StepBattle;
+
+        public static Vector3 BattleOpeningSpawn(int playerId, float spawnEdge)
+        {
+            return Rules.OpeningSpawn(playerId, spawnEdge) * BattleSpawnTowardCenter;
+        }
 
         public static bool IsActive
         {
