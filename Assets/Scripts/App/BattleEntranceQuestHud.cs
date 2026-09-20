@@ -6,14 +6,14 @@ namespace DouQuqu
 {
     /// <summary>
     /// 进战页日勤条。位置大小改 RectTransform。
-    /// 2 局可点宝箱1，4 局可点宝箱2；点击后换成开宝箱预制体。
+    /// 1 局可点宝箱1，2 局可点宝箱2；点击后换成开宝箱预制体。
     /// </summary>
     public sealed class BattleEntranceQuestHud : MonoBehaviour
     {
         public const string OpenChestPrefabPath = "BattleEntrance/Prefabs/Parts/QuestChestOpen";
         public const string HelpPrefabPath = "BattleEntrance/Prefabs/Parts/QuestHelp";
-        public const int Chest1Battles = 2;
-        public const int Chest2Battles = 4;
+        public const int Chest1Battles = 1;
+        public const int Chest2Battles = 2;
         public const float ProgressFullWidth = 400f;
         public const float ProgressMinWidth = 8f;
 
@@ -29,9 +29,9 @@ namespace DouQuqu
         public RectTransform questProgress;
         [InspectorCn("宝箱底图", "QuestChestBg")]
         public RectTransform chestBg;
-        [InspectorCn("宝箱1", "2局可领")]
+        [InspectorCn("宝箱1", "1局可领")]
         public RectTransform chest1;
-        [InspectorCn("宝箱2", "4局可领")]
+        [InspectorCn("宝箱2", "2局可领")]
         public RectTransform chest2;
 
         private void OnEnable()
