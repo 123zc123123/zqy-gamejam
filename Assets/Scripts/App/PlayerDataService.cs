@@ -515,6 +515,22 @@ namespace DouQuqu
             return count;
         }
 
+        /// <summary>背包里指定品级、性格的只数。每种神级在开箱界面各自显示这个数。</summary>
+        public static int CountBackpack(int quality, int temperament)
+        {
+            if (CurrentPlayer == null || CurrentPlayer.backpack == null) return 0;
+            quality = Mathf.Clamp(quality, 1, 4);
+            temperament = Mathf.Clamp(temperament, 1, 4);
+            int count = 0;
+            for (int i = 0; i < CurrentPlayer.backpack.Count; i++)
+            {
+                CricketBackpackEntry entry = CurrentPlayer.backpack[i];
+                if (entry == null || string.IsNullOrEmpty(entry.instanceId)) continue;
+                if (entry.quality == quality && entry.temperament == temperament) count++;
+            }
+            return count;
+        }
+
         /// <summary>开档送凡品 1-1～1-4。旧档背包仍空时补一次，已有虫不补。新手进行中不送。</summary>
         private static void EnsureStarterBackpack(PlayerProfile player)
         {

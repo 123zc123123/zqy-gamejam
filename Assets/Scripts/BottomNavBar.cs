@@ -59,8 +59,21 @@ namespace DouQuqu
             Bind();
         }
 
+        private void OnEnable()
+        {
+            PlayerDataService.PlayerDataChanged -= RefreshBattleChestDot;
+            PlayerDataService.PlayerDataChanged += RefreshBattleChestDot;
+            RefreshBattleChestDot();
+        }
+
+        private void OnDisable()
+        {
+            PlayerDataService.PlayerDataChanged -= RefreshBattleChestDot;
+        }
+
         private void Start()
         {
+            RefreshBattleChestDot();
             BottomNavTab[] tabs = GetComponentsInChildren<BottomNavTab>(true);
             for (int i = 0; i < tabs.Length; i++)
             {
@@ -133,6 +146,16 @@ namespace DouQuqu
             for (int i = 0; i < tabs.Length; i++)
                 if (tabs[i] != null && tabs[i].ModuleId == module) return tabs[i];
             return null;
+        }
+
+        void RefreshBattleChestDot()
+        {
+            BottomNavTab tab = FindTab(BottomNavTab.NavModule.Battle);
+            if (tab == null) return;
+            Transform icon = tab.transform.Find("Icon");
+            bool on = BattleEntranceQuestHud.HasClaimableChest();
+            UiRedDot.Set(tab.transform as RectTransform, false);
+            UiRedDot.Set(icon != null ? icon as RectTransform : tab.transform as RectTransform, on);
         }
 
         public ScrollRect Scroll

@@ -22,6 +22,8 @@ namespace DouQuqu
         private static readonly Color IdleBg = Color.white;
         private static readonly Color IdleText = new Color(0.898f, 0.768f, 0.561f, 1f);
         private static readonly Color SelectedText = new Color(0.22f, 0.13f, 0.07f, 1f);
+        private static readonly Color IdleOutline = new Color(0.22f, 0.13f, 0.07f, 1f);
+        private static readonly Color SelectedOutline = new Color(0.55f, 0.85f, 1f, 1f);
 
         [SerializeField] private NavModule module;
         [SerializeField] private string displayName;
@@ -31,6 +33,7 @@ namespace DouQuqu
         [SerializeField] private Image selectedBackground;
 
         private Image background;
+        private Outline labelOutline;
         private bool selected;
 
         public NavModule ModuleId => module;
@@ -99,6 +102,9 @@ namespace DouQuqu
                 Transform found = transform.Find("Selected");
                 if (found != null) selectedBackground = found.GetComponent<Image>();
             }
+
+            if (labelOutline == null && label != null)
+                labelOutline = label.GetComponent<Outline>();
         }
 
         private void ApplySelectedColors()
@@ -106,7 +112,7 @@ namespace DouQuqu
             CacheParts();
             if (!Application.isPlaying)
             {
-                if (label != null) label.color = IdleText;
+                ApplyLabelColors(false);
                 return;
             }
 
@@ -122,8 +128,15 @@ namespace DouQuqu
                 selectedBackground.raycastTarget = false;
             }
 
+            ApplyLabelColors(selected);
+        }
+
+        private void ApplyLabelColors(bool on)
+        {
             if (label != null)
-                label.color = selected ? SelectedText : IdleText;
+                label.color = on ? SelectedText : IdleText;
+            if (labelOutline != null)
+                labelOutline.effectColor = on ? SelectedOutline : IdleOutline;
         }
 
         private void ApplyIcon()

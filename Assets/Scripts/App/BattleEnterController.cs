@@ -28,6 +28,7 @@ namespace DouQuqu
         private string detailBackpackId;
         private GameObject rulesRoot;
         private GameObject backpackRoot;
+        private TMP_Text goldLabel;
         private readonly Dictionary<Button, bool> lockedButtonStates = new Dictionary<Button, bool>();
         private bool bound;
         private bool friendRoom;
@@ -49,17 +50,22 @@ namespace DouQuqu
             BindButtons();
             HookLobby();
             ApplyVisual();
+            CacheGoldLabel();
+            RefreshGold();
             BattleEntranceQuestHud questHud = root.GetComponentInChildren<BattleEntranceQuestHud>(true);
             if (questHud != null) questHud.RefreshChests();
         }
 
         private void OnEnable()
         {
+            PlayerDataService.PlayerDataChanged += RefreshGold;
             HookLobby();
+            RefreshGold();
         }
 
         private void OnDisable()
         {
+            PlayerDataService.PlayerDataChanged -= RefreshGold;
             ClosePageOverlays();
             if (AppServices.Instance == null || AppServices.Instance.Network == null) return;
             AppServices.Instance.Network.LobbyChanged -= OnLobbyChanged;
@@ -416,6 +422,21 @@ namespace DouQuqu
             BindButton(card, clicked);
             Transform confirm = FindDirect(card.transform, "确认");
             if (confirm != null) BindButton(confirm.gameObject, clicked);
+        }
+
+        private void CacheGoldLabel()
+        {
+            goldLabel = null;
+            if (pageRoot == null) return;
+            Transform gold = FindNamed(pageRoot.transform, "GoldDisplay");
+            if (gold != null) goldLabel = gold.GetComponentInChildren<TMP_Text>(true);
+        }
+
+        private void RefreshGold()
+        {
+            if (goldLabel == null) CacheGoldLabel();
+            if (goldLabel != null)
+                goldLabel.text = PlayerDataService.FormatGold(PlayerDataService.Gold);
         }
 
         private void OpenRules()

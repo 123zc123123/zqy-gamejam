@@ -156,12 +156,58 @@ namespace DouQuqu
                 nameText.raycastTarget = false;
             }
 
+            BindOwnedCount(root.transform, temperament);
+
             Image hit = root.GetComponent<Image>();
             if (hit == null) hit = root.AddComponent<Image>();
             hit.color = new Color(1f, 1f, 1f, 0.01f);
             hit.raycastTarget = true;
             int captured = temperament;
             BindClick(root, () => Select(captured));
+        }
+
+        void BindOwnedCount(Transform pack, int temperament)
+        {
+            if (pack == null) return;
+            Transform host = pack.Find("头像");
+            if (host == null) host = pack;
+            Transform existing = pack.Find("OwnedCount");
+            if (existing == null) existing = host.Find("OwnedCount");
+            TextMeshProUGUI tmp = existing != null ? existing.GetComponent<TextMeshProUGUI>() : null;
+            if (tmp == null)
+            {
+                GameObject go = new GameObject("OwnedCount", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                go.transform.SetParent(host, false);
+                go.transform.SetAsLastSibling();
+                tmp = go.GetComponent<TextMeshProUGUI>();
+                tmp.fontSize = 40f;
+                tmp.color = Color.white;
+                tmp.fontStyle = FontStyles.Bold;
+                tmp.enableWordWrapping = false;
+                tmp.overflowMode = TextOverflowModes.Overflow;
+                tmp.raycastTarget = false;
+                tmp.outlineWidth = 0.25f;
+                tmp.outlineColor = new Color(0.12f, 0.07f, 0.03f, 1f);
+                existing = go.transform;
+            }
+            else if (existing.parent != host)
+            {
+                existing.SetParent(host, false);
+                existing.SetAsLastSibling();
+            }
+
+            RectTransform rect = existing as RectTransform;
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(0f, 0f);
+            rect.pivot = new Vector2(0f, 0f);
+            rect.anchoredPosition = new Vector2(8f, 8f);
+            rect.sizeDelta = new Vector2(96f, 52f);
+            rect.localScale = Vector3.one;
+            rect.localRotation = Quaternion.identity;
+            tmp.alignment = TextAlignmentOptions.BottomLeft;
+
+            UiFonts.Apply(tmp);
+            tmp.text = PlayerDataService.CountBackpack(Quality, temperament).ToString();
         }
 
         void Select(int temperament)

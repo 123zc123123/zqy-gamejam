@@ -204,6 +204,14 @@ namespace DouQuqu
             helpImage.localScale = Vector3.one;
         }
 
+        public static bool HasClaimableChest()
+        {
+            int battles = PlayerDataService.BattleCount;
+            if (!PlayerDataService.QuestChest1Claimed && battles >= Chest1Battles) return true;
+            if (!PlayerDataService.QuestChest2Claimed && battles >= Chest2Battles) return true;
+            return false;
+        }
+
         public void RefreshChests()
         {
             BindChest(chest1, Chest1Battles, PlayerDataService.QuestChest1Claimed, 1);
@@ -254,6 +262,7 @@ namespace DouQuqu
                     : new Color(1f, 1f, 1f, 0.55f);
             }
             bool canClick = !claimed && PlayerDataService.BattleCount >= need;
+            UiRedDot.Set(slot, canClick);
             button.interactable = canClick;
             button.transition = Selectable.Transition.None;
             if (image != null) button.targetGraphic = image;
