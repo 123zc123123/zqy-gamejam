@@ -92,6 +92,7 @@ namespace DouQuqu
         public static bool QuestChest2Claimed => CurrentPlayer != null && CurrentPlayer.questChest2Claimed;
         public static bool CrownOwned => CurrentPlayer != null && CurrentPlayer.crownOwned;
         public static bool CrownEquipped => CurrentPlayer != null && CurrentPlayer.crownEquipped;
+        public static bool ZoneCollapseTold => CurrentPlayer != null && CurrentPlayer.zoneCollapseTold;
         public static event Action PlayerDataChanged;
 
         /// <summary>本机积分大于 0 的玩家，按账号积分从高到低；同分先登录的在前。</summary>

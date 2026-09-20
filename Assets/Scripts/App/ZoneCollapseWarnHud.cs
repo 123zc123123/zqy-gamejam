@@ -57,6 +57,7 @@ namespace DouQuqu
             }
 
             ApplyVisibleAlpha();
+            if (warn) TutorialDirector.OnFirstZoneWarn(match);
         }
 
         public void Show()
@@ -66,14 +67,6 @@ namespace DouQuqu
             shownAt = Time.unscaledTime;
             rt.gameObject.SetActive(true);
             Play(true);
-            TryTellFirstCollapse();
-        }
-
-        static void TryTellFirstCollapse()
-        {
-            if (DialogueBoxView.IsPlaying) return;
-            if (!PlayerDataService.TryConsumeFirstZoneTalk()) return;
-            DialogueBoxView.Play(TutorialDirector.IdBattleZone);
         }
 
         public void Hide()

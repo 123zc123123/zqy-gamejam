@@ -458,6 +458,8 @@ namespace DouQuqu
                 if (!egg.alive)
                 {
                     initializedEggPositions.Remove(i);
+                    HatchBar deadBar = view.GetComponent<HatchBar>();
+                    if (deadBar != null) deadBar.Hide();
                     continue;
                 }
                 Vector3 eggTarget = egg.position + Vector3.up * groundOffset;
@@ -470,9 +472,19 @@ namespace DouQuqu
                     initializedEggPositions, i, view.transform.position, eggTarget);
                 view.transform.localScale = Vector3.one;
                 Tint(view, new Color(0.95f, 0.95f, 0.72f));
+                float duration = egg.hatchDuration > 0.01f ? egg.hatchDuration : Mathf.Max(0.01f, state.knobs.eggHatchT);
+                float remain = HatchBar.RemainRatio(state.elapsed, egg.hatchAt, duration);
+                HatchBar bar = view.GetComponent<HatchBar>();
+                if (bar == null) bar = view.AddComponent<HatchBar>();
+                bar.Apply(remain, view.transform.position, state.knobs != null ? state.knobs.eggR : 0.55f);
             }
             for (int i = state.eggs.Count; i < eggViews.Count; i++)
-                if (eggViews[i] != null) eggViews[i].SetActive(false);
+            {
+                if (eggViews[i] == null) continue;
+                eggViews[i].SetActive(false);
+                HatchBar extra = eggViews[i].GetComponent<HatchBar>();
+                if (extra != null) extra.Hide();
+            }
         }
 
         private void RefreshPickups(MatchState state)

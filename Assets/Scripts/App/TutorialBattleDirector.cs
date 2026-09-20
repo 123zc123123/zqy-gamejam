@@ -10,11 +10,14 @@ namespace DouQuqu
     {
         const int DummyId = 1;
         const float MarkerPulse = 1.6f;
+        public const float CloseupHatchSeconds = 2.4f;
+        public static bool LessonsActive { get; private set; }
 
         public static IEnumerator Play(MatchController match, int localId, Transform hudRoot)
         {
             if (match == null || !TutorialDirector.NeedsBattleLesson) yield break;
 
+            LessonsActive = true;
             DialogueCatalog.Reload();
             match.SetTutorialFreeze(true);
             match.ClearPickups();
@@ -40,6 +43,7 @@ namespace DouQuqu
                 if (i == localId) continue;
                 match.SetPlayerIdle(i, false);
             }
+            LessonsActive = false;
         }
 
         static bool Failed(MatchController match, int localId)
@@ -68,13 +72,6 @@ namespace DouQuqu
             while (!done && !Failed(match, localId))
             {
                 PulseOutline(hudRoot, true);
-                yield return null;
-            }
-            float shown = 0f;
-            while (!Failed(match, localId) && shown < TutorialDirector.BoundShowSeconds)
-            {
-                PulseOutline(hudRoot, true);
-                shown += Time.unscaledDeltaTime;
                 yield return null;
             }
             PulseOutline(hudRoot, false);
@@ -138,24 +135,38 @@ namespace DouQuqu
                 yield return null;
             }
 
+            EggState focusEgg = PickNearestEgg(match.Eggs, look);
+            if (focusEgg != null)
+            {
+                focusEgg.velocity = Vector3.zero;
+                look = focusEgg.position;
+                look.y = 0f;
+                DriveCloseupHatch(focusEgg, match.Elapsed, 0f, CloseupHatchSeconds);
+            }
             match.SetTutorialHoldClock(false);
             float waited = 0f;
-            while (!Failed(match, localId) && waited < TutorialDirector.NestHatchWaitSeconds && !HasLiveBaby(match))
+            while (!Failed(match, localId) && waited < TutorialDirector.NestHatchWaitSeconds
+                && focusEgg != null && focusEgg.alive)
             {
-                look = WatchPoint(match.Eggs, match.Babies, look);
+                look = focusEgg.position;
+                look.y = 0f;
                 if (cam != null) cam.LookAtPoint(look, 0f);
+                DriveCloseupHatch(focusEgg, match.Elapsed, waited, CloseupHatchSeconds);
+                if (CloseupHatchDue(waited, CloseupHatchSeconds))
+                    match.ForceHatchEgg(focusEgg);
                 waited += Time.unscaledDeltaTime;
                 yield return null;
             }
 
-            look = WatchPoint(match.Eggs, match.Babies, look);
+            look = WatchPoint(null, match.Babies, look);
             if (cam != null) cam.LookAtPoint(look, 0f);
+            match.SetTutorialHoldClock(true);
 
             bool talkDone = false;
             DialogueBoxView.Play(TutorialDirector.IdBattleNestHatch, () => talkDone = true);
             while (!talkDone && !Failed(match, localId))
             {
-                look = WatchPoint(match.Eggs, match.Babies, look);
+                look = WatchPoint(null, match.Babies, look);
                 if (cam != null) cam.LookAtPoint(look, 0f);
                 yield return null;
             }
@@ -243,6 +254,38 @@ namespace DouQuqu
                 if (gap >= minGap) return at;
             }
             return match.PointInward(localId, distance);
+        }
+
+        /// <summary>特写进度条跟真实秒走，不跟被 cap 的比赛时钟。left=0 时条空。</summary>
+        public static void DriveCloseupHatch(EggState egg, float elapsed, float waited, float closeupHatch)
+        {
+            if (egg == null || !egg.alive) return;
+            float duration = Mathf.Max(0.01f, closeupHatch);
+            float left = Mathf.Max(0f, duration - Mathf.Max(0f, waited));
+            egg.hatchDuration = duration;
+            egg.hatchAt = elapsed + left;
+        }
+
+        public static bool CloseupHatchDue(float waited, float closeupHatch)
+        {
+            return waited + 1e-4f >= Mathf.Max(0.01f, closeupHatch);
+        }
+
+        public static EggState PickNearestEgg(IReadOnlyList<EggState> eggs, Vector3 anchor)
+        {
+            EggState best = null;
+            float bestDist = float.PositiveInfinity;
+            if (eggs == null) return null;
+            for (int i = 0; i < eggs.Count; i++)
+            {
+                EggState egg = eggs[i];
+                if (egg == null || !egg.alive) continue;
+                float dist = (egg.position - anchor).sqrMagnitude;
+                if (best != null && dist >= bestDist) continue;
+                best = egg;
+                bestDist = dist;
+            }
+            return best;
         }
 
         /// <summary>选一颗还活着的卵（没有卵就选宝宝），对准镜头中心。优先离锚点最近的那颗。</summary>
@@ -355,17 +398,19 @@ namespace DouQuqu
 
         static void PulseOutline(Transform hudRoot, bool on)
         {
-            RestoreTableTint(hudRoot);
-            ArenaZoneView zone = ArenaZoneView.Ensure();
-            if (zone != null) zone.SetTutorialBoundPulse(on);
-        }
-
-        static void RestoreTableTint(Transform hudRoot)
-        {
             if (outlineImage == null)
                 outlineImage = FindOutlineImage(hudRoot);
             if (outlineImage != null)
-                outlineImage.color = Color.white;
+            {
+                if (!on) outlineImage.color = Color.white;
+                else
+                {
+                    float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * Mathf.PI * 3.4f);
+                    outlineImage.color = Color.Lerp(Color.white, new Color(1f, 0.25f, 0.08f, 1f), 0.55f + 0.45f * pulse);
+                }
+            }
+            ArenaZoneView zone = ArenaZoneView.Ensure();
+            if (zone != null) zone.SetTutorialBoundPulse(on);
         }
 
         static Image FindOutlineImage(Transform hudRoot)

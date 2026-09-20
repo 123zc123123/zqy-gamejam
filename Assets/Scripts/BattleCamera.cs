@@ -139,7 +139,7 @@ namespace DouQuqu
             if (shakeT >= shakeDur || shakeAmp <= 0f) return;
             shakeT += Time.unscaledDeltaTime;
             float u = 1f - Mathf.Clamp01(shakeT / shakeDur);
-            float mag = shakeAmp * u * u;
+            float mag = shakeAmp * u;
             Vector3 p = transform.position;
             transform.position = new Vector3(
                 p.x + (Random.value * 2f - 1f) * mag,

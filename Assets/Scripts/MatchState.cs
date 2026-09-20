@@ -164,6 +164,7 @@ namespace DouQuqu
         public Vector3 velocity;
         public int ownerId;
         public float remaining;
+        public float hatchDuration;
         public bool alive;
     }
 

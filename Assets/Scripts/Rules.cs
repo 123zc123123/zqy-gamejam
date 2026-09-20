@@ -482,6 +482,15 @@ namespace DouQuqu
             return LastZoneTier;
         }
 
+        /// <summary>六课进行中时钟不超过第一次预告，避免边上课边缩到最后一档。</summary>
+        public static float TutorialElapsedCap(MatchKnobs knobs)
+        {
+            float[] snaps = ZoneSnapTimes(knobs);
+            float warn = knobs == null ? 5f : Mathf.Max(0f, knobs.zoneWarnT);
+            float cap = snaps[0] - warn - 0.5f;
+            return Mathf.Max(8f, cap);
+        }
+
         public static bool IsZoneWarn(MatchKnobs knobs, float elapsed)
         {
             if (knobs == null || !knobs.zoneSchedule) return false;
@@ -1613,6 +1622,18 @@ namespace DouQuqu
             return p;
         }
 
+        /// <summary>把点拉进指定档有效区内侧，给收口前站位用。</summary>
+        public static Vector3 ClampIntoZoneTier(MatchKnobs knobs, Vector3 pos, float pad, int tier)
+        {
+            Vector2 half = ZoneHalfExtents(knobs, tier);
+            float insetW = Mathf.Max(0.01f, half.x - pad);
+            float insetD = Mathf.Max(0.01f, half.y - pad);
+            pos.x = Mathf.Clamp(pos.x, -insetW, insetW);
+            pos.z = Mathf.Clamp(pos.z, -insetD, insetD);
+            pos.y = 0f;
+            return pos;
+        }
+
         public static bool InsideArena(Vector3 p, float pad = 0f)
         {
             return ArenaSdf(p.x, p.z) <= -pad;
@@ -1733,6 +1754,7 @@ namespace DouQuqu
         public Vector3 velocity;
         public int ownerId = -1;
         public float hatchAt;
+        public float hatchDuration;
         public bool alive = true;
     }
 }

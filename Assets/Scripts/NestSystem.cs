@@ -88,6 +88,7 @@ namespace DouQuqu
                     velocity = velocity,
                     ownerId = state.pendingNestOwnerId,
                     hatchAt = state.elapsed + hatches[i],
+                    hatchDuration = Mathf.Max(0.01f, hatches[i]),
                     alive = true
                 });
             }
@@ -118,18 +119,7 @@ namespace DouQuqu
                     continue;
                 }
                 if (state.elapsed + 1e-9f >= egg.hatchAt)
-                {
-                    egg.alive = false;
-                    BabyState baby = new BabyState(state.nextBabyId++, egg.position, egg.ownerId, state.elapsed + BabyLifeOf(state, egg.ownerId), state.knobs)
-                    {
-                        velocity = egg.velocity * 0.25f,
-                        attackCooldown = 0f,
-                        slideMu = state.knobs.mu,
-                        chargeDirection = new Vector2(egg.velocity.x, egg.velocity.z).sqrMagnitude > 0.001f ? new Vector2(egg.velocity.x, egg.velocity.z).normalized : Vector2.up
-                    };
-                    state.babies.Add(baby);
-                    emit?.Invoke("egg-hatch", egg.position);
-                }
+                    HatchEgg(state, egg, emit);
             }
         }
 
@@ -204,6 +194,24 @@ namespace DouQuqu
             }
             if (bestScore < 0f) return false;
             at = best;
+            return true;
+        }
+
+        /// <summary>把一枚活卵立刻变成幼虫。教学特写在模拟时钟对不上时走这条，不另写一套。</summary>
+        public bool HatchEgg(MatchState state, EggState egg, Action<string, Vector3> emit)
+        {
+            if (state == null || egg == null || !egg.alive) return false;
+            egg.alive = false;
+            Vector2 planar = new Vector2(egg.velocity.x, egg.velocity.z);
+            BabyState baby = new BabyState(state.nextBabyId++, egg.position, egg.ownerId, state.elapsed + BabyLifeOf(state, egg.ownerId), state.knobs)
+            {
+                velocity = egg.velocity * 0.25f,
+                attackCooldown = 0f,
+                slideMu = state.knobs != null ? state.knobs.mu : 1.4f,
+                chargeDirection = planar.sqrMagnitude > 0.001f ? planar.normalized : Vector2.up
+            };
+            state.babies.Add(baby);
+            emit?.Invoke("egg-hatch", egg.position);
             return true;
         }
 

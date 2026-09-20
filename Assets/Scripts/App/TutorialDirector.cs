@@ -46,7 +46,7 @@ namespace DouQuqu
         public const string IdBreedMerge = "dlg.tutorial.breed_merge";
         public const string IdFinestSkill = "dlg.tutorial.finest_skill";
 
-        public const float BoundShowSeconds = 2.5f;
+        public const float BoundShowSeconds = 3.8f;
         public const float NestHp = 1f;
         public const float NestLookSeconds = 0.7f;
         public const float NestHatchWaitSeconds = 8f;
@@ -280,6 +280,46 @@ namespace DouQuqu
             GameObject back = FindActive("返回icon");
             if (back == null) back = FindActive("BackIcon");
             TutorialSpotlight.Show(back, "点击返回");
+        }
+
+        public static void OnFirstZoneWarn(MatchController match)
+        {
+            if (match == null || match.IsOver) return;
+            if (PlayerDataService.ZoneCollapseTold) return;
+            if (TutorialBattleDirector.LessonsActive) return;
+            if (!match.ZoneWarn) return;
+            match.SetTutorialHoldClock(true);
+            if (DialogueBoxView.IsPlaying) return;
+            if (!PlayerDataService.TryConsumeFirstZoneTalk()) return;
+            for (int i = 0; i < MatchController.MaxPlayers; i++)
+                match.SetPlayerIdle(i, true);
+            DialogueBoxView.Play(IdBattleZone, () => FinishFirstZoneTalk(match));
+        }
+
+        static void FinishFirstZoneTalk(MatchController match)
+        {
+            if (match != null && !match.IsOver)
+            {
+                PullLivingIntoNextZone(match);
+                match.SetTutorialHoldClock(false);
+                for (int i = 0; i < MatchController.MaxPlayers; i++)
+                    match.SetPlayerIdle(i, false);
+            }
+        }
+
+        static void PullLivingIntoNextZone(MatchController match)
+        {
+            if (match == null || match.Bugs == null || match.Knobs == null) return;
+            int next = Mathf.Clamp(match.ZoneTier + 1, 0, Rules.LastZoneTier);
+            for (int i = 0; i < match.Bugs.Length; i++)
+            {
+                BugState bug = match.Bugs[i];
+                if (bug == null || !bug.alive) continue;
+                float pad = bug.radius + 2f;
+                bug.position = Rules.ClampIntoZoneTier(match.Knobs, bug.position, pad, next);
+                bug.previousPosition = bug.position;
+                bug.velocity = Vector3.zero;
+            }
         }
 
         public static void OnFirstFinestMerged()

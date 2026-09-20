@@ -71,11 +71,21 @@ namespace DouQuqu
             float dashWidth = 0.42f;
             if (tutorialBoundPulse)
             {
-                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * Mathf.PI * 2.4f);
-                dash = new Color(1f, 0.16f + 0.2f * (1f - pulse), 0.08f, 0.55f + 0.45f * pulse);
-                dashWidth = 0.62f;
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * Mathf.PI * 3.4f);
+                dash = new Color(1f, 0.22f + 0.55f * pulse, 0.05f, 1f);
+                dashWidth = 1.25f;
             }
             DrawCurrentDash(dash, dashWidth);
+            if (tutorialBoundPulse)
+            {
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * Mathf.PI * 3.4f);
+                float band = 3.2f;
+                DrawFill(
+                    Rules.ArenaHalfWidth, Rules.ArenaHalfDepth,
+                    Mathf.Max(0.2f, Rules.ArenaHalfWidth - band),
+                    Mathf.Max(0.2f, Rules.ArenaHalfDepth - band),
+                    new Color(1f, 0.12f + 0.2f * pulse, 0.04f, 0.42f + 0.38f * pulse));
+            }
 
             if (elapsed + 0.05f < lastElapsed)
             {
@@ -106,7 +116,7 @@ namespace DouQuqu
             else
             {
                 if (warnRenderer != null) warnRenderer.enabled = false;
-                if (fadeStartElapsed < 0f) HideFill();
+                if (!tutorialBoundPulse && fadeStartElapsed < 0f) HideFill();
             }
 
             if (!tutorialBoundPulse && fadeStartElapsed >= 0f)

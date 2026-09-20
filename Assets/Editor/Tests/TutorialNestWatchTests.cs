@@ -100,6 +100,46 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
+        public void CloseupBarDrainsWithUnscaledWaitEvenIfElapsedFrozen()
+        {
+            EggState egg = new EggState { alive = true };
+            const float elapsed = 24.5f;
+            TutorialBattleDirector.DriveCloseupHatch(egg, elapsed, 0f, TutorialBattleDirector.CloseupHatchSeconds);
+            Assert.AreEqual(1f, HatchBar.RemainRatio(elapsed, egg.hatchAt, egg.hatchDuration), 1e-4f);
+            TutorialBattleDirector.DriveCloseupHatch(egg, elapsed, 1.2f, TutorialBattleDirector.CloseupHatchSeconds);
+            Assert.AreEqual(0.5f, HatchBar.RemainRatio(elapsed, egg.hatchAt, egg.hatchDuration), 1e-4f);
+            TutorialBattleDirector.DriveCloseupHatch(egg, elapsed, TutorialBattleDirector.CloseupHatchSeconds, TutorialBattleDirector.CloseupHatchSeconds);
+            Assert.AreEqual(0f, HatchBar.RemainRatio(elapsed, egg.hatchAt, egg.hatchDuration), 1e-4f);
+            Assert.IsTrue(TutorialBattleDirector.CloseupHatchDue(TutorialBattleDirector.CloseupHatchSeconds, TutorialBattleDirector.CloseupHatchSeconds));
+        }
+
+        [Test]
+        public void HatchEggTurnsFocusedEggIntoBaby()
+        {
+            MatchState state = new MatchState
+            {
+                knobs = Rules.DefaultKnobs(),
+                elapsed = 8f
+            };
+            EggState egg = new EggState
+            {
+                alive = true,
+                position = new Vector3(2f, 0f, 1f),
+                ownerId = 0,
+                hatchAt = 99f,
+                hatchDuration = 5f
+            };
+            state.eggs.Add(egg);
+            NestSystem nest = new NestSystem();
+            Assert.IsTrue(nest.HatchEgg(state, egg, null));
+            Assert.IsFalse(egg.alive);
+            Assert.AreEqual(1, state.babies.Count);
+            Assert.IsTrue(state.babies[0].alive);
+            Assert.AreEqual(2f, state.babies[0].position.x, 1e-4f);
+            Assert.AreEqual(1f, state.babies[0].position.z, 1e-4f);
+        }
+
+        [Test]
         public void NestHatchDialogueParses()
         {
             TextAsset asset = Resources.Load<TextAsset>("Dialogue/dlg.tutorial.battle_nest_hatch");

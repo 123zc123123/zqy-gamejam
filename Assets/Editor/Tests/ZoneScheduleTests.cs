@@ -81,6 +81,28 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
+        public void TutorialElapsedCapStopsBeforeFirstWarn()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            float cap = Rules.TutorialElapsedCap(knobs);
+            float[] snaps = Rules.ZoneSnapTimes(knobs);
+            Assert.Less(cap, snaps[0] - knobs.zoneWarnT);
+            Assert.IsFalse(Rules.IsZoneWarn(knobs, cap));
+        }
+
+        [Test]
+        public void ClampIntoNextTierPullsCornerInside()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            Rules.SetArenaScale(knobs.zoneScale0);
+            Vector3 corner = Rules.OpeningSpawn(0, knobs.spawnEdge);
+            Vector3 safe = Rules.ClampIntoZoneTier(knobs, corner, 2f, 1);
+            Vector2 half = Rules.ZoneHalfExtents(knobs, 1);
+            Assert.LessOrEqual(Mathf.Abs(safe.x) + 2f, half.x + 0.01f);
+            Assert.LessOrEqual(Mathf.Abs(safe.z) + 2f, half.y + 0.01f);
+        }
+
+        [Test]
         public void Z6_OpeningSpawnsAreInsetCorners()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();

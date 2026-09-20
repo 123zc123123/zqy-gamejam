@@ -399,6 +399,16 @@ namespace DouQuqu
             StateChanged?.Invoke(state);
         }
 
+        /// <summary>教学特写：进度条走完后立刻孵，不把成败交给下一帧模拟时钟。</summary>
+        public bool ForceHatchEgg(EggState egg)
+        {
+            if (state == null || egg == null || !egg.alive) return false;
+            if (!nestSystem.HatchEgg(state, egg, Emit)) return false;
+            nestSystem.TickAfterCollision(state, Emit);
+            StateChanged?.Invoke(state);
+            return true;
+        }
+
         public void MovePlayerTo(int playerId, Vector3 at)
         {
             if (state == null || state.bugs == null || playerId < 0 || playerId >= state.bugs.Length) return;
@@ -462,7 +472,12 @@ namespace DouQuqu
             MatchKnobs active = ActiveKnobs;
             float previousElapsed = state.elapsed;
             int previousTier = ZoneTier;
-            if (!tutorialHoldClock) state.elapsed += dt;
+            if (!tutorialHoldClock)
+            {
+                state.elapsed += dt;
+                if (TutorialBattleDirector.LessonsActive)
+                    state.elapsed = Mathf.Min(state.elapsed, Rules.TutorialElapsedCap(active));
+            }
             state.tick++;
             int tier = ZoneTier;
             if (tier != previousTier)
@@ -566,7 +581,7 @@ namespace DouQuqu
             for (int i = 0; i < state.eggs.Count; i++)
             {
                 EggState e = state.eggs[i];
-                snapshot.eggs[i] = new EggSnapshot { position = e.position, velocity = e.velocity, ownerId = e.ownerId, remaining = Mathf.Max(0f, e.hatchAt - state.elapsed), alive = e.alive };
+                snapshot.eggs[i] = new EggSnapshot { position = e.position, velocity = e.velocity, ownerId = e.ownerId, remaining = Mathf.Max(0f, e.hatchAt - state.elapsed), hatchDuration = e.hatchDuration, alive = e.alive };
             }
             for (int i = 0; i < state.babies.Count; i++)
             {
@@ -722,6 +737,7 @@ namespace DouQuqu
                 e.velocity = s.velocity;
                 e.ownerId = s.ownerId;
                 e.hatchAt = state.elapsed + s.remaining;
+                e.hatchDuration = s.hatchDuration > 0.01f ? s.hatchDuration : Mathf.Max(s.remaining, 0.01f);
                 e.alive = s.alive;
             }
         }

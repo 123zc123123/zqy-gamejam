@@ -39,6 +39,14 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
+        public void HatchBarDrainsFromFullToEmpty()
+        {
+            Assert.AreEqual(1f, HatchBar.RemainRatio(0f, 5f, 5f), 1e-4f);
+            Assert.AreEqual(0.4f, HatchBar.RemainRatio(3f, 5f, 5f), 1e-4f);
+            Assert.AreEqual(0f, HatchBar.RemainRatio(5f, 5f, 5f), 1e-4f);
+        }
+
+        [Test]
         public void KnockbackTriplesDistanceKeepsTime()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();

@@ -554,7 +554,7 @@ namespace DouQuqu
         private void OnSlotClicked(int index)
         {
             if (!sessionActive || ready) return;
-            if (index < 0 || index >= SlotCount) return;
+            if (index < 0 || index >= AllowedSlotCount()) return;
             selectedSlot = index;
             RefreshGreenBox();
         }
@@ -680,6 +680,7 @@ namespace DouQuqu
                 UnlockReady();
                 return;
             }
+            NormalizeTutorialSlots();
             if (!AllSlotsFilled()) return;
             LockReady();
         }
@@ -851,7 +852,9 @@ namespace DouQuqu
             detailInstanceId = instanceId;
             if (SlotIndexOf(instanceId) < 0)
             {
+                if (TutorialDirector.OneSlotStart) selectedSlot = 0;
                 slotEntries[selectedSlot] = entry;
+                NormalizeTutorialSlots();
                 AdvanceToNextEmptySlot();
                 RefreshSlots();
                 RefreshGreenBox();
@@ -878,6 +881,7 @@ namespace DouQuqu
 
         private void RefreshAll()
         {
+            NormalizeTutorialSlots();
             RefreshChrome();
             RefreshSlots();
             RefreshGreenBox();
@@ -949,12 +953,21 @@ namespace DouQuqu
                         CricketCatalog.FitPackPortrait(slot.portrait);
                     }
                 }
+                if (slot.root != null)
+                {
+                    CanvasGroup group = slot.root.GetComponent<CanvasGroup>();
+                    if (group == null) group = slot.root.gameObject.AddComponent<CanvasGroup>();
+                    bool allowed = i < AllowedSlotCount();
+                    group.alpha = allowed ? 1f : 0.35f;
+                    group.blocksRaycasts = allowed;
+                }
             }
         }
 
         private void RefreshGreenBox()
         {
             if (greenBox == null) return;
+            if (selectedSlot >= AllowedSlotCount()) selectedSlot = 0;
             bool show = sessionActive && !ready && selectedSlot >= 0 && selectedSlot < SlotCount
                 && slots[selectedSlot] != null && slots[selectedSlot].root != null;
             greenBox.gameObject.SetActive(show);
@@ -1135,9 +1148,31 @@ namespace DouQuqu
             return -1;
         }
 
+        int AllowedSlotCount()
+        {
+            return TutorialDirector.OneSlotStart ? 1 : SlotCount;
+        }
+
+        void NormalizeTutorialSlots()
+        {
+            if (!TutorialDirector.OneSlotStart) return;
+            if (slotEntries[0] == null)
+            {
+                for (int i = 1; i < SlotCount; i++)
+                {
+                    if (slotEntries[i] == null) continue;
+                    slotEntries[0] = slotEntries[i];
+                    slotEntries[i] = null;
+                    break;
+                }
+            }
+            for (int i = 1; i < SlotCount; i++) slotEntries[i] = null;
+            selectedSlot = 0;
+        }
+
         private bool AllSlotsFilled()
         {
-            int need = TutorialDirector.OneSlotStart ? 1 : SlotCount;
+            int need = AllowedSlotCount();
             for (int i = 0; i < need; i++)
                 if (slotEntries[i] == null) return false;
             return true;
