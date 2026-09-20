@@ -8,10 +8,9 @@ namespace DouQuqu
     /// <summary>合成盘上的背包：用选虫页同一套「选择名角背包」，默认展开。</summary>
     public sealed class MergeBackpackPanel : MonoBehaviour
     {
-        private const string PrefabPath = "HeroSelection/Prefabs/Parts/选择名角背包";
+        private const string PrefabPath = "Common/Prefabs/选择名角背包";
         private static readonly string[] FilterLabels = { "全部", "耐战", "强攻", "灵巧", "智谋" };
         private static readonly Color TabOn = new Color(0.96f, 0.90f, 0.62f, 1f);
-        private static readonly Color TabOff = new Color(0.78f, 0.74f, 0.62f, 0.72f);
 
         private const float DesignWidth = 1080f;
         private const float DesignHeight = 1920f;
@@ -247,7 +246,7 @@ namespace DouQuqu
                 bool on = tab.temperament == filterTemperament;
                 if (tab.line != null) tab.line.gameObject.SetActive(on);
                 if (tab.label == null) continue;
-                tab.label.color = on ? TabOn : TabOff;
+                tab.label.color = TabOn;
                 tab.label.fontStyle = on ? FontStyles.Bold : FontStyles.Normal;
             }
         }
@@ -276,6 +275,7 @@ namespace DouQuqu
                 card.root.SetActive(true);
                 PlaceCard(card.root.transform as RectTransform, i);
                 if (card.quality != null) card.quality.text = CricketCatalog.QualityName(entry.quality);
+                CricketCatalog.ApplyQualityLabel(card.badge, entry.quality);
                 if (card.name != null) card.name.text = CricketCatalog.CricketName(entry.quality, entry.temperament);
                 if (card.background != null)
                 {
@@ -345,6 +345,8 @@ namespace DouQuqu
             CardView card = new CardView { root = root };
             Transform quality = FindNamed(root.transform, "极品");
             card.quality = quality != null ? quality.GetComponent<TMP_Text>() : null;
+            Transform badge = FindNamed(root.transform, "品级");
+            card.badge = badge != null ? badge.GetComponent<Image>() : null;
             Transform name = FindNamed(root.transform, "白头狮");
             card.name = name != null ? name.GetComponent<TMP_Text>() : null;
             Transform portrait = FindNamed(root.transform, "头像");
@@ -410,6 +412,7 @@ namespace DouQuqu
             public GameObject root;
             public TMP_Text quality;
             public TMP_Text name;
+            public Image badge;
             public Image background;
             public Image portrait;
         }

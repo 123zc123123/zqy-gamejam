@@ -123,7 +123,11 @@ namespace DouQuqu
             if (mask != null) mask.gameObject.SetActive(false);
 
             Transform badge = FindNamed(root, "品级");
-            if (badge != null) badge.gameObject.SetActive(false);
+            if (badge != null)
+            {
+                badge.gameObject.SetActive(true);
+                CricketCatalog.ApplyQualityLabel(badge.GetComponent<Image>(), quality);
+            }
 
             Transform bg = FindNamed(root, "背景");
             if (bg == null) bg = FindNamed(root, "Rectangle 11");
@@ -172,6 +176,7 @@ namespace DouQuqu
 
         private void OpenDetail(int quality, int temperament)
         {
+            if (!HasCollected(quality, temperament)) return;
             if (!EnsureDetailView()) return;
             detailView.SetCatalogMode();
             Color? descColor = null;
@@ -179,14 +184,15 @@ namespace DouQuqu
             if (CricketCatalog.TrySkillBlurbColor(quality, temperament, out skillColor))
                 descColor = skillColor;
             detailView.Show(
-                CricketCatalog.QualityName(quality),
+                CricketCatalog.RankLabel(quality, temperament),
                 CricketCatalog.CricketName(quality, temperament),
                 CricketCatalog.Blurb(quality, temperament),
                 SpriteFor(quality, temperament),
                 CricketCatalog.TemperamentName(temperament),
                 CricketCatalog.PanelStatDisplays(quality, temperament),
                 CricketCatalog.PanelStatStrongFlags(temperament),
-                descColor);
+                descColor,
+                quality);
         }
 
         private bool EnsureDetailView()
@@ -280,7 +286,15 @@ namespace DouQuqu
                 if (slot == null || slot.group == null) continue;
                 bool owned = HasEntry(entries, slot.quality, slot.temperament);
                 slot.group.alpha = owned ? 1f : 0.42f;
+                slot.group.interactable = owned;
+                slot.group.blocksRaycasts = owned;
+                if (slot.button != null) slot.button.interactable = owned;
             }
+        }
+
+        private static bool HasCollected(int quality, int temperament)
+        {
+            return HasEntry(PlayerDataService.GetCollectionSnapshot(), quality, temperament);
         }
 
         private static bool HasEntry(List<CricketCollectionEntry> entries, int quality, int temperament)

@@ -6,15 +6,12 @@ using ZqyGameJam.UI.QuquXiangqing;
 namespace DouQuqu
 {
     /// <summary>
-    /// 开宝箱自选一只极品：任务说明底图、「任选一只」、四只 PackCricket、底部确认。
+    /// 开宝箱自选一只极品：预制体半透明黑底、「任选一只」、四只 PackCricket、底部确认。
     /// 每只下面有详情放大镜，点开只读蛐蛐详情。
     /// </summary>
     public sealed class QuestChestPickPopup : MonoBehaviour
     {
-        public const string PackPrefabPath = "Common/Prefabs/PackCricket";
-        public const string HelpPrefabPath = "BattleEntrance/Prefabs/Parts/QuestHelp";
-        public const string ReadyPrefabPath = "Common/Prefabs/btn-ready";
-        public const string InspectIconPath = "Collection/Textures/StatHelpIcon";
+        public const string PrefabPath = "Common/Prefabs/QuestChestPick";
         public const int Quality = 4;
 
         System.Action<int> confirmed;
@@ -26,15 +23,19 @@ namespace DouQuqu
 
         public static QuestChestPickPopup Show(System.Action<int> onConfirmed)
         {
-            RectTransform overlay = UiFactory.CreateOverlay("QuestChestPickCanvas", 280);
-            Image dim = overlay.GetComponent<Image>();
-            if (dim == null) dim = overlay.gameObject.AddComponent<Image>();
-            dim.color = new Color(0.05f, 0.03f, 0.02f, 0.62f);
-            dim.raycastTarget = true;
+            GameObject prefab = Resources.Load<GameObject>(PrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[DouQuqu] 找不到宝箱领奖 " + PrefabPath);
+                return null;
+            }
 
-            QuestChestPickPopup popup = overlay.gameObject.AddComponent<QuestChestPickPopup>();
+            GameObject go = Instantiate(prefab);
+            go.name = "QuestChestPick";
+            QuestChestPickPopup popup = go.GetComponent<QuestChestPickPopup>();
+            if (popup == null) popup = go.AddComponent<QuestChestPickPopup>();
             popup.confirmed = onConfirmed;
-            popup.Build(overlay);
+            popup.Bind();
             return popup;
         }
 
@@ -48,115 +49,43 @@ namespace DouQuqu
             if (gameObject != null) Destroy(gameObject);
         }
 
-        void Build(RectTransform overlay)
+        void Bind()
         {
-            RectTransform panel = CreatePanel(overlay);
-            CreateTitle(panel);
-            CreatePacks(panel);
-            CreateConfirm(overlay);
-            RefreshSelection();
-            UiFonts.ApplyTree(transform);
-        }
-
-        RectTransform CreatePanel(RectTransform overlay)
-        {
-            GameObject prefab = Resources.Load<GameObject>(HelpPrefabPath);
-            GameObject panelGo;
-            if (prefab != null)
-            {
-                panelGo = Instantiate(prefab, overlay, false);
-                panelGo.name = "QuestHelp";
-            }
-            else
-            {
-                panelGo = new GameObject("QuestHelp", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                panelGo.transform.SetParent(overlay, false);
-            }
-
-            RectTransform panel = panelGo.GetComponent<RectTransform>();
-            panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0.5f, 0.5f);
-            panel.anchoredPosition = new Vector2(0f, 40f);
-            panel.sizeDelta = new Vector2(960f, 620f);
-            panel.localScale = Vector3.one;
-            Image graphic = panel.GetComponent<Image>();
-            if (graphic != null)
-            {
-                graphic.preserveAspect = true;
-                graphic.raycastTarget = true;
-            }
-
-            Transform body = panel.Find("Body");
-            if (body != null) body.gameObject.SetActive(false);
-            return panel;
-        }
-
-        void CreateTitle(RectTransform panel)
-        {
-            GameObject go = new GameObject("Title", typeof(RectTransform), typeof(TextMeshProUGUI));
-            RectTransform rect = go.GetComponent<RectTransform>();
-            rect.SetParent(panel, false);
-            rect.anchorMin = new Vector2(0.08f, 0.82f);
-            rect.anchorMax = new Vector2(0.92f, 0.96f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
-            text.font = UiFonts.Font;
-            text.text = "任选一只";
-            text.fontSize = 42f;
-            text.color = new Color(0.28f, 0.16f, 0.10f, 1f);
-            text.alignment = TextAlignmentOptions.Center;
-            text.raycastTarget = false;
-        }
-
-        void CreatePacks(RectTransform panel)
-        {
-            GameObject prefab = Resources.Load<GameObject>(PackPrefabPath);
-            if (prefab == null) return;
-
-            float scale = 0.55f;
-            float spacing = 200f;
-            float startX = -1.5f * spacing;
+            Transform crickets = FindNamed(transform, "crickets");
             for (int t = 1; t <= 4; t++)
             {
-                GameObject inst = Instantiate(prefab, panel, false);
-                inst.name = "PackCricket_4_" + t;
-                RectTransform rt = inst.GetComponent<RectTransform>();
-                rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(startX + (t - 1) * spacing, -20f);
-                rt.sizeDelta = new Vector2(288f, 288f);
-                rt.localScale = new Vector3(scale, scale, 1f);
-                PaintPack(inst, t);
-                CreateInspectButton(panel, t, rt.anchoredPosition);
-                packs[t - 1] = inst;
+                Transform slot = FindSlot(crickets, t);
+                Transform pack = FindPack(slot);
+                if (pack == null) pack = FindNamed(transform, "PackCricket_4_" + t);
+                if (pack == null) continue;
+                PaintPack(pack.gameObject, t);
+                packs[t - 1] = pack.gameObject;
+
+                int captured = t;
+                if (slot != null && slot != pack)
+                    BindClick(slot.gameObject, () => Select(captured));
+
+                Transform inspect = FindInspect(slot, t);
+                if (inspect == null) inspect = FindNamed(transform, "Inspect_" + t);
+                if (inspect != null)
+                    BindClick(inspect.gameObject, () => OpenDetail(captured));
             }
-        }
 
-        void CreateInspectButton(RectTransform panel, int temperament, Vector2 packPos)
-        {
-            GameObject go = new GameObject("Inspect_" + temperament, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-            RectTransform rect = go.GetComponent<RectTransform>();
-            rect.SetParent(panel, false);
-            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(68f, 68f);
-            rect.anchoredPosition = new Vector2(packPos.x, packPos.y - 124f);
-            rect.localScale = Vector3.one;
-
-            Image image = go.GetComponent<Image>();
-            Sprite icon = Resources.Load<Sprite>(InspectIconPath);
-            if (icon == null)
+            Transform confirm = FindNamed(transform, "Confirm");
+            if (confirm != null)
             {
-                Debug.LogWarning("[DouQuqu] 找不到详情放大镜：" + InspectIconPath);
+                confirmImage = confirm.GetComponent<Image>();
+                confirmButton = confirm.GetComponent<Button>();
+                if (confirmButton == null) confirmButton = confirm.gameObject.AddComponent<Button>();
+                confirmButton.transition = Selectable.Transition.None;
+                if (confirmImage != null) confirmButton.targetGraphic = confirmImage;
+                confirmButton.onClick.RemoveAllListeners();
+                confirmButton.onClick.AddListener(Confirm);
             }
-            image.sprite = icon;
-            image.preserveAspect = true;
-            image.raycastTarget = true;
-            image.color = Color.white;
 
-            Button button = go.GetComponent<Button>();
-            button.transition = Selectable.Transition.None;
-            button.targetGraphic = image;
-            int captured = temperament;
-            button.onClick.AddListener(() => OpenDetail(captured));
+            selectedTemperament = 0;
+            RefreshSelection();
+            UiFonts.ApplyTree(transform);
         }
 
         void OpenDetail(int temperament)
@@ -175,7 +104,8 @@ namespace DouQuqu
                 CricketCatalog.TemperamentName(temperament),
                 CricketCatalog.PanelStatDisplays(Quality, temperament),
                 CricketCatalog.PanelStatStrongFlags(temperament),
-                descColor);
+                descColor,
+                Quality);
         }
 
         bool EnsureDetailView()
@@ -191,7 +121,11 @@ namespace DouQuqu
             Transform mask = root.transform.Find("选中的蛐蛐遮罩");
             if (mask != null) mask.gameObject.SetActive(false);
             Transform badge = root.transform.Find("品级");
-            if (badge != null) badge.gameObject.SetActive(false);
+            if (badge != null)
+            {
+                badge.gameObject.SetActive(true);
+                CricketCatalog.ApplyQualityLabel(badge.GetComponent<Image>(), Quality);
+            }
 
             Transform bg = root.transform.Find("背景");
             Image bgImage = bg != null ? bg.GetComponent<Image>() : null;
@@ -226,13 +160,8 @@ namespace DouQuqu
             if (hit == null) hit = root.AddComponent<Image>();
             hit.color = new Color(1f, 1f, 1f, 0.01f);
             hit.raycastTarget = true;
-            Button button = root.GetComponent<Button>();
-            if (button == null) button = root.AddComponent<Button>();
-            button.transition = Selectable.Transition.None;
-            button.targetGraphic = hit;
             int captured = temperament;
-            button.onClick.RemoveAllListeners();
-            button.onClick.AddListener(() => Select(captured));
+            BindClick(root, () => Select(captured));
         }
 
         void Select(int temperament)
@@ -257,61 +186,106 @@ namespace DouQuqu
                 confirmImage.color = ready ? Color.white : new Color(1f, 1f, 1f, 0.45f);
         }
 
-        void CreateConfirm(RectTransform overlay)
-        {
-            GameObject prefab = Resources.Load<GameObject>(ReadyPrefabPath);
-            Sprite blue = Resources.Load<Sprite>("Common/Textures/蓝色bg");
-            GameObject go;
-            if (prefab != null)
-            {
-                go = Instantiate(prefab, overlay, false);
-            }
-            else
-            {
-                go = new GameObject("Confirm", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-                go.transform.SetParent(overlay, false);
-            }
-
-            go.name = "Confirm";
-            RectTransform rect = go.GetComponent<RectTransform>();
-            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(321f, 141f);
-            rect.anchoredPosition = new Vector2(0f, -430f);
-            rect.localScale = Vector3.one;
-
-            confirmImage = go.GetComponent<Image>();
-            if (confirmImage != null)
-            {
-                if (blue != null) confirmImage.sprite = blue;
-                confirmImage.color = Color.white;
-                confirmImage.preserveAspect = true;
-                confirmImage.raycastTarget = true;
-            }
-
-            TMP_Text tmp = go.GetComponentInChildren<TMP_Text>(true);
-            if (tmp != null)
-            {
-                tmp.text = "确认";
-                tmp.color = Color.white;
-                tmp.raycastTarget = false;
-            }
-
-            confirmButton = go.GetComponent<Button>();
-            if (confirmButton == null) confirmButton = go.AddComponent<Button>();
-            confirmButton.transition = Selectable.Transition.None;
-            if (confirmImage != null) confirmButton.targetGraphic = confirmImage;
-            confirmButton.onClick.RemoveAllListeners();
-            confirmButton.onClick.AddListener(Confirm);
-        }
-
         void Confirm()
         {
             if (selectedTemperament < 1 || selectedTemperament > 4) return;
+            if (confirmButton != null) confirmButton.interactable = false;
             System.Action<int> callback = confirmed;
             confirmed = null;
             int temperament = selectedTemperament;
-            Close();
-            if (callback != null) callback.Invoke(temperament);
+            RectTransform cell = packs[temperament - 1] != null
+                ? packs[temperament - 1].GetComponent<RectTransform>()
+                : null;
+            string nameLine = CricketCatalog.CricketName(Quality, temperament);
+            string idiom = CricketCatalog.Idiom(temperament);
+            string detail = string.IsNullOrEmpty(idiom) ? nameLine : nameLine + "  ·  " + idiom;
+            FinestRevealFx.Play(
+                cell,
+                "极 品",
+                nameLine,
+                detail,
+                CricketCatalog.Portrait(Quality, temperament),
+                true,
+                CricketCatalog.QualityColors[Quality],
+                () =>
+                {
+                    Close();
+                    if (callback != null) callback.Invoke(temperament);
+                });
+        }
+
+        static void BindClick(GameObject go, UnityEngine.Events.UnityAction clicked)
+        {
+            if (go == null) return;
+            Graphic graphic = go.GetComponent<Graphic>();
+            if (graphic == null)
+            {
+                Image image = go.AddComponent<Image>();
+                image.color = new Color(1f, 1f, 1f, 0.01f);
+                image.raycastTarget = true;
+                graphic = image;
+            }
+            else graphic.raycastTarget = true;
+            Button button = go.GetComponent<Button>();
+            if (button == null) button = go.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.targetGraphic = graphic;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(clicked);
+        }
+
+        static Transform FindSlot(Transform crickets, int temperament)
+        {
+            string slotName = temperament.ToString();
+            if (crickets != null)
+            {
+                Transform direct = crickets.Find(slotName);
+                if (direct != null) return direct;
+                Transform named = FindNamed(crickets, slotName);
+                if (named != null) return named;
+            }
+            return null;
+        }
+
+        static Transform FindPack(Transform slot)
+        {
+            if (slot == null) return null;
+            for (int i = 0; i < slot.childCount; i++)
+            {
+                Transform child = slot.GetChild(i);
+                if (child.name.StartsWith("Inspect")) continue;
+                if (child.name.StartsWith("PackCricket")) return child;
+                if (child.Find("头像") != null || child.Find("背景") != null) return child;
+            }
+            return FindNamed(slot, "PackCricket");
+        }
+
+        static Transform FindInspect(Transform slot, int temperament)
+        {
+            Transform from = slot != null ? slot : null;
+            if (from == null) return null;
+            Transform named = from.Find("Inspect_" + temperament);
+            if (named != null) return named;
+            named = from.Find("Inspect");
+            if (named != null) return named;
+            for (int i = 0; i < from.childCount; i++)
+            {
+                Transform child = from.GetChild(i);
+                if (child.name.StartsWith("Inspect")) return child;
+            }
+            return FindNamed(from, "Inspect_" + temperament);
+        }
+
+        static Transform FindNamed(Transform root, string objectName)
+        {
+            if (root == null) return null;
+            if (root.name == objectName) return root;
+            Transform[] transforms = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < transforms.Length; i++)
+            {
+                if (transforms[i] != root && transforms[i].name == objectName) return transforms[i];
+            }
+            return null;
         }
     }
 }

@@ -40,6 +40,8 @@ namespace DouQuqu
         public int battleCount;
         public bool questChest1Claimed;
         public bool questChest2Claimed;
+        public bool crownOwned;
+        public bool crownEquipped;
     }
 
     [Serializable]
@@ -64,6 +66,7 @@ namespace DouQuqu
         public const int EggCap = 99;
         public const int EggShopPrice = 10;
         public const int EggShopCount = 1;
+        public const int CrownShopPrice = 20;
         /// <summary>出包前改 false。登录时保证背包有四只极品（关羽 / 吕布 / 貂蝉 / 诸葛亮）。</summary>
         public static bool DebugGrantUltimateBackpack = false;
         public static readonly int[] PointsPlace = { 50, 30, 10, 5 };
@@ -84,6 +87,8 @@ namespace DouQuqu
         public static int BattleCount => CurrentPlayer == null ? 0 : CurrentPlayer.battleCount;
         public static bool QuestChest1Claimed => CurrentPlayer != null && CurrentPlayer.questChest1Claimed;
         public static bool QuestChest2Claimed => CurrentPlayer != null && CurrentPlayer.questChest2Claimed;
+        public static bool CrownOwned => CurrentPlayer != null && CurrentPlayer.crownOwned;
+        public static bool CrownEquipped => CurrentPlayer != null && CurrentPlayer.crownEquipped;
         public static event Action PlayerDataChanged;
 
         /// <summary>本机积分大于 0 的玩家，按账号积分从高到低；同分先登录的在前。</summary>
@@ -310,6 +315,24 @@ namespace DouQuqu
             int add = Mathf.Min(EggShopCount, room);
             CurrentPlayer.gold -= EggShopPrice;
             CurrentPlayer.eggs += add;
+            return CommitEconomy();
+        }
+
+        public static bool TryBuyCrown()
+        {
+            if (CurrentPlayer == null) return false;
+            if (CurrentPlayer.crownOwned) return true;
+            if (CurrentPlayer.gold < CrownShopPrice) return false;
+            CurrentPlayer.gold -= CrownShopPrice;
+            CurrentPlayer.crownOwned = true;
+            return CommitEconomy();
+        }
+
+        public static bool EquipCrown()
+        {
+            if (CurrentPlayer == null || !CurrentPlayer.crownOwned) return false;
+            if (CurrentPlayer.crownEquipped) return true;
+            CurrentPlayer.crownEquipped = true;
             return CommitEconomy();
         }
 

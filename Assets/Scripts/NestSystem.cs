@@ -36,10 +36,10 @@ namespace DouQuqu
             }
         }
 
-        // 同一时间只允许一条巢穴→蛋→幼虫链存在，狂暴阶段也不会生成巢穴。
+        // 同一时间只允许一条巢穴→蛋→幼虫链存在。狂暴阶段仍按 nestGap 刷。
         private void StepNestSpawn(MatchState state, Action<string, Vector3> emit)
         {
-            if (state.nest != null || HasLiveChain(state) || Rules.IsRage(state.knobs, state.elapsed) || state.elapsed + 1e-9f < state.nextNestAt) return;
+            if (state.nest != null || HasLiveChain(state) || state.elapsed + 1e-9f < state.nextNestAt) return;
             Vector3 at;
             if (!TryPlaceNest(state, out at)) return;
             state.nest = new NestState

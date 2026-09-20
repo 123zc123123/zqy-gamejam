@@ -8,7 +8,7 @@ namespace DouQuqu
     /// <summary>出局结算：三条命用完且对局未结束时，只写自己的名次和两项得分。</summary>
     public sealed class EliminationPage : MonoBehaviour
     {
-        const string RankTextureFolder = "Settlement/Textures/";
+        const string RankIconFolder = "Common/Textures/";
         static readonly string[] RankLabels = { "第1名", "第2名", "第3名", "第4名" };
 
         public event Action WatchClicked;
@@ -90,7 +90,7 @@ namespace DouQuqu
             if (rank == null) return;
             Image image = rank.GetComponent<Image>();
             if (image == null) return;
-            Sprite icon = Resources.Load<Sprite>(RankTextureFolder + "rank" + clamped + "-icon");
+            Sprite icon = Resources.Load<Sprite>(RankIconFolder + "rank" + clamped + "-icon");
             if (icon != null) image.sprite = icon;
             image.preserveAspect = true;
         }

@@ -22,9 +22,12 @@ namespace DouQuqu
 
         private MaterialPropertyBlock propertyBlock;
         private SpriteRenderer armorGlow;
+        private SpriteRenderer crownRenderer;
         private Sprite glowSprite;
         private static readonly Color ArmorGold = new Color(1f, 0.82f, 0.18f, 1f);
         private static readonly Color ArmorTint = new Color(1f, 0.93f, 0.55f, 1f);
+        public const string CrownResourcePath = "Shop/Textures/crown";
+        public const string CrownObjectName = "Crown";
 
         public SpriteRenderer BodyRenderer
         {
@@ -167,20 +170,33 @@ namespace DouQuqu
             SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
             if (renderers == null || renderers.Length == 0) return;
 
-            parts = renderers;
-            int antennaCount = 0;
+            int partCount = 0;
             for (int i = 0; i < renderers.Length; i++)
             {
-                if (IsAntenna(renderers[i].name)) antennaCount++;
+                if (IsBodyPart(renderers[i])) partCount++;
+            }
+            if (partCount == 0) return;
+            parts = new SpriteRenderer[partCount];
+            int write = 0;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (!IsBodyPart(renderers[i])) continue;
+                parts[write++] = renderers[i];
+            }
+
+            int antennaCount = 0;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (IsAntenna(parts[i].name)) antennaCount++;
             }
 
             SpriteRenderer[] foundAntennae = antennaCount > 0 ? new SpriteRenderer[antennaCount] : System.Array.Empty<SpriteRenderer>();
             int antennaIndex = 0;
             SpriteRenderer foundBody = null;
             SpriteRenderer foundAntenna = null;
-            for (int i = 0; i < renderers.Length; i++)
+            for (int i = 0; i < parts.Length; i++)
             {
-                SpriteRenderer renderer = renderers[i];
+                SpriteRenderer renderer = parts[i];
                 string partName = renderer.name;
                 if (foundBody == null && IsBody(partName))
                     foundBody = renderer;
@@ -196,15 +212,72 @@ namespace DouQuqu
             if (foundAntennae.Length > 0) antennae = foundAntennae;
             if (body == null)
             {
-                for (int i = 0; i < renderers.Length; i++)
+                for (int i = 0; i < parts.Length; i++)
                 {
-                    if (!IsAntenna(renderers[i].name) && !IsTail(renderers[i].name))
+                    if (!IsAntenna(parts[i].name) && !IsTail(parts[i].name))
                     {
-                        body = renderers[i];
+                        body = parts[i];
                         break;
                     }
                 }
             }
+        }
+
+        /// <summary>戴在头上的皇冠。挂到 head 骨头/图层上，换皮时不进入 parts。</summary>
+        public void ApplyCrown(bool on)
+        {
+            if (!on)
+            {
+                if (crownRenderer != null) crownRenderer.enabled = false;
+                return;
+            }
+
+            EnsureCrown();
+            if (crownRenderer != null) crownRenderer.enabled = true;
+        }
+
+        void EnsureCrown()
+        {
+            if (crownRenderer != null) return;
+            Transform existing = transform.Find(CrownObjectName);
+            GameObject go = existing != null ? existing.gameObject : new GameObject(CrownObjectName);
+            if (existing == null) go.transform.SetParent(transform, false);
+
+            go.transform.localRotation = Quaternion.identity;
+            crownRenderer = go.GetComponent<SpriteRenderer>();
+            if (crownRenderer == null) crownRenderer = go.AddComponent<SpriteRenderer>();
+            if (go.GetComponent<CricketAccessory>() == null) go.AddComponent<CricketAccessory>();
+
+            Sprite sprite = Resources.Load<Sprite>(CrownResourcePath);
+            if (sprite != null) crownRenderer.sprite = sprite;
+            Shader shader = Shader.Find("Sprites/Default");
+            if (shader != null) crownRenderer.sharedMaterial = new Material(shader);
+            crownRenderer.color = Color.white;
+            SpriteRenderer head = FindHeadRenderer();
+            crownRenderer.sortingLayerID = head != null ? head.sortingLayerID : 0;
+            crownRenderer.sortingOrder = head != null ? head.sortingOrder + 8 : 80;
+
+            float visual = VisualSize;
+            Vector3 spriteSize = crownRenderer.sprite != null ? crownRenderer.sprite.bounds.size : Vector3.one;
+            float targetWidth = Mathf.Max(0.12f, visual * 0.62f);
+            float scale = targetWidth / Mathf.Max(0.01f, spriteSize.x);
+            go.transform.localScale = new Vector3(scale, scale, 1f);
+            go.transform.localPosition = new Vector3(0f, visual * 0.38f, 0.02f);
+        }
+
+        SpriteRenderer FindHeadRenderer()
+        {
+            if (parts == null) return body;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] != null && parts[i].name == "head") return parts[i];
+            }
+            return body;
+        }
+
+        static bool IsBodyPart(SpriteRenderer renderer)
+        {
+            return renderer != null && renderer.GetComponent<CricketAccessory>() == null;
         }
 
         public void ApplyOutline()

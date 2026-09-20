@@ -18,8 +18,9 @@ namespace DouQuqu.Editor
         private const string MarkerPath = "Assets/Resources/Battle/Entities/Prefabs/GroundMarker.prefab";
         private const string UnitPath = "Assets/Resources/Battle/Entities/Prefabs/CricketUnit.prefab";
         private const string CricketPath = "Assets/Art/Characters/Cricket.prefab";
-        private const string FillSvg = "Assets/Resources/Battle/Entities/Textures/ChargeFill.svg";
-        private const string ChevronSvg = "Assets/Resources/Battle/Entities/Textures/ChargeChevron.svg";
+        private const string StrengthPng = "Assets/Resources/Battle/Entities/Textures/strength.png";
+        private const string TrianglePng = "Assets/Resources/Battle/Entities/Textures/go_triangle.png";
+        private const string TargetCirclePng = "Assets/Resources/Battle/Entities/Textures/targetCircle.png";
         private const string CircleSrc = "Packages/com.unity.2d.sprite/Editor/ObjectMenuCreation/DefaultAssets/Textures/v2/Circle.png";
         private const string CirclePath = "Assets/Resources/Battle/Entities/Textures/Circle.png";
         private const string ShadowPath = "Assets/Art/Characters/shadow-default.png";
@@ -135,13 +136,16 @@ namespace DouQuqu.Editor
 
         private static void BuildArrow()
         {
-            Sprite fillSprite = AssetDatabase.LoadAssetAtPath<Sprite>(FillSvg);
-            Sprite chevronSprite = AssetDatabase.LoadAssetAtPath<Sprite>(ChevronSvg);
+            Sprite fillSprite = AssetDatabase.LoadAssetAtPath<Sprite>(StrengthPng);
+            Sprite chevronSprite = EnsureTriangleSprite();
+            Sprite targetSprite = EnsureTargetCircleSprite();
             if (fillSprite == null || chevronSprite == null)
             {
-                Debug.LogError("[DouQuqu] 找不到蓄力 SVG，等导入后再跑一次：" + FillSvg + " / " + ChevronSvg);
+                Debug.LogError("[DouQuqu] 找不到蓄力贴图，等导入后再跑一次：" + StrengthPng + " / " + TrianglePng);
                 return;
             }
+            if (targetSprite == null)
+                Debug.LogWarning("[DouQuqu] 找不到落点贴图，运行时会再从 Resources 读：" + TargetCirclePng);
 
             GameObject root;
             bool existed = System.IO.File.Exists(ArrowPath);
@@ -157,21 +161,28 @@ namespace DouQuqu.Editor
                 Strip<MeshFilter>(root);
                 Strip<MeshRenderer>(root);
                 Strip<LineRenderer>(root);
+                Transform leftoverBar = root.transform.Find("BarFill");
+                if (leftoverBar != null) Object.DestroyImmediate(leftoverBar.gameObject);
+                leftoverBar = root.transform.Find("BarMask");
+                if (leftoverBar != null) Object.DestroyImmediate(leftoverBar.gameObject);
 
                 ChargeArrow arrow = root.GetComponent<ChargeArrow>();
                 if (arrow == null) arrow = root.AddComponent<ChargeArrow>();
                 SerializedObject so = new SerializedObject(arrow);
                 SetObject(so, "fillSprite", fillSprite);
                 SetObject(so, "chevronSprite", chevronSprite);
+                if (targetSprite != null) SetObject(so, "endpointSprite", targetSprite);
                 so.ApplyModifiedPropertiesWithoutUndo();
                 arrow.EnsureReady();
-                SpriteRenderer fillRenderer = root.transform.Find("Fill") != null
-                    ? root.transform.Find("Fill").GetComponent<SpriteRenderer>()
-                    : null;
-                if (fillRenderer != null)
+                Transform fill = root.transform.Find("Fill");
+                if (fill != null)
                 {
-                    fillRenderer.sprite = fillSprite;
-                    fillRenderer.enabled = true;
+                    SpriteRenderer fillRenderer = fill.GetComponent<SpriteRenderer>();
+                    if (fillRenderer != null)
+                    {
+                        fillRenderer.sprite = fillSprite;
+                        fillRenderer.enabled = false;
+                    }
                 }
 
                 if (existed) PrefabUtility.SaveAsPrefabAsset(root, ArrowPath);
@@ -520,6 +531,39 @@ namespace DouQuqu.Editor
             if (string.IsNullOrEmpty(selected) && Selection.activeGameObject != null)
                 selected = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(Selection.activeGameObject);
             if (selected == path) Selection.activeObject = null;
+        }
+
+        private static Sprite EnsureTargetCircleSprite()
+        {
+            return EnsureSprite(TargetCirclePng);
+        }
+
+        private static Sprite EnsureSprite(string path)
+        {
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer != null)
+            {
+                bool dirty = importer.textureType != TextureImporterType.Sprite
+                    || importer.spriteImportMode != SpriteImportMode.Single
+                    || importer.mipmapEnabled
+                    || !importer.alphaIsTransparency;
+                if (dirty)
+                {
+                    importer.textureType = TextureImporterType.Sprite;
+                    importer.spriteImportMode = SpriteImportMode.Single;
+                    importer.alphaIsTransparency = true;
+                    importer.mipmapEnabled = false;
+                    importer.npotScale = TextureImporterNPOTScale.None;
+                    importer.spritePixelsPerUnit = 100f;
+                    importer.SaveAndReimport();
+                }
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        private static Sprite EnsureTriangleSprite()
+        {
+            return EnsureSprite(TrianglePng);
         }
 
         private static Sprite EnsureCircleSprite()

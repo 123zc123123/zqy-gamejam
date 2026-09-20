@@ -24,7 +24,7 @@ namespace DouQuqu
         public const string MergePrefab = "Merge/Prefabs/BreedingBoardCanvas";
         public const string CollectionPrefab = "Collection/Prefabs/collection";
         public const string BattleEnterPrefab = "BattleEntrance/Prefabs/BattleEntrance";
-        public const string HeroSelectionPrefab = "HeroSelection/Prefabs/FigmaImport_cricket-battle-royale_55_4";
+        public const string HeroSelectionPrefab = "HeroSelection/Prefabs/HeroSelection";
         public const string ShopPrefab = "Shop/Prefabs/Shop";
         public const string RankingPrefab = "Ranking/Prefabs/Ranking";
 
@@ -318,7 +318,6 @@ namespace DouQuqu
             instance.name = objectName;
             bool matchWidth = resourcesPath == HeroSelectionPrefab || resourcesPath == CollectionPrefab;
             Canvas canvas = instance.GetComponent<Canvas>();
-            if (canvas == null) canvas = instance.GetComponentInChildren<Canvas>(true);
             if (canvas == null)
             {
                 RectTransform overlay = UiFactory.CreateOverlay(objectName, 10);

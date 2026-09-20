@@ -135,6 +135,9 @@ namespace DouQuqu
             pendingClip = EnsureClip("PendingClip", fillArea);
             remainClip = EnsureClip("RemainClip", fillArea);
             hotClip = EnsureClip("HotClip", fillArea);
+            if (!pendingClip.gameObject.activeSelf) pendingClip.gameObject.SetActive(true);
+            if (!remainClip.gameObject.activeSelf) remainClip.gameObject.SetActive(true);
+            if (!hotClip.gameObject.activeSelf) hotClip.gameObject.SetActive(true);
             pendingFill = EnsureImage("Pending", pendingClip, true);
             remainFill = EnsureImage("Remain", remainClip, true);
             hotFill = EnsureImage("Hot", hotClip, true);
@@ -171,7 +174,8 @@ namespace DouQuqu
             float fillW = Mathf.Max(2f, bgW - InsetPx * 2f);
             float fillH = Mathf.Max(2f, bgH - InsetPx * 2f);
             Color tint = currentRatio <= 0.2f ? lowColor : (currentRatio <= 0.4f ? warnColor : okColor);
-            Color ghost = new Color(tint.r, tint.g, tint.b, tint.a * pendingAlpha);
+            tint.a = 1f;
+            Color ghost = new Color(tint.r, tint.g, tint.b, pendingAlpha);
 
             if (Application.isPlaying || !Mathf.Approximately(LengthMul(), 1f))
                 hud.sizeDelta = new Vector2(bgW, bgH);
@@ -217,11 +221,19 @@ namespace DouQuqu
             Color color,
             bool on)
         {
+            if (clip == null) return;
+            if (!clip.gameObject.activeSelf) clip.gameObject.SetActive(true);
             bool show = on && clipW > 0.5f;
-            if (clip != null) clip.gameObject.SetActive(show);
-            if (!show || fill == null) return;
+            if (!show || fill == null)
+            {
+                if (fill != null) fill.enabled = false;
+                return;
+            }
+
             SetLeft(clip, start, new Vector2(clipW, fillH));
-            SetLeft(fill.rectTransform, -start, new Vector2(fillW, fillH));
+            float cap = fillSprite != null ? Mathf.Max(0f, fillSprite.border.x) : 0f;
+            float shift = cap > 0f && clipW < cap ? cap : 0f;
+            SetLeft(fill.rectTransform, -start - shift, new Vector2(fillW, fillH));
             Paint(fill, fillSprite, true, color, true);
         }
 

@@ -87,7 +87,7 @@ namespace DouQuqu
                 yield return WaitUnscaled(1f);
             }
 
-            if (label != null) label.text = "开罐！";
+            if (label != null) label.text = " 开罐！";
             yield return WaitUnscaled(1f);
 
             if (overlay != null) UnityEngine.Object.Destroy(overlay.gameObject);
@@ -134,11 +134,38 @@ namespace DouQuqu
             TMP_Text side = sideNode != null ? sideNode.GetComponent<TMP_Text>() : null;
             if (side != null)
             {
-                side.text = "你是<color=#" + hex + ">" + colorWord + "</color>色方！";
+                side.text = "你是<color=#" + hex + ">" + colorWord + "</color>色方";
                 side.richText = true;
             }
 
+            BindSlogan(overlay, side);
             return overlay;
+        }
+
+        private static void BindSlogan(RectTransform overlay, TMP_Text side)
+        {
+            const string sloganCopy = "撞出对手，留到最后";
+            Transform sloganNode = overlay.Find("SloganLabel");
+            TMP_Text slogan = sloganNode != null ? sloganNode.GetComponent<TMP_Text>() : null;
+            if (slogan == null && side != null)
+            {
+                GameObject go = UnityEngine.Object.Instantiate(side.gameObject, overlay, false);
+                go.name = "SloganLabel";
+                sloganNode = go.transform;
+                RectTransform rect = go.GetComponent<RectTransform>();
+                RectTransform sideRect = side.rectTransform;
+                float gap = 20f;
+                float height = 140f;
+                rect.sizeDelta = new Vector2(Mathf.Max(sideRect.sizeDelta.x, 1200f), height);
+                rect.anchoredPosition = new Vector2(
+                    sideRect.anchoredPosition.x,
+                    sideRect.anchoredPosition.y + sideRect.sizeDelta.y * 0.5f + gap + height * 0.5f);
+                slogan = go.GetComponent<TMP_Text>();
+                slogan.fontSize = 96f;
+                slogan.richText = false;
+            }
+
+            if (slogan != null) slogan.text = sloganCopy;
         }
 
         private static void ShowChrome(RectTransform host, RectTransform pit, RectTransform shot)
@@ -160,7 +187,7 @@ namespace DouQuqu
                 string name = child.name;
                 if (name == "BattleIntroShot" || name == "BattleCount321" || name == "Board"
                     || name == "defaultDesignSize" || name == "ArenaBackgroundScenery"
-                    || name == "Battlefield" || name == "liewen")
+                    || name == "Battlefield" || name == "liewen" || name == "ZoneCollapseWarn")
                     continue;
                 list.Add(child.gameObject);
             }

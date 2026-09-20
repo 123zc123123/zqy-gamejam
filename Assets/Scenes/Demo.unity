@@ -583,7 +583,7 @@ MonoBehaviour:
     heartMinHeart: 3.8
     nestHP: 5
     nestMass: 60
-    nestR: 2.4
+    nestR: 4.8
     nestEggN: 5
     eggHatchT: 5
     eggHatchGap: 0.28
@@ -609,9 +609,9 @@ MonoBehaviour:
     zoneDepthScale1: 2.0891037
     zoneDepthScale2: 1.7869565
     zoneDepthScale3: 1.4891304
-    zoneHold0: 35
+    zoneHold0: 25
     zoneHold1: 25
-    zoneHold2: 15
+    zoneHold2: 25
     zoneWarnT: 5
     spawnEdge: 12
     camDeadzone: 0.15

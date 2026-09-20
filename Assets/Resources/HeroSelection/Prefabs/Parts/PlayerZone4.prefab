@@ -181,6 +181,7 @@ GameObject:
   - component: {fileID: 8111000000000000602}
   - component: {fileID: 8111000000000000603}
   - component: {fileID: 8111000000000000604}
+  - component: {fileID: 1677217878142570656}
   m_Layer: 0
   m_Name: RowBg
   m_TagString: Untagged
@@ -245,6 +246,21 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &1677217878142570656
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8111000000000000601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfabb0440166ab443bba8876756fdfa9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 5, y: -5}
+  m_UseGraphicAlpha: 1
 --- !u!1 &8748588259421321998
 GameObject:
   m_ObjectHideFlags: 0
@@ -286,7 +302,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 983, y: 258}
+  m_SizeDelta: {x: 960, y: 258}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2729702429516858651
 MonoBehaviour:
@@ -418,6 +434,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4902981462017458575, guid: 7886fdc8d3268784d9d398ba6c76f598, type: 3}
       propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6529479885852403892, guid: 7886fdc8d3268784d9d398ba6c76f598, type: 3}
+      propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
@@ -842,15 +862,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4253521844101492577, guid: 69edb40915ad1c14bacf06b624b3c4a9, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 108
       objectReference: {fileID: 0}
     - target: {fileID: 4253521844101492577, guid: 69edb40915ad1c14bacf06b624b3c4a9, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 55
       objectReference: {fileID: 0}
     - target: {fileID: 6857976884389331334, guid: 69edb40915ad1c14bacf06b624b3c4a9, type: 3}
       propertyPath: m_Name
       value: ready-badge
+      objectReference: {fileID: 0}
+    - target: {fileID: 6857976884389331334, guid: 69edb40915ad1c14bacf06b624b3c4a9, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8543265351079232689, guid: 69edb40915ad1c14bacf06b624b3c4a9, type: 3}
       propertyPath: m_Pivot.x

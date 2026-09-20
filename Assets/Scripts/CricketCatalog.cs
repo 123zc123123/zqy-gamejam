@@ -90,7 +90,7 @@ namespace DouQuqu
             return QualityNames[quality];
         }
 
-        /// <summary>详情第三行：凡/灵/仙只写品质；极品写 极品·成语。</summary>
+        /// <summary>详情品质行：凡/灵/仙只写品质；极品写 极品·成语。</summary>
         public static string RankLabel(int quality, int temperament)
         {
             if (quality >= 4) return QualityName(quality) + "·" + Idiom(temperament);
@@ -172,6 +172,43 @@ namespace DouQuqu
 
             int index = (Mathf.Clamp(quality, 1, 4) - 1) * 4 + (Mathf.Clamp(temperament, 1, 4) - 1);
             return packBackgrounds[index];
+        }
+
+        static Sprite[] qualityLabels;
+
+        /// <summary>PackCricket 品级底：qualityLable-1~4（资源文件名是 Lable）。</summary>
+        public static Sprite QualityLabel(int quality)
+        {
+            if (qualityLabels == null)
+            {
+                qualityLabels = new Sprite[5];
+                for (int q = 1; q <= 4; q++)
+                {
+                    qualityLabels[q] = LoadUiSprite("Common/Textures/qualityLable-" + q);
+                    if (qualityLabels[q] == null)
+                        qualityLabels[q] = LoadUiSprite("Common/Textures/qualityLabel-" + q);
+                }
+            }
+
+            return qualityLabels[Mathf.Clamp(quality, 1, 4)];
+        }
+
+        public static void ApplyQualityLabel(Image image, int quality)
+        {
+            if (image == null) return;
+            image.sprite = QualityLabel(quality);
+            image.enabled = image.sprite != null;
+            image.preserveAspect = true;
+            image.color = Color.white;
+        }
+
+        static Sprite LoadUiSprite(string path)
+        {
+            Sprite sprite = Resources.Load<Sprite>(path);
+            if (sprite != null) return sprite;
+            Texture2D texture = Resources.Load<Texture2D>(path);
+            if (texture == null) return null;
+            return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
         }
 
         /// <summary>

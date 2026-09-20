@@ -354,7 +354,7 @@ namespace DouQuqu
             Color skillColor;
             if (finest && CricketCatalog.TrySkillBlurbColor(piece.drawA, piece.drawB, out skillColor))
                 descColor = skillColor;
-            detailView.Show(rank, title, desc, sprite, subtitle, stats, strongStats, descColor);
+            detailView.Show(rank, title, desc, sprite, subtitle, stats, strongStats, descColor, finest ? piece.drawA : 0);
         }
 
         private bool EnsureDetailView()
@@ -546,7 +546,8 @@ namespace DouQuqu
                 CricketCatalog.TemperamentName(entry.temperament),
                 CricketCatalog.PanelStatDisplays(entry.quality, entry.temperament),
                 CricketCatalog.PanelStatStrongFlags(entry.temperament),
-                descColor);
+                descColor,
+                entry.quality);
         }
 
         private int lastSpawnFrame = -1;
