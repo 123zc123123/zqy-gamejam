@@ -39,6 +39,12 @@ namespace DouQuqu
         private QuquXiangqingView detailView;
         private MergeBackpackPanel backpackPanel;
         private RectTransform backpackButton;
+        public RectTransform BackpackButton => backpackButton;
+
+        public void RefreshBackpackIfOpen()
+        {
+            if (backpackPanel != null) backpackPanel.Refresh();
+        }
         private int detailPieceId = -1;
         private string detailBackpackId;
         private int draggingPieceId = -1;

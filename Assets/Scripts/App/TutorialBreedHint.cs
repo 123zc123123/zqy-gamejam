@@ -132,9 +132,36 @@ namespace DouQuqu
             PlayerDataService.SetTutorialStep(TutorialDirector.StepMergeLarva);
             DialogueBoxView.Play(TutorialDirector.IdBreedDone, () =>
             {
-                PlayerDataService.SetTutorialStep(TutorialDirector.StepDone);
-                Stop();
+                StartCoroutine(GiftThenDone());
             });
+        }
+
+        IEnumerator GiftThenDone()
+        {
+            PlayerDataService.AddFinestToBackpack(1, 3);
+            PlayerDataService.AddFinestToBackpack(1, 2);
+            if (view != null) view.RefreshBackpackIfOpen();
+            bool first = false;
+            bool second = false;
+            StartFlyGift(3, new Vector2(-80f, 160f), () => first = true);
+            float wait = 0f;
+            while (wait < 0.22f)
+            {
+                wait += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            StartFlyGift(2, new Vector2(-160f, 200f), () => second = true);
+            while (!first || !second) yield return null;
+            if (view != null) view.RefreshBackpackIfOpen();
+            PlayerDataService.SetTutorialStep(TutorialDirector.StepDone);
+            Stop();
+        }
+
+        void StartFlyGift(int temperament, Vector2 startOffset, System.Action done)
+        {
+            Sprite face = CricketCatalog.Portrait(1, temperament);
+            RectTransform bag = view != null ? view.BackpackButton : null;
+            FinestRevealFx.PlayFlyToBag(face, bag, startOffset, done);
         }
 
         void OnDestroy()

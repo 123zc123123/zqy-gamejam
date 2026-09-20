@@ -91,16 +91,56 @@ namespace DouQuqu
             fx.PlayNow(cell, titleText, nameText, detailText, face, legendary, accent, collectTarget, collected);
         }
 
+        /// <summary>只播养成收包那一段飞跃，不走合成展示和点击。每次单独实例，可两只同时飞。</summary>
+        public static void PlayFlyToBag(Sprite face, RectTransform collectTarget, Action collected)
+        {
+            PlayFlyToBag(face, collectTarget, Vector2.zero, collected);
+        }
+
+        public static void PlayFlyToBag(Sprite face, RectTransform collectTarget, Vector2 startOffset, Action collected)
+        {
+            FinestRevealFx fx = SpawnFly();
+            if (fx == null)
+            {
+                if (collected != null) collected();
+                return;
+            }
+            fx.PlayFlyNow(face, collectTarget, startOffset, collected);
+        }
+
         private static FinestRevealFx FindInstance()
         {
-            FinestRevealFx fx = FindObjectOfType<FinestRevealFx>(true);
-            if (fx != null) return fx;
+            FinestRevealFx[] found = FindObjectsOfType<FinestRevealFx>(true);
+            for (int i = 0; i < found.Length; i++)
+            {
+                FinestRevealFx fx = found[i];
+                if (fx != null && fx.gameObject.name != "MergeRevealFly") return fx;
+            }
             GameObject prefab = Resources.Load<GameObject>(PrefabResourcePath);
             if (prefab == null) return null;
             GameObject instance = Instantiate(prefab);
             instance.name = "MergeReveal";
-            fx = instance.GetComponent<FinestRevealFx>();
+            FinestRevealFx created = instance.GetComponent<FinestRevealFx>();
+            if (created == null) created = instance.AddComponent<FinestRevealFx>();
+            return created;
+        }
+
+        private static FinestRevealFx SpawnFly()
+        {
+            GameObject prefab = Resources.Load<GameObject>(PrefabResourcePath);
+            if (prefab == null) return null;
+            GameObject instance = Instantiate(prefab);
+            instance.name = "MergeRevealFly";
+            FinestRevealFx fx = instance.GetComponent<FinestRevealFx>();
             if (fx == null) fx = instance.AddComponent<FinestRevealFx>();
+            Canvas overlayCanvas = instance.GetComponent<Canvas>();
+            if (overlayCanvas != null)
+            {
+                overlayCanvas.overrideSorting = true;
+                overlayCanvas.sortingOrder = 330;
+            }
+            GraphicRaycaster ray = instance.GetComponent<GraphicRaycaster>();
+            if (ray != null) ray.enabled = false;
             return fx;
         }
 
@@ -160,6 +200,77 @@ namespace DouQuqu
             gameObject.SetActive(true);
             if (playing != null) StopCoroutine(playing);
             playing = StartCoroutine(PlayRoutine(cell, titleText, nameText, detailText, face, legendary, accent, collectTarget));
+        }
+
+        private void PlayFlyNow(Sprite face, RectTransform collectTarget, Vector2 startOffset, Action collected)
+        {
+            Bind();
+            if (canvas != null) canvas.enabled = true;
+            pendingCollect = collected;
+            gameObject.SetActive(true);
+            if (playing != null) StopCoroutine(playing);
+            playing = StartCoroutine(PlayFlyRoutine(face, collectTarget, startOffset));
+        }
+
+        private IEnumerator PlayFlyRoutine(Sprite face, RectTransform collectTarget, Vector2 startOffset)
+        {
+            overlay.SetAsLastSibling();
+            RestoreDrawOrder();
+            shakeOrigin = overlay.anchoredPosition;
+            awaitingClick = false;
+            clicked = false;
+            if (normalGroup != null) normalGroup.SetActive(false);
+            if (legendaryGroup != null) legendaryGroup.SetActive(false);
+            if (fxRoot != null) fxRoot.gameObject.SetActive(false);
+            if (veil != null)
+            {
+                veil.raycastTarget = false;
+                Color c = veilFace;
+                c.a = 0f;
+                veil.color = c;
+            }
+            if (flash != null) flash.color = new Color(1f, 0.95f, 0.55f, 0f);
+            if (portraitGlow != null)
+            {
+                portraitGlow.gameObject.SetActive(false);
+                portraitGlow.color = new Color(1f, 0.78f, 0.15f, 0f);
+            }
+            if (title != null) title.alpha = 0f;
+            if (subtitle != null) subtitle.alpha = 0f;
+            SetBodyAlpha(0f);
+            if (hint != null) hint.alpha = 0f;
+            if (portrait != null)
+            {
+                portrait.sprite = face;
+                portrait.enabled = face != null;
+                portrait.preserveAspect = true;
+                portrait.rectTransform.anchoredPosition = startOffset;
+                portrait.rectTransform.localRotation = Quaternion.identity;
+                portrait.rectTransform.localScale = Vector3.one;
+                portrait.color = Color.white;
+                PushFlyStartFarther(collectTarget);
+            }
+
+            yield return PlayOutro(null, collectTarget);
+            playing = null;
+            Action done = pendingCollect;
+            pendingCollect = null;
+            if (done != null) done();
+            Destroy(gameObject);
+        }
+
+        void PushFlyStartFarther(RectTransform bag)
+        {
+            if (portrait == null || overlay == null || bag == null) return;
+            Vector3 bagWorld;
+            if (!TryWorldCenter(bag, out bagWorld)) return;
+            Vector2 bagLocal = overlay.InverseTransformPoint(bagWorld);
+            Vector2 start = portrait.rectTransform.anchoredPosition;
+            Vector2 away = start - bagLocal;
+            if (away.sqrMagnitude < 16f) away = new Vector2(-240f, 420f);
+            float dist = away.magnitude;
+            float next = Mathf.Max(dist + 340f, 860f);
+            portrait.rectTransform.anchoredPosition = bagLocal + away.normalized * next;
         }
 
         private IEnumerator PlayRoutine(
