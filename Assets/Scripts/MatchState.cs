@@ -220,6 +220,8 @@ namespace DouQuqu
         public int[] place;
         public int[] matchScore;
         public int[] killStreak;
+        // 每个玩家最后被房主接受的输入序号；客户端据此丢弃已确认输入并重放剩余输入。
+        public int[] lastInputSequence;
         public int[] rosterCatalog;
         public int[] rosterQuality;
         public int[] rosterTemperament;

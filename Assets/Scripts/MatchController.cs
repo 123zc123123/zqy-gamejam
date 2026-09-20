@@ -31,8 +31,7 @@ namespace DouQuqu
         private readonly NestSystem nestSystem = new NestSystem();
         private readonly AISystem ai = new AISystem();
 
-        // 只有主机/单机控制器推进状态；局域网客户端只应用快照，
-        // 将此对象作为表现层读取模型。
+        // 主机/单机推进权威状态；客户端开启预测时也推进本地副本，快照到达后再回滚。
         private MatchState state;
         private CricketPick[][] pendingRoster;
         private float accumulator;
@@ -134,7 +133,7 @@ namespace DouQuqu
         // Unity 可变帧时间累积为固定模拟 Tick；单帧上限避免暂停后一次跳过过长对局时间。
         private void Update()
         {
-            if (!tickFromUnity || runMode == MatchRunMode.Client || !IsStarted || IsOver) return;
+            if (!tickFromUnity || !IsStarted || IsOver) return;
             accumulator += Mathf.Min(Time.deltaTime, 0.1f);
             while (accumulator >= FixedDeltaTime)
             {
@@ -231,6 +230,8 @@ namespace DouQuqu
         {
             runMode = mode;
             configuredPlayers = Mathf.Clamp(playerCount, 1, MaxPlayers);
+            // 客户端副本用于本地输入预测；权威结果仍只来自房主快照。
+            if (mode == MatchRunMode.Client) tickFromUnity = true;
             if (matchKnobs != null)
             {
                 knobs = matchKnobs;
@@ -531,6 +532,9 @@ namespace DouQuqu
                 matchScore = CopyInts(state.matchScore),
                 killStreak = CopyInts(state.killStreak)
             };
+            snapshot.lastInputSequence = new int[state.bugs.Length];
+            for (int i = 0; i < snapshot.lastInputSequence.Length; i++)
+                snapshot.lastInputSequence[i] = inputs[i] == null ? 0 : inputs[i].sequence;
             PackRoster(snapshot);
             for (int i = 0; i < state.bugs.Length; i++)
             {

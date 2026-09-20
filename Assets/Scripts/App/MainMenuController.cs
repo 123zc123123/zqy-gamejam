@@ -64,6 +64,7 @@ namespace DouQuqu
             Bind(menu, "MenuButtonShop", SceneNames.Shop);
             Bind(menu, "MenuButtonRanking", SceneNames.Ranking);
             BindClick(menu, "SideButtonActivity", ActivityPopup.ShowActivity);
+            EmphasizeBattleButton(menu.transform);
 
             CacheHud(menu.transform);
             RefreshHud();
@@ -79,6 +80,37 @@ namespace DouQuqu
 
             TutorialDirector.OnHomeReady();
             return true;
+        }
+
+        // “斗蛐蛐”是主玩法，只突出这一项；不加粗、不加阴影，避免复杂字形糊成一团。
+        private static void EmphasizeBattleButton(Transform menu)
+        {
+            GameObject battle = FindNamed(menu, "MenuButtonBattle");
+            if (battle == null) return;
+            battle.transform.localScale = Vector3.one * 1.24f;
+            Sprite battleBase = Resources.Load<Sprite>("MainMenu/Textures/BattleButtonBase");
+            Image battleImage = battle.GetComponent<Image>();
+            if (battleBase != null && battleImage != null)
+            {
+                battleImage.sprite = battleBase;
+                battleImage.color = Color.white;
+                battleImage.preserveAspect = true;
+            }
+            Color accent = new Color(1f, 0.78f, 0.18f, 1f);
+            Text[] legacy = battle.GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < legacy.Length; i++)
+            {
+                legacy[i].fontSize = Mathf.RoundToInt(legacy[i].fontSize * 1.34f);
+                legacy[i].color = accent;
+            }
+            TMP_Text[] tmp = battle.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < tmp.Length; i++)
+            {
+                tmp[i].fontSize *= 1.34f;
+                tmp[i].color = accent;
+                tmp[i].fontStyle &= ~FontStyles.Bold;
+                tmp[i].outlineWidth = 0f;
+            }
         }
 
         private IEnumerator PlayEnterReveal(Transform menu)
