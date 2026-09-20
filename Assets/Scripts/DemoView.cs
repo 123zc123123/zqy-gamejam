@@ -658,9 +658,9 @@ namespace DouQuqu
                     BugState bug = state.bugs[i];
                     if (bug == null || !bug.alive) continue;
                     float cap = Rules.EffectiveChargeTime(knobs, bug);
-                    float speed = Rules.JumpDeltaV(knobs, bug);
+                    float dist = Rules.JumpDistance(knobs, bug, bug.chargeTime);
                     float fill = cap > 0.0001f ? Mathf.Clamp01(bug.chargeTime / cap) : 0f;
-                    PlaceChargeArrow(bug.id, bug.charging, speed, fill, knobs, bug.chargeDirection, bug.position, bug.radius, GroundMarker.ColorForPlayer(bug.id));
+                    PlaceChargeArrow(bug.id, bug.charging, dist, fill, knobs, bug.chargeDirection, bug.position, bug.radius, GroundMarker.ColorForPlayer(bug.id));
                     if (bug.charging) seenIds.Add(bug.id);
                 }
             }
@@ -670,15 +670,16 @@ namespace DouQuqu
                 if (baby == null || !baby.alive) continue;
                 float cap = Rules.BabyChargeTime(knobs);
                 float speed = Rules.BabyChargeSpeed(knobs, baby);
+                float dist = Rules.JumpRange(knobs, speed);
                 float fill = cap > 0.0001f ? Mathf.Clamp01(baby.chargeTime / cap) : 0f;
-                PlaceChargeArrow(baby.id, baby.charging, speed, fill, knobs, baby.chargeDirection, baby.position, baby.radius, GroundMarker.ColorForPlayer(baby.ownerId));
+                PlaceChargeArrow(baby.id, baby.charging, dist, fill, knobs, baby.chargeDirection, baby.position, baby.radius, GroundMarker.ColorForPlayer(baby.ownerId));
                 if (baby.charging) seenIds.Add(baby.id);
             }
             foreach (KeyValuePair<int, ChargeArrow> pair in chargeArrows)
                 if (!seenIds.Contains(pair.Key) && pair.Value != null) pair.Value.Hide();
         }
 
-        private void PlaceChargeArrow(int id, bool charging, float speed, float fill, MatchKnobs knobs, Vector2 direction, Vector3 position, float radius, Color playerColor)
+        private void PlaceChargeArrow(int id, bool charging, float dist, float fill, MatchKnobs knobs, Vector2 direction, Vector3 position, float radius, Color playerColor)
         {
             if (!charging)
             {
@@ -688,7 +689,6 @@ namespace DouQuqu
             }
             ChargeArrow arrow = GetChargeArrow(id);
             if (arrow == null) return;
-            float dist = Rules.JumpRange(knobs, speed);
             float ratio = knobs != null ? knobs.chargeBarRatio : 3f;
             float alphaMin = knobs != null ? knobs.chargeBarAlphaMin : 0.4f;
             float alphaMax = knobs != null ? knobs.chargeBarAlphaMax : 1f;

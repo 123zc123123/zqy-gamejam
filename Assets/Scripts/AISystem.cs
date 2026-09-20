@@ -126,11 +126,11 @@ namespace DouQuqu
             if (cap <= 0.0001f) return MatchController.FixedDeltaTime;
 
             float maxSpeed = Rules.JumpDeltaV(knobs, bug, cap);
-            float safeRange = SafeTravelDistance(state, bug, direction, Rules.JumpRange(knobs, maxSpeed));
+            float safeRange = SafeTravelDistance(state, bug, direction, Rules.JumpRange(knobs, maxSpeed, bug));
             safeRange = Mathf.Max(0f, safeRange - ReleaseSafetyBuffer);
 
             float minSpeed = Rules.JumpSpeedMin(knobs, bug);
-            float minRange = Rules.JumpRange(knobs, minSpeed);
+            float minRange = Rules.JumpRange(knobs, minSpeed, bug);
             if (safeRange <= minRange + 0.001f)
                 return Mathf.Min(cap, MatchController.FixedDeltaTime);
 
@@ -141,7 +141,7 @@ namespace DouQuqu
             {
                 float mid = (low + high) * 0.5f;
                 float speed = Rules.JumpDeltaV(knobs, bug, mid);
-                if (Rules.JumpRange(knobs, speed) <= safeRange) low = mid;
+                if (Rules.JumpRange(knobs, speed, bug) <= safeRange) low = mid;
                 else high = mid;
             }
             return Mathf.Clamp(Mathf.Max(MatchController.FixedDeltaTime, low), 0f, cap);
@@ -164,7 +164,7 @@ namespace DouQuqu
             safeMargin += Mathf.Max(0f, bug.radius);
             bool nearEdge = Rules.ArenaSdf(bug.position.x, bug.position.z) > -safeMargin;
             // 即使还没进入可调安全边距，只要最小跳跃距离已经放不下，也必须先转向场内。
-            float minimumJumpRange = Rules.JumpRange(knobs, Rules.JumpSpeedMin(knobs, bug));
+            float minimumJumpRange = Rules.JumpRange(knobs, Rules.JumpSpeedMin(knobs, bug), bug);
             bool minimumJumpDoesNotFit = SafeTravelDistance(state, bug, desired, minimumJumpRange) + ReleaseSafetyBuffer < minimumJumpRange;
             if ((!nearEdge && !minimumJumpDoesNotFit) || outwardPart <= 0f) return desired;
 

@@ -108,6 +108,59 @@ namespace DouQuqu.Editor.Tests
             Assert.IsFalse(arrow.gameObject.activeSelf);
         }
 
+        [Test]
+        public void JumpPreviewUsesGripSoMarkerMatchesDesignedLanding()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            BugState bug = new BugState(0, Vector3.zero, knobs);
+            bug.gripMul = 1.74f;
+            bug.chargeTime = knobs.tChargeMax;
+            float designed = Rules.JumpDistance(knobs, bug, bug.chargeTime);
+            float speed = Rules.JumpDeltaV(knobs, bug, bug.chargeTime);
+            Assert.That(Rules.JumpRange(knobs, speed, bug), Is.EqualTo(designed).Within(0.01f));
+            Assert.Greater(Rules.JumpRange(knobs, speed), designed + 0.05f);
+        }
+
+        [Test]
+        public void SimulatedLandingCenterMatchesJumpDistance()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            BugState bug = new BugState(0, Vector3.zero, knobs);
+            bug.alive = true;
+            bug.gripMul = 1.74f;
+            bug.charging = true;
+            bug.chargeTime = knobs.tChargeMax;
+            bug.chargeDirection = Vector2.up;
+            bug.stamina = 99f;
+            float designed = Rules.JumpDistance(knobs, bug, bug.chargeTime);
+
+            MatchState state = new MatchState();
+            state.knobs = knobs;
+            state.bugs = new[] { bug };
+            MovementSystem movement = new MovementSystem();
+            InputFrame[] release = { new InputFrame(0, Vector2.up, false, true) };
+            InputFrame[] idle = { new InputFrame(0, Vector2.up, false, false) };
+            const int substeps = 6;
+            float dt = MatchController.FixedDeltaTime;
+            float subDt = dt / substeps;
+            for (int s = 0; s < substeps; s++)
+                movement.TickMotion(state, release, subDt, null, null);
+            movement.TickCharge(state, release, dt);
+
+            bool settled = false;
+            for (int i = 0; i < 480 && !settled; i++)
+            {
+                for (int s = 0; s < substeps; s++)
+                    movement.TickMotion(state, idle, subDt, null, null);
+                movement.TickCharge(state, idle, dt);
+                settled = !bug.airborne && bug.height <= 0.03f && Rules.IsPlanarSettled(bug.velocity);
+            }
+
+            Assert.IsTrue(settled);
+            float traveled = new Vector2(bug.position.x, bug.position.z).magnitude;
+            Assert.That(traveled, Is.EqualTo(designed).Within(0.12f));
+        }
+
         ChargeArrow CreateArrow()
         {
             GameObject go = new GameObject("ChargeArrow");

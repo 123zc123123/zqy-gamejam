@@ -1058,12 +1058,12 @@ namespace DouQuqu
             return d * mul * JumpGrowRate(knobs, bug);
         }
 
-        /// <summary>把水平总位移反推成出手速度。D = v²/g × (2tanθ + 1/(2μ))。</summary>
-        public static float JumpSpeedFromDistance(MatchKnobs knobs, float distance)
+        /// <summary>把水平总位移反推成出手速度。D = v²/g × (2tanθ + 1/(2μ))。μ 用这只虫的抓地，没有虫时用面板。</summary>
+        public static float JumpSpeedFromDistance(MatchKnobs knobs, float distance, BugState bug = null)
         {
             float g = Gravity(knobs);
             float tangent = TanTheta(knobs);
-            float mu = Mathf.Max(0.0001f, knobs.mu);
+            float mu = GripOf(knobs, bug);
             float coeff = 2f * tangent + 1f / (2f * mu);
             return Mathf.Sqrt(Mathf.Max(0f, distance) * g / Mathf.Max(1e-6f, coeff));
         }
@@ -1071,7 +1071,7 @@ namespace DouQuqu
         /// <summary>未强化满蓄水平速度，对应距离 dMin × R。</summary>
         public static float PanelVMax(MatchKnobs knobs, BugState bug = null)
         {
-            return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug)) * Mathf.Sqrt(JumpDistRatio(knobs));
+            return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug), bug) * Mathf.Sqrt(JumpDistRatio(knobs));
         }
 
         /// <summary>返回带下限保护的重力值。</summary>
@@ -1096,7 +1096,7 @@ namespace DouQuqu
         /// <summary>点跳水平速度。对应距离 = 最小距离，不含蓄力段。</summary>
         public static float JumpSpeedMin(MatchKnobs knobs, BugState bug = null)
         {
-            return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug));
+            return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug), bug);
         }
 
         /// <summary>
@@ -1125,10 +1125,10 @@ namespace DouQuqu
             return k;
         }
 
-        /// <summary>出手水平速度。由 JumpDistance 反推，落点跟公式里的距离走。</summary>
+        /// <summary>出手水平速度。由 JumpDistance 反推，μ 用抓地，落点跟公式里的距离走。</summary>
         public static float JumpDeltaV(MatchKnobs knobs, BugState bug, float chargeTime)
         {
-            return JumpSpeedFromDistance(knobs, JumpDistance(knobs, bug, chargeTime));
+            return JumpSpeedFromDistance(knobs, JumpDistance(knobs, bug, chargeTime), bug);
         }
 
         /// <summary>用当前蓄力时间算出手速度。</summary>
@@ -1214,12 +1214,12 @@ namespace DouQuqu
             return baby == null || baby.attackCooldown <= 1e-6f;
         }
 
-        /// <summary>估算给定起跳速度在空中和地面阶段的总滑行距离。</summary>
-        public static float JumpRange(MatchKnobs knobs, float speed)
+        /// <summary>估算给定起跳速度在空中和地面阶段的总滑行距离。μ 用这只虫的抓地，没有虫时用面板。</summary>
+        public static float JumpRange(MatchKnobs knobs, float speed, BugState bug = null)
         {
             float g = Gravity(knobs);
             float tangent = TanTheta(knobs);
-            float mu = Mathf.Max(0.0001f, knobs.mu);
+            float mu = GripOf(knobs, bug);
             float air = 2f * speed * speed * tangent / g;
             float ground = speed * speed / (2f * mu * g);
             return air + ground;
