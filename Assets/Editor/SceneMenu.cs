@@ -12,7 +12,7 @@ namespace DouQuqu.Editor
         private const string MainMenuPrefabPath = "Assets/Resources/MainMenu/Prefabs/MainMenu.prefab";
         private const string MergePrefabPath = "Assets/Resources/Merge/Prefabs/BreedingBoardCanvas.prefab";
         private const string BattleEntrancePrefabPath = "Assets/Resources/BattleEntrance/Prefabs/BattleEntrance.prefab";
-        private const string HeroSelectionPrefabPath = "Assets/Resources/HeroSelection/Prefabs/FigmaImport_cricket-battle-royale_55_4.prefab";
+        private const string HeroSelectionPrefabPath = "Assets/Resources/HeroSelection/Prefabs/HeroSelection.prefab";
 
         [MenuItem("DouQuqu/Open Battle Scene")]
         public static void OpenBattleScene()

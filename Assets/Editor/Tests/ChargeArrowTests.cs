@@ -43,7 +43,7 @@ namespace DouQuqu.Editor.Tests
             Assert.IsNotNull(ring);
             Assert.IsTrue(ring.enabled);
             Assert.IsNull(endpoint.GetComponent<LineRenderer>());
-            Assert.That(endpoint.localPosition.z, Is.EqualTo(distance).Within(0.05f));
+            Assert.That(ring.bounds.center.z, Is.EqualTo(distance).Within(0.08f));
             Assert.That(ring.bounds.size.x, Is.EqualTo(circleR * 2f).Within(0.12f));
             Assert.That(ring.bounds.size.z, Is.EqualTo(circleR * 2f).Within(0.12f));
 

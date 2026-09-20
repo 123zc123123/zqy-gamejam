@@ -57,7 +57,16 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void LabelIs42NotBold()
+        public void BreathPeaksAtPeriodEndsAndDipsMidway()
+        {
+            Assert.AreEqual(1f, ZoneCollapseWarnHud.Breath(0f), 1e-4f);
+            Assert.AreEqual(ZoneCollapseWarnHud.BreathMin, ZoneCollapseWarnHud.Breath(0.5f), 1e-4f);
+            Assert.AreEqual(1f, ZoneCollapseWarnHud.Breath(1f), 1e-4f);
+            Assert.AreEqual(1f, ZoneCollapseWarnHud.Breath(2f), 1e-4f);
+        }
+
+        [Test]
+        public void LabelIs72RedBaibian()
         {
             GameObject root = new GameObject("HudRoot", typeof(RectTransform));
             created.Add(root);
@@ -72,6 +81,10 @@ namespace DouQuqu.Editor.Tests
             Assert.AreEqual(ZoneCollapseWarnHud.Message, label.text);
             Assert.AreEqual(ZoneCollapseWarnHud.FontSize, label.fontSize, 1e-4f);
             Assert.AreEqual(FontStyles.Normal, label.fontStyle);
+            Assert.AreEqual(Color.red, label.color);
+            Material baibian = Resources.Load<Material>(ZoneCollapseWarnHud.BaibianMat);
+            if (baibian != null)
+                Assert.AreEqual(baibian, label.fontSharedMaterial);
         }
     }
 }

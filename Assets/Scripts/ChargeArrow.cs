@@ -222,7 +222,7 @@ namespace DouQuqu
             if (mark != null && stop > start + triLen * 0.35f)
             {
                 float span = stop - start;
-                int count = Mathf.Clamp(Mathf.FloorToInt(span / (triLen * 1.15f * 0.6f)), 1, MaxChevrons);
+                int count = Mathf.Clamp(Mathf.FloorToInt(span / (triLen * 1.15f * 0.6f * 1.75f)), 1, MaxChevrons);
                 float step = span / count;
                 for (; n < count; n++)
                 {
@@ -251,13 +251,25 @@ namespace DouQuqu
             }
 
             float diameter = circleR * 2f;
+            float zStart = distance - circleR;
+            float zEnd = distance + circleR;
             LayoutGroundSprite(
                 endpoint,
                 mark,
-                new Vector3(0f, 0.06f, distance),
+                new Vector3(0f, 0.06f, LocalZForSpriteY(mark, zStart, zEnd)),
                 new Vector2(diameter, diameter),
                 color,
                 28);
+            CenterSpriteOnLocalZ(endpoint, distance);
+        }
+
+        /// <summary>把精灵在父节点 XZ 上的包围盒中心对到指定本地 Z（虫心落点）。</summary>
+        private static void CenterSpriteOnLocalZ(SpriteRenderer renderer, float localZ)
+        {
+            if (renderer == null || renderer.transform.parent == null) return;
+            Transform parent = renderer.transform.parent;
+            Vector3 localCenter = parent.InverseTransformPoint(renderer.bounds.center);
+            renderer.transform.localPosition += new Vector3(-localCenter.x, 0f, localZ - localCenter.z);
         }
 
         private void StripLineRenderer(string childName)

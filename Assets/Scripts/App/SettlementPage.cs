@@ -8,6 +8,8 @@ namespace DouQuqu
     public sealed class SettlementPage : MonoBehaviour
     {
         const int RowCount = 4;
+        const float SelfRowBackgroundAlpha = 1f;
+        const float OtherRowBackgroundAlpha = 0.55f;
         const string RowPrefabPath = "Settlement/Prefabs/Parts/PlayerRow";
         const string RankTextureFolder = "Settlement/Textures/";
         const string RankIconFolder = "Common/Textures/";
@@ -56,7 +58,7 @@ namespace DouQuqu
                 SetText(row, "Name", DisplayName(match, playerId, localPlayerId));
                 SetText(row, "PlaceScore", placeScore.ToString());
                 SetText(row, "KillScore", killScore.ToString());
-                BindRank(row, place);
+                BindRank(row, place, playerId == localPlayerId);
                 PlayerPalette.BindAvatar(row);
                 PlayerPalette.PaintOutline(row, playerId);
                 PlayerPalette.SetMeSign(row, playerId == localPlayerId);
@@ -129,14 +131,20 @@ namespace DouQuqu
             }
         }
 
-        static void BindRank(Transform row, int place)
+        static void BindRank(Transform row, int place, bool isSelf)
         {
             int clamped = Mathf.Clamp(place, 1, RowCount);
             Sprite bg = Resources.Load<Sprite>(RankTextureFolder + "rank" + clamped + "-bg");
             Sprite icon = Resources.Load<Sprite>(RankIconFolder + "rank" + clamped + "-icon");
 
             Image rowImage = row.GetComponent<Image>();
-            if (rowImage != null && bg != null) rowImage.sprite = bg;
+            if (rowImage != null)
+            {
+                if (bg != null) rowImage.sprite = bg;
+                Color color = rowImage.color;
+                color.a = isSelf ? SelfRowBackgroundAlpha : OtherRowBackgroundAlpha;
+                rowImage.color = color;
+            }
 
             Transform rank = FindNamed(row, "Rank");
             if (rank != null)

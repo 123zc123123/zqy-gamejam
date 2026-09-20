@@ -1,3 +1,4 @@
+using DouQuqu;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,6 +17,9 @@ namespace ZqyGameJam.UI.QuquXiangqing
         public TMP_Text descriptionText;
         public Image portrait;
         public TMP_Text[] statValues;
+        public TMP_Text personalityText;
+        public Image rankBadge;
+        public RectTransform rankRoot;
 
         public event System.Action Closed;
         public event System.Action Confirmed;
@@ -58,7 +62,8 @@ namespace ZqyGameJam.UI.QuquXiangqing
                 if (scaler == null) scaler = canvas.gameObject.AddComponent<CanvasScaler>();
                 scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
                 scaler.referenceResolution = new Vector2(1080f, 1920f);
-                scaler.matchWidthOrHeight = 1f;
+                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                scaler.matchWidthOrHeight = 0f;
                 if (canvas.GetComponent<GraphicRaycaster>() == null)
                     canvas.gameObject.AddComponent<GraphicRaycaster>();
             }
@@ -72,8 +77,11 @@ namespace ZqyGameJam.UI.QuquXiangqing
 
         private void Awake()
         {
-            EnsureDimmer();
-            EnsureHelpUi();
+            if (IsOverlayCard())
+            {
+                EnsureDimmer();
+                EnsureHelpUi();
+            }
             CacheButtons();
             if (closeButton != null)
             {
@@ -147,17 +155,24 @@ namespace ZqyGameJam.UI.QuquXiangqing
         private Color descriptionHome = Color.white;
         private bool descriptionHomeCaptured;
 
-        public void Show(string rank, string displayName, string description, Sprite sprite, string subtitle = null, string[] stats = null, bool[] strongStats = null, Color? descriptionColor = null)
+        public void Show(string rank, string displayName, string description, Sprite sprite, string subtitle = null, string[] stats = null, bool[] strongStats = null, Color? descriptionColor = null, int quality = 0)
         {
-            EnsureDimmer();
-            EnsureHelpUi();
+            if (IsOverlayCard())
+            {
+                EnsureDimmer();
+                EnsureHelpUi();
+            }
             CacheButtons();
             CacheLabels();
             BringToFront();
             gameObject.SetActive(true);
-            Write(titleText, "◇ " + (string.IsNullOrEmpty(displayName) ? "促织" : displayName) + " ◇");
-            Write(nameText, string.IsNullOrEmpty(subtitle) ? (displayName ?? "") : subtitle);
+            // NameText 在品质上方写名字；RankText 写品质（极品带成语）；PersonalityTab 写性格。
+            string shownName = string.IsNullOrEmpty(displayName) ? "促织" : displayName;
+            Write(nameText, shownName);
             Write(rankText, rank ?? "");
+            Write(personalityText, subtitle ?? "");
+            if (titleText != null && titleText != personalityText && titleText != nameText)
+                Write(titleText, "◇ " + shownName + " ◇");
             Write(descriptionText, description ?? "");
             if (descriptionText != null)
             {
@@ -175,8 +190,66 @@ namespace ZqyGameJam.UI.QuquXiangqing
                 portrait.enabled = sprite != null;
                 portrait.preserveAspect = true;
             }
+            if (rankBadge != null && quality >= 1)
+                CricketCatalog.ApplyQualityLabel(rankBadge, quality);
+            FitRankPlaque();
             WriteStats(stats, strongStats);
             RelayoutActions();
+        }
+
+        /// <summary>品质铭牌按字宽加长。两字维持原长；极品成语把两端尖角留下、中间拉开。</summary>
+        void FitRankPlaque()
+        {
+            if (rankText == null) return;
+            rankText.enableWordWrapping = false;
+            rankText.overflowMode = TextOverflowModes.Overflow;
+            rankText.ForceMeshUpdate();
+
+            float textWidth = rankText.preferredWidth;
+            float capPad = 56f;
+            float minLength = 161f;
+            if (rankBadge != null && rankBadge.sprite != null)
+            {
+                Vector4 border = rankBadge.sprite.border;
+                float spriteCap = border.y + border.w;
+                capPad = spriteCap > 1f ? spriteCap + 16f : 56f;
+                float spriteLength = rankBadge.sprite.rect.height;
+                if (spriteLength > 1f) minLength = spriteLength;
+            }
+
+            float length = Mathf.Max(minLength, textWidth + capPad);
+
+            if (rankBadge != null)
+            {
+                rankBadge.preserveAspect = false;
+                rankBadge.type = Image.Type.Sliced;
+                rankBadge.fillCenter = true;
+                SetPlaqueLength(rankBadge.rectTransform, length);
+            }
+
+            RectTransform textRect = rankText.rectTransform;
+            Vector2 textSize = textRect.sizeDelta;
+            textSize.x = length;
+            textRect.sizeDelta = textSize;
+
+            if (rankRoot != null)
+            {
+                Vector2 rankSize = rankRoot.sizeDelta;
+                rankSize.x = length;
+                rankRoot.sizeDelta = rankSize;
+            }
+        }
+
+        static void SetPlaqueLength(RectTransform rect, float length)
+        {
+            if (rect == null) return;
+            float z = rect.localEulerAngles.z;
+            bool alongY = Mathf.Abs(Mathf.DeltaAngle(z, 90f)) < 45f
+                || Mathf.Abs(Mathf.DeltaAngle(z, -90f)) < 45f;
+            Vector2 size = rect.sizeDelta;
+            if (alongY) size.y = length;
+            else size.x = length;
+            rect.sizeDelta = size;
         }
 
         private void RelayoutActions()
@@ -315,6 +388,9 @@ namespace ZqyGameJam.UI.QuquXiangqing
 
         private void CacheButtons()
         {
+            sellButton = null;
+            storeButton = null;
+            closeButton = null;
             Button[] buttons = GetComponentsInChildren<Button>(true);
             for (int i = 0; i < buttons.Length; i++)
             {
@@ -340,25 +416,74 @@ namespace ZqyGameJam.UI.QuquXiangqing
 
         private void CacheLabels()
         {
-            TMP_Text[] labels = GetComponentsInChildren<TMP_Text>(true);
+            Transform nameNode = FindDeep(transform, "NameText");
+            nameText = nameNode != null ? nameNode.GetComponent<TMP_Text>() : null;
+
+            Transform rankNode = FindDeep(transform, "RankText");
+            rankText = rankNode != null ? rankNode.GetComponent<TMP_Text>() : null;
+
+            Transform descNode = FindDeep(transform, "DescriptionText");
+            descriptionText = descNode != null ? descNode.GetComponent<TMP_Text>() : null;
+
+            personalityText = null;
+            Transform personality = FindDeep(transform, "PersonalityTab");
+            if (personality == null) personality = FindDeep(transform, "TraditionalTab");
+            if (personality != null)
+            {
+                Transform personalityTitle = FindDeep(personality, "TitleText");
+                if (personalityTitle != null) personalityText = personalityTitle.GetComponent<TMP_Text>();
+                if (personalityText == null) personalityText = personality.GetComponentInChildren<TMP_Text>(true);
+            }
+
+            titleText = null;
+            Transform headerTitle = FindDeep(transform, "TitleText");
+            if (headerTitle != null)
+            {
+                TMP_Text label = headerTitle.GetComponent<TMP_Text>();
+                if (label != null && label != personalityText) titleText = label;
+            }
+
+            portrait = null;
+            string[] portraitNames = { "Portrait", "CricketPortrait", "violet-cricket-illustration" };
+            for (int i = 0; i < portraitNames.Length && portrait == null; i++)
+            {
+                Transform found = FindDeep(transform, portraitNames[i]);
+                if (found == null) continue;
+                portrait = found.GetComponent<Image>();
+                if (portrait == null) portrait = found.GetComponentInChildren<Image>(true);
+            }
+
+            rankBadge = null;
+            rankRoot = null;
+            Transform rankGo = FindDeep(transform, "Rank");
+            if (rankGo != null)
+            {
+                rankRoot = rankGo as RectTransform;
+                Transform badge = FindDeep(rankGo, "label");
+                if (badge != null) rankBadge = badge.GetComponent<Image>();
+                if (rankBadge == null) rankBadge = rankGo.GetComponent<Image>();
+            }
+
+            CacheStatValues();
+        }
+
+        private void CacheStatValues()
+        {
+            statValues = new TMP_Text[6];
+            Transform table = FindDeep(transform, "StatsTable");
+            Transform searchRoot = table != null ? table : transform;
+            TMP_Text[] labels = searchRoot.GetComponentsInChildren<TMP_Text>(true);
+            int named = 0;
             for (int i = 0; i < labels.Length; i++)
             {
                 TMP_Text label = labels[i];
-                if (label == null) continue;
-                string objectName = label.name;
-                string text = label.text ?? "";
-                if (titleText == null && (objectName == "TitleText" || text.IndexOf("促织", System.StringComparison.Ordinal) >= 0))
-                    titleText = label;
-                else if (nameText == null && (objectName == "NameText" || text.IndexOf("正紫龟", System.StringComparison.Ordinal) >= 0))
-                    nameText = label;
-                else if (rankText == null && (objectName == "RankText" || text.IndexOf("领军将", System.StringComparison.Ordinal) >= 0))
-                    rankText = label;
-                else if (descriptionText == null && (objectName == "DescriptionText" || text.IndexOf("龟形", System.StringComparison.Ordinal) >= 0))
-                    descriptionText = label;
+                if (label == null || label.name != "Value") continue;
+                int index = StatCardIndex(label.transform);
+                if (index < 0 || index >= statValues.Length || statValues[index] != null) continue;
+                statValues[index] = label;
+                named++;
             }
-
-            if (statValues == null || statValues.Length < 6)
-                statValues = new TMP_Text[6];
+            if (named > 0) return;
             int filled = 0;
             for (int i = 0; i < labels.Length && filled < statValues.Length; i++)
             {
@@ -366,28 +491,37 @@ namespace ZqyGameJam.UI.QuquXiangqing
                 if (label == null || label.name != "Value") continue;
                 statValues[filled++] = label;
             }
-            if (filled == 0)
-            {
-                for (int i = 0; i < labels.Length; i++)
-                {
-                    TMP_Text label = labels[i];
-                    if (label == null) continue;
-                    int index = StatValueIndex(label.name);
-                    if (index >= 0 && index < statValues.Length) statValues[index] = label;
-                }
-            }
+        }
 
-            if (portrait == null)
+        bool IsOverlayCard()
+        {
+            return GetComponent<Canvas>() != null || FindDeep(transform, "PageSurface") != null;
+        }
+
+        private static int StatCardIndex(Transform node)
+        {
+            Transform current = node;
+            while (current != null)
             {
-                string[] portraitNames = { "Portrait", "CricketPortrait", "violet-cricket-illustration", "InsectPortraitArea" };
-                for (int i = 0; i < portraitNames.Length && portrait == null; i++)
+                string objectName = current.name ?? "";
+                if (objectName.StartsWith("StatCard", System.StringComparison.Ordinal))
                 {
-                    Transform found = FindDeep(transform, portraitNames[i]);
-                    if (found == null) continue;
-                    portrait = found.GetComponent<Image>();
-                    if (portrait == null) portrait = found.GetComponentInChildren<Image>(true);
+                    int num = 0;
+                    bool any = false;
+                    for (int i = 8; i < objectName.Length; i++)
+                    {
+                        char c = objectName[i];
+                        if (c < '0' || c > '9') break;
+                        any = true;
+                        num = num * 10 + (c - '0');
+                    }
+                    if (any && num >= 1 && num <= 6) return num - 1;
                 }
+                int legacy = StatValueIndex(objectName);
+                if (legacy >= 0) return legacy;
+                current = current.parent;
             }
+            return -1;
         }
 
         private static int StatValueIndex(string objectName)
@@ -497,8 +631,8 @@ namespace ZqyGameJam.UI.QuquXiangqing
             CanvasScaler scaler = helpPopup.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080f, 1920f);
-            scaler.matchWidthOrHeight = 1f;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0f;
             Image dim = helpPopup.GetComponent<Image>();
             dim.color = new Color(0.04f, 0.03f, 0.02f, 0.58f);
             dim.raycastTarget = true;

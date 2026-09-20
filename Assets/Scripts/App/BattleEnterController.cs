@@ -447,7 +447,8 @@ namespace DouQuqu
                 CricketCatalog.TemperamentName(entry.temperament),
                 CricketCatalog.PanelStatDisplays(entry.quality, entry.temperament),
                 CricketCatalog.PanelStatStrongFlags(entry.temperament),
-                descColor);
+                descColor,
+                entry.quality);
         }
 
         private bool EnsureDetailView()
