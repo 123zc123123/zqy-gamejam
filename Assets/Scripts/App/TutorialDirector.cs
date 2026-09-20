@@ -153,7 +153,7 @@ namespace DouQuqu
             if (Step == StepClickTraining)
             {
                 if (IntroPvPlayer.IsCovering) return;
-                SpotlightTraining();
+                InputDirectionSelector.Show(SpotlightTraining);
                 return;
             }
 
