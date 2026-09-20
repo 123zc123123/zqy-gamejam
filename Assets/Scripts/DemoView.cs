@@ -315,6 +315,7 @@ namespace DouQuqu
                 if (cricket != null)
                 {
                     cricket.ApplyTeam(bug.id == 0, bug.charging, Rules.ChargeLocked(bug), bug.guanYuGhost);
+                    cricket.ApplyCrown(bug.id == LocalPlayerId() && PlayerDataService.CrownEquipped);
                     CricketAnim anim = body.GetComponent<CricketAnim>();
                     if (anim == null) anim = body.GetComponentInChildren<CricketAnim>(true);
                     if (anim == null) anim = body.AddComponent<CricketAnim>();
@@ -886,6 +887,16 @@ namespace DouQuqu
             if (face.sqrMagnitude < 0.0001f) face = Vector2.up;
             Vector3 head = new Vector3(face.x, 0f, face.y);
             view.transform.rotation = Quaternion.LookRotation(Vector3.up, head);
+        }
+
+        int LocalPlayerId()
+        {
+            if (match == null) return 0;
+            LanSession lan = match.GetComponent<LanSession>();
+            if (lan == null) lan = match.GetComponentInParent<LanSession>();
+            if (lan == null) lan = match.GetComponentInChildren<LanSession>(true);
+            if (lan != null && lan.LocalPlayerId >= 0) return lan.LocalPlayerId;
+            return 0;
         }
 
         private GameObject PrefabForPickup(string kind)

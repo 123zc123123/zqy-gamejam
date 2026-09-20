@@ -307,11 +307,29 @@ namespace DouQuqu
         void Confirm()
         {
             if (selectedTemperament < 1 || selectedTemperament > 4) return;
+            if (confirmButton != null) confirmButton.interactable = false;
             System.Action<int> callback = confirmed;
             confirmed = null;
             int temperament = selectedTemperament;
-            Close();
-            if (callback != null) callback.Invoke(temperament);
+            RectTransform cell = packs[temperament - 1] != null
+                ? packs[temperament - 1].GetComponent<RectTransform>()
+                : null;
+            string nameLine = CricketCatalog.CricketName(Quality, temperament);
+            string idiom = CricketCatalog.Idiom(temperament);
+            string detail = string.IsNullOrEmpty(idiom) ? nameLine : nameLine + "  ·  " + idiom;
+            FinestRevealFx.Play(
+                cell,
+                "极 品",
+                nameLine,
+                detail,
+                CricketCatalog.Portrait(Quality, temperament),
+                true,
+                CricketCatalog.QualityColors[Quality],
+                () =>
+                {
+                    Close();
+                    if (callback != null) callback.Invoke(temperament);
+                });
         }
     }
 }

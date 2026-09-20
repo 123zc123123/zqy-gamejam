@@ -4,10 +4,12 @@ using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>百戏市集：金币买虫卵；其余价签仍提示即将开放。</summary>
+    /// <summary>百戏市集：金币买虫卵；左上角皇冠可买；其余价签仍提示即将开放。</summary>
     public sealed class ShopController : MonoBehaviour
     {
+        public const string CrownCardName = "parchment-scroll-card-crown";
         public Button EggOfferButton { get; private set; }
+        public Button CrownOfferButton { get; private set; }
         private Transform pageRoot;
         private GameObject toastRoot;
         private Text toastLabel;
@@ -20,7 +22,9 @@ namespace DouQuqu
             pageRoot = root.transform;
             BottomNavBar.SuppressEmbedded(pageRoot);
             WireHelp(pageRoot);
+            PrepareCrownCard(pageRoot);
             WirePriceButtons(pageRoot);
+            WireCrownButton(pageRoot);
             CacheGoldLabel(pageRoot);
             RefreshGold();
         }
@@ -58,6 +62,7 @@ namespace DouQuqu
             {
                 Button button = buttons[i];
                 if (button == null || !IsPriceButton(button)) continue;
+                if (IsUnderCrownCard(button.transform)) continue;
                 button.onClick.RemoveAllListeners();
                 if (IsEggOffer(button.transform))
                 {
@@ -68,6 +73,149 @@ namespace DouQuqu
                 else
                 {
                     button.onClick.AddListener(() => ShowToast("兑换即将开放"));
+                }
+            }
+        }
+
+        void PrepareCrownCard(Transform root)
+        {
+            Transform card = FindTopLeftParchment(root);
+            if (card == null) return;
+            card.name = CrownCardName;
+            SetCardTitle(card, "皇冠");
+            Sprite crown = Resources.Load<Sprite>(ShopCrownPopup.CrownSpritePath);
+            if (crown != null) SetCardPortrait(card, crown);
+            Button price = FindPriceButton(card);
+            if (price != null)
+                SetPriceText(price.transform, PlayerDataService.CrownShopPrice.ToString());
+        }
+
+        void WireCrownButton(Transform root)
+        {
+            Transform card = FindNamed(root, CrownCardName);
+            if (card == null) card = FindTopLeftParchment(root);
+            if (card == null) return;
+            Button price = FindPriceButton(card);
+            if (price == null) return;
+            CrownOfferButton = price;
+            price.onClick.RemoveAllListeners();
+            price.onClick.AddListener(BuyCrown);
+        }
+
+        void BuyCrown()
+        {
+            if (PlayerDataService.CrownOwned)
+            {
+                ShowCrownPopup();
+                return;
+            }
+            if (!PlayerDataService.TryBuyCrown())
+            {
+                ShowToast("金币不足");
+                return;
+            }
+            ShowCrownPopup();
+        }
+
+        void ShowCrownPopup()
+        {
+            ShopCrownPopup.Show(() =>
+            {
+                if (!PlayerDataService.EquipCrown())
+                    ShowToast("还没有这件装饰");
+            });
+        }
+
+        public static Transform FindTopLeftParchment(Transform root)
+        {
+            if (root == null) return null;
+            Transform best = null;
+            Vector2 bestPos = Vector2.zero;
+            CollectTopLeft(root, ref best, ref bestPos);
+            return best;
+        }
+
+        static void CollectTopLeft(Transform node, ref Transform best, ref Vector2 bestPos)
+        {
+            if (node == null) return;
+            if (IsParchmentCard(node))
+            {
+                RectTransform rect = node as RectTransform;
+                Vector2 pos = rect != null ? rect.anchoredPosition : Vector2.zero;
+                if (best == null
+                    || pos.y > bestPos.y + 1f
+                    || (Mathf.Abs(pos.y - bestPos.y) <= 1f && pos.x < bestPos.x))
+                {
+                    best = node;
+                    bestPos = pos;
+                }
+            }
+            for (int i = 0; i < node.childCount; i++)
+                CollectTopLeft(node.GetChild(i), ref best, ref bestPos);
+        }
+
+        static bool IsParchmentCard(Transform node)
+        {
+            if (node == null) return false;
+            string name = node.name;
+            return name.IndexOf("parchment-scroll-card", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("ParchmentScrollCard", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        static bool IsUnderCrownCard(Transform from)
+        {
+            Transform walk = from;
+            int guard = 0;
+            while (walk != null && guard++ < 8)
+            {
+                if (walk.name == CrownCardName) return true;
+                walk = walk.parent;
+            }
+            return false;
+        }
+
+        static Button FindPriceButton(Transform card)
+        {
+            Button[] buttons = card.GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (IsPriceButton(buttons[i])) return buttons[i];
+            }
+            return null;
+        }
+
+        static void SetCardTitle(Transform card, string title)
+        {
+            TMP_Text[] labels = card.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                if (labels[i] == null) continue;
+                string text = labels[i].text ?? "";
+                if (text.IndexOf("幼虫", System.StringComparison.Ordinal) >= 0
+                    || text.IndexOf("虫卵", System.StringComparison.Ordinal) >= 0
+                    || labels[i].gameObject.name.IndexOf("幼虫", System.StringComparison.Ordinal) >= 0)
+                {
+                    labels[i].text = title;
+                    return;
+                }
+            }
+            if (labels.Length > 0 && labels[0] != null) labels[0].text = title;
+        }
+
+        static void SetCardPortrait(Transform card, Sprite sprite)
+        {
+            Image[] images = card.GetComponentsInChildren<Image>(true);
+            for (int i = 0; i < images.Length; i++)
+            {
+                Image image = images[i];
+                if (image == null) continue;
+                if (image.gameObject.name == "Rectangle"
+                    || (image.transform.parent != null && image.transform.parent.name == "image-frame"))
+                {
+                    image.sprite = sprite;
+                    image.color = Color.white;
+                    image.preserveAspect = true;
+                    return;
                 }
             }
         }
