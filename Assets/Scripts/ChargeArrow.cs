@@ -18,6 +18,10 @@ namespace DouQuqu
         [SerializeField] private Sprite endpointSprite;
         [SerializeField] private SpriteRenderer fill;
         [SerializeField] private SpriteRenderer endpoint;
+        [SerializeField] private SpriteRenderer zone;
+        [SerializeField] private LineRenderer zoneRing;
+        [SerializeField] private SpriteRenderer crossA;
+        [SerializeField] private SpriteRenderer crossB;
         [SerializeField] private SpriteRenderer[] chevrons = new SpriteRenderer[MaxChevrons];
         [SerializeField] private float minDistance = 0.02f;
 
@@ -26,6 +30,8 @@ namespace DouQuqu
         private Sprite runtimeTriangle;
         private Sprite runtimeStrength;
         private Sprite runtimeTarget;
+        private Sprite runtimeCircle;
+        private Sprite runtimeWhite;
         private Sprite barWindow;
         private Texture barWindowTex;
         private float barWindowSpan = -1f;
@@ -41,7 +47,8 @@ namespace DouQuqu
             Color playerColor,
             float barRatio = 3f,
             float alphaMin = 0.4f,
-            float alphaMax = 1f)
+            float alphaMax = 1f,
+            float sweetRadius = -1f)
         {
             EnsureReady();
             if (!charging || distance < minDistance || direction.sqrMagnitude < 0.0001f)
@@ -67,16 +74,22 @@ namespace DouQuqu
             }
 
             float r = Mathf.Max(0.12f, radius);
+            float zoneR = sweetRadius > 0.01f ? Mathf.Max(0.12f, sweetRadius) : Rules.SweetRadiusOf(null, r);
             Color paint = playerColor;
             paint.a = 1f;
             LayoutBar(distance / ratio, r, new Color(paint.r, paint.g, paint.b, Mathf.Lerp(a0, a1, p)));
-            LayoutDash(distance, r, new Color(paint.r, paint.g, paint.b, a1));
+            LayoutDash(distance, r, zoneR, new Color(paint.r, paint.g, paint.b, a1));
+            LayoutSweetZone(distance, zoneR, PlayerPalette.Contrast(paint));
         }
 
         public void Hide()
         {
             if (fill != null) fill.enabled = false;
             if (endpoint != null) endpoint.enabled = false;
+            if (zone != null) zone.enabled = false;
+            if (zoneRing != null) zoneRing.enabled = false;
+            if (crossA != null) crossA.enabled = false;
+            if (crossB != null) crossB.enabled = false;
             if (chevrons != null)
                 for (int i = 0; i < chevrons.Length; i++)
                     if (chevrons[i] != null) chevrons[i].enabled = false;
@@ -91,6 +104,10 @@ namespace DouQuqu
             StripLineRenderer("Endpoint");
             if (fill == null) fill = CreateSpriteChild("Fill", UsableBarSprite(), 24);
             if (endpoint == null) endpoint = CreateSpriteChild("Endpoint", UsableTargetSprite(), 28);
+            if (zone == null) zone = CreateSpriteChild("SweetZone", CircleFillSprite(), 27);
+            if (zoneRing == null) zoneRing = CreateZoneRing("SweetRing");
+            if (crossA == null) crossA = CreateSpriteChild("SweetCrossA", WhiteSprite(), 29);
+            if (crossB == null) crossB = CreateSpriteChild("SweetCrossB", WhiteSprite(), 29);
 
             SpriteRenderer[] old = chevrons;
             if (chevrons == null || chevrons.Length != MaxChevrons)
@@ -208,16 +225,17 @@ namespace DouQuqu
             return barWindow != null ? barWindow : band;
         }
 
-        private void LayoutDash(float distance, float radius, Color color)
+        private void LayoutDash(float distance, float radius, float zoneR, Color color)
         {
             Sprite mark = UsableTriangleSprite();
             float circleR = GroundMarker.CircleRadius(radius);
-            LayoutEndpoint(distance, circleR, color);
+            float endR = zoneR > 0.01f ? zoneR : circleR;
+            LayoutEndpoint(distance, endR, color);
 
             float triLen = Mathf.Clamp(radius * 0.34f, 0.22f, 0.5f) * 4.5f;
             float triWidth = triLen * 0.72f;
             float start = circleR;
-            float stop = distance - circleR;
+            float stop = distance - endR;
             int n = 0;
             if (mark != null && stop > start + triLen * 0.35f)
             {
@@ -261,6 +279,96 @@ namespace DouQuqu
                 color,
                 28);
             CenterSpriteOnLocalZ(endpoint, distance);
+        }
+
+        private void LayoutSweetZone(float distance, float zoneR, Color playerColor)
+        {
+            float diameter = zoneR * 2f;
+            Color fillColor = new Color(playerColor.r, playerColor.g, playerColor.b, 0.72f);
+            LayoutGroundSprite(
+                zone,
+                CircleFillSprite(),
+                new Vector3(0f, 0.05f, distance),
+                new Vector2(diameter, diameter),
+                fillColor,
+                27);
+
+            LayoutZoneRing(distance, zoneR, new Color(playerColor.r, playerColor.g, playerColor.b, 1f));
+
+            Color ink = new Color(0.08f, 0.08f, 0.08f, 0.92f);
+            float arm = zoneR * 0.72f;
+            float thick = Mathf.Clamp(zoneR * 0.16f, 0.08f, 0.28f);
+            LayoutCrossArm(crossA, distance, arm, thick, 45f, ink);
+            LayoutCrossArm(crossB, distance, arm, thick, -45f, ink);
+        }
+
+        private void LayoutZoneRing(float distance, float zoneR, Color color)
+        {
+            if (zoneRing == null || zoneR < 0.01f)
+            {
+                if (zoneRing != null) zoneRing.enabled = false;
+                return;
+            }
+
+            float width = Mathf.Clamp(zoneR * 0.16f, 0.12f, 0.32f);
+            zoneRing.enabled = true;
+            zoneRing.useWorldSpace = false;
+            zoneRing.loop = true;
+            zoneRing.positionCount = GroundMarker.RingPoints;
+            zoneRing.startWidth = width;
+            zoneRing.endWidth = width;
+            zoneRing.startColor = color;
+            zoneRing.endColor = color;
+            zoneRing.sortingOrder = 28;
+            zoneRing.transform.localPosition = Vector3.zero;
+            zoneRing.transform.localRotation = Quaternion.identity;
+            zoneRing.transform.localScale = Vector3.one;
+            for (int i = 0; i < GroundMarker.RingPoints; i++)
+            {
+                float t = i / (float)GroundMarker.RingPoints * Mathf.PI * 2f;
+                zoneRing.SetPosition(i, new Vector3(zoneR * Mathf.Sin(t), 0.055f, distance + zoneR * Mathf.Cos(t)));
+            }
+        }
+
+        private LineRenderer CreateZoneRing(string childName)
+        {
+            Transform existing = transform.Find(childName);
+            GameObject child = existing != null ? existing.gameObject : new GameObject(childName);
+            if (existing == null) child.transform.SetParent(transform, false);
+            LineRenderer ring = child.GetComponent<LineRenderer>();
+            if (ring == null) ring = child.AddComponent<LineRenderer>();
+            ring.sharedMaterial = LineMaterial();
+            ring.shadowCastingMode = ShadowCastingMode.Off;
+            ring.receiveShadows = false;
+            ring.textureMode = LineTextureMode.Stretch;
+            ring.numCapVertices = 2;
+            ring.numCornerVertices = 2;
+            ring.enabled = false;
+            return ring;
+        }
+
+        private Material LineMaterial()
+        {
+            Shader shader = Shader.Find("Sprites/Default");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+            if (shader == null) return SpriteMaterial();
+            Material material = new Material(shader);
+            material.name = "ChargeArrowRing";
+            return material;
+        }
+
+        private void LayoutCrossArm(SpriteRenderer renderer, float distance, float arm, float thick, float yaw, Color color)
+        {
+            LayoutGroundSprite(
+                renderer,
+                WhiteSprite(),
+                new Vector3(0f, 0.07f, distance),
+                new Vector2(thick, arm),
+                color,
+                29);
+            if (renderer == null) return;
+            renderer.transform.localRotation = Quaternion.Euler(90f, yaw, 0f);
+            CenterSpriteOnLocalZ(renderer, distance);
         }
 
         /// <summary>把精灵在父节点 XZ 上的包围盒中心对到指定本地 Z（虫心落点）。</summary>
@@ -405,20 +513,63 @@ namespace DouQuqu
             return FallbackChevron();
         }
 
+        private Sprite CircleFillSprite()
+        {
+            if (runtimeCircle != null) return runtimeCircle;
+            const int n = 64;
+            Texture2D texture = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+            Color[] pixels = new Color[n * n];
+            float mid = (n - 1) * 0.5f;
+            float r = mid - 0.5f;
+            float r2 = r * r;
+            for (int y = 0; y < n; y++)
+            {
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = x - mid;
+                    float dy = y - mid;
+                    pixels[y * n + x] = dx * dx + dy * dy <= r2 ? Color.white : Color.clear;
+                }
+            }
+            texture.SetPixels(pixels);
+            texture.Apply();
+            runtimeCircle = Sprite.Create(texture, new Rect(0f, 0f, n, n), new Vector2(0.5f, 0.5f), n);
+            runtimeCircle.name = "ChargeSweetFill";
+            runtimeCircle.hideFlags = HideFlags.HideAndDontSave;
+            return runtimeCircle;
+        }
+
+        private Sprite WhiteSprite()
+        {
+            if (runtimeWhite != null) return runtimeWhite;
+            runtimeWhite = MakeWhiteSprite(new Vector2(0.5f, 0.5f), "ChargeWhite");
+            return runtimeWhite;
+        }
+
         private Sprite FallbackFill()
         {
             if (fallbackFill != null) return fallbackFill;
-            fallbackFill = Sprite.Create(WhiteTexture(), new Rect(0f, 0f, 8f, 8f), new Vector2(0.5f, 0f), 8f);
-            fallbackFill.name = "ChargeFillFallback";
+            fallbackFill = MakeWhiteSprite(new Vector2(0.5f, 0f), "ChargeFillFallback");
             return fallbackFill;
         }
 
         private Sprite FallbackChevron()
         {
             if (fallbackChevron != null) return fallbackChevron;
-            fallbackChevron = Sprite.Create(WhiteTexture(), new Rect(0f, 0f, 8f, 8f), new Vector2(0.5f, 0.5f), 8f);
-            fallbackChevron.name = "ChargeChevronFallback";
+            fallbackChevron = MakeWhiteSprite(new Vector2(0.5f, 0.5f), "ChargeChevronFallback");
             return fallbackChevron;
+        }
+
+        private static Sprite MakeWhiteSprite(Vector2 pivot, string spriteName)
+        {
+            Texture2D texture = WhiteTexture();
+            int w = Mathf.Max(1, texture.width);
+            int h = Mathf.Max(1, texture.height);
+            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, w, h), pivot, Mathf.Max(1f, w));
+            sprite.name = spriteName;
+            return sprite;
         }
 
         private static Sprite MakeSprite(Texture2D texture, Vector2 pivot, string spriteName)

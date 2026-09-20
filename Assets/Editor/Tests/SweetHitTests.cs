@@ -18,24 +18,31 @@ namespace DouQuqu.Editor.Tests
             bug.chargeTime = 0.9f;
             bug.radius = 1.8f;
             float dist = Rules.JumpDistance(knobs, bug, bug.chargeTime);
-            Rules.ArmJumpSweet(bug, dist);
+            Rules.ArmJumpSweet(bug, dist, knobs);
             Assert.IsTrue(bug.jumpSweetArmed);
             Assert.AreEqual(0f, bug.jumpSweetLanding.x, 0.02f);
             Assert.AreEqual(dist, bug.jumpSweetLanding.z, 0.02f);
-            Assert.AreEqual(1.8f, bug.jumpSweetRadius, 0.01f);
+            Assert.AreEqual(Rules.SweetRadiusOf(knobs, 1.8f), bug.jumpSweetRadius, 0.01f);
         }
 
         [Test]
-        public void CenterInsideLandingCircleCounts()
+        public void CollisionInsideRecordedCircleCountsAsSweet()
         {
             BugState bug = new BugState(0, Vector3.zero, Rules.DefaultKnobs());
             bug.jumpSweetArmed = true;
             bug.jumpSweetLanding = new Vector3(0f, 0f, 10f);
             bug.jumpSweetRadius = 2f;
-            bug.position = new Vector3(0f, 0f, 10f);
-            Assert.IsTrue(Rules.IsInJumpSweetSpot(bug));
-            bug.position = new Vector3(0f, 0f, 12.1f);
-            Assert.IsFalse(Rules.IsInJumpSweetSpot(bug));
+            Assert.IsTrue(Rules.IsJumpSweetHit(bug, new Vector3(0f, 0f, 10f)));
+            Assert.IsTrue(Rules.IsJumpSweetHit(bug, new Vector3(0f, 0f, 11.9f)));
+            Assert.IsFalse(Rules.IsJumpSweetHit(bug, new Vector3(0f, 0f, 12.1f)));
+        }
+
+        [Test]
+        public void SweetRadiusFollowsScaleKnob()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            knobs.sweetRScale = 2f;
+            Assert.AreEqual(3.6f, Rules.SweetRadiusOf(knobs, 1.8f), 1e-4f);
         }
 
         [Test]

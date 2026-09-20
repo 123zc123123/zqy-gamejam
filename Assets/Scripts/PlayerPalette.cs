@@ -61,6 +61,24 @@ namespace DouQuqu
             return Resolve(playerId).circle;
         }
 
+        /// <summary>完美击判定圈：该玩家色的对比色，金对蓝紫、红对青、绿对品红、蓝对橙。</summary>
+        public static Color SweetCircle(int playerId)
+        {
+            return Contrast(Circle(playerId));
+        }
+
+        public static Color Contrast(Color color)
+        {
+            float h;
+            float s;
+            float v;
+            Color.RGBToHSV(color, out h, out s, out v);
+            h = (h + 0.5f) % 1f;
+            s = Mathf.Clamp(Mathf.Max(0.62f, s), 0f, 1f);
+            v = v < 0.55f ? 0.92f : 0.88f;
+            return Color.HSVToRGB(h, s, v);
+        }
+
         /// <summary>开局倒计时「你是X方」用的一字：金 / 红 / 绿 / 蓝。</summary>
         public static string TeamWord(int playerId)
         {

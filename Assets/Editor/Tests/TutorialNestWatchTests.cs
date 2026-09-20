@@ -180,6 +180,19 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
+        public void SweetMissDialogueParses()
+        {
+            TextAsset asset = Resources.Load<TextAsset>("Dialogue/dlg.tutorial.battle_sweet_miss");
+            Assert.IsNotNull(asset);
+            DialogueGroup group = DialogueMarkdown.Parse(asset.text, asset.name);
+            Assert.IsNotNull(group);
+            Assert.AreEqual(TutorialDirector.IdBattleSweetMiss, group.id);
+            Assert.AreEqual(2, group.lines.Count);
+            Assert.IsTrue(group.lines[0].text.IndexOf("完美击", System.StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(group.lines[1].text.IndexOf("圈", System.StringComparison.Ordinal) >= 0);
+        }
+
+        [Test]
         public void NestHatchDialogueParses()
         {
             TextAsset asset = Resources.Load<TextAsset>("Dialogue/dlg.tutorial.battle_nest_hatch");

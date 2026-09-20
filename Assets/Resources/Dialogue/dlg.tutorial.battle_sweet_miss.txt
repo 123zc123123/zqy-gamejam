@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.battle_sweet_miss
+title: 新手 · 完美击未进圈
+---
+
+## 1. 老头 · 还不是完美击
+> mood: warm
+> avatar: oldman
+
+老头：这下把人撞出去了，可没进落点圈，不算完美击。
+
+## 2. 老头 · 怎么触发
+> mood: warm
+> avatar: oldman
+
+老头：蓄力时看身前那个圈，跳起来要让碰撞落在圈里才算。我把这只放回去，你再对准圈撞一次。

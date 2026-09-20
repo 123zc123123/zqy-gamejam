@@ -46,6 +46,9 @@ namespace DouQuqu
         [InspectorCn("蓄力条最大不透明度", "蓄满时蓄力条不透明度")]
         [Range(0f, 1f)]
         public float chargeBarAlphaMax = 1f;
+        [InspectorCn("完美击圈半径倍率", "落点叉叉周围判定圆半径 = 碰撞半径 × 该值。蓄力时画在叉叉上")]
+        [Range(0.4f, 3f)]
+        public float sweetRScale = 0.966f;
         [HideInInspector]
         public float tFloor = 0.3f;
         [InspectorCn("幼虫蓄力速度", "仅当点跳距离未定时，崽用该值当 A1。玩家跳跃不读")]
@@ -120,6 +123,8 @@ namespace DouQuqu
                 }
                 zoneSnapSchema = 3;
             }
+            if (sweetRScale < 0.4f || Mathf.Abs(sweetRScale - 1.38f) < 0.01f)
+                sweetRScale = Rules.SweetRScaleDefault;
             if (resistSchema >= 1) return;
             resistK = 1f;
             muSlipScale = 0.8f;
@@ -968,8 +973,15 @@ namespace DouQuqu
         }
 
         public const float SweetKnockMul = 3f;
+        public const float SweetRScaleDefault = 0.966f;
 
-        public static void ArmJumpSweet(BugState bug, float jumpDistance)
+        public static float SweetRadiusOf(MatchKnobs knobs, float bugRadius)
+        {
+            float scale = knobs == null ? SweetRScaleDefault : Mathf.Clamp(knobs.sweetRScale, 0.4f, 3f);
+            return Mathf.Max(0.12f, bugRadius) * scale;
+        }
+
+        public static void ArmJumpSweet(BugState bug, float jumpDistance, MatchKnobs knobs = null)
         {
             if (bug == null) return;
             if (jumpDistance <= 0.01f)
@@ -980,7 +992,7 @@ namespace DouQuqu
             Vector2 dir = bug.chargeDirection.sqrMagnitude > 0.0001f ? bug.chargeDirection.normalized : Vector2.up;
             bug.jumpSweetArmed = true;
             bug.jumpSweetLanding = bug.position + new Vector3(dir.x * jumpDistance, 0f, dir.y * jumpDistance);
-            bug.jumpSweetRadius = Mathf.Max(0.12f, bug.radius);
+            bug.jumpSweetRadius = SweetRadiusOf(knobs, bug.radius);
         }
 
         public static void ClearJumpSweet(BugState bug)
@@ -989,14 +1001,19 @@ namespace DouQuqu
             bug.jumpSweetArmed = false;
         }
 
-        /// <summary>虫心进了这次跳跃落点圈（和蓄力菊花一样大）。空中、滑行都算。</summary>
-        public static bool IsInJumpSweetSpot(BugState bug)
+        /// <summary>碰撞点（两圆心中点）是否落在起跳记下的完美击圆里。</summary>
+        public static bool IsJumpSweetHit(BugState bug, Vector3 hitAt)
         {
             if (bug == null || !bug.alive || !bug.jumpSweetArmed) return false;
-            float dx = bug.position.x - bug.jumpSweetLanding.x;
-            float dz = bug.position.z - bug.jumpSweetLanding.z;
+            float dx = hitAt.x - bug.jumpSweetLanding.x;
+            float dz = hitAt.z - bug.jumpSweetLanding.z;
             float r = Mathf.Max(0.12f, bug.jumpSweetRadius);
             return dx * dx + dz * dz <= r * r;
+        }
+
+        public static bool IsInJumpSweetSpot(BugState bug)
+        {
+            return bug != null && IsJumpSweetHit(bug, bug.position);
         }
 
         /// <summary>距离 × mul、时间不变：速度和摩擦同乘。</summary>

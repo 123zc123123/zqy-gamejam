@@ -236,8 +236,9 @@ namespace DouQuqu
             HitTier tierA = Rules.HitTierFor(knobs, a.hitTier, massA, launchA, massB, launchB, normal);
             HitTier tierB = Rules.HitTierFor(knobs, b.hitTier, massB, launchB, massA, launchA, -normal);
             BounceMasses(ref launchA, ref launchB, massA, massB, normal);
-            bool aSweet = Rules.IsInJumpSweetSpot(a);
-            bool bSweet = Rules.IsInJumpSweetSpot(b);
+            Vector3 hitAt = (a.position + b.position) * 0.5f;
+            bool aSweet = Rules.IsJumpSweetHit(a, hitAt);
+            bool bSweet = Rules.IsJumpSweetHit(b, hitAt);
             if (!lockA)
             {
                 a.velocity = launchA;
@@ -254,7 +255,7 @@ namespace DouQuqu
             }
             if (aSweet && !lockB) Rules.ScaleKnockback(b, Rules.SweetKnockMul);
             if (bSweet && !lockA) Rules.ScaleKnockback(a, Rules.SweetKnockMul);
-            Vector3 mid = (a.position + b.position) * 0.5f;
+            Vector3 mid = hitAt;
             emit?.Invoke("hit", mid);
             string pair = a.id + ":" + b.id;
             if (aSweet || bSweet) emit?.Invoke("perfect-ids:" + pair, mid);

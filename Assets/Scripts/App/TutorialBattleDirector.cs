@@ -189,11 +189,9 @@ namespace DouQuqu
             match.RestoreTutorialDummy(DummyId, at);
             ShowMarker(at);
             bool sweet = false;
-            bool pullBack = false;
             System.Action<string, Vector3> onEvent = (kind, _) =>
             {
                 if (HitPairInvolves(kind, "perfect-ids:", localId, DummyId)) sweet = true;
-                else if (HitPairInvolves(kind, "hit-ids:", localId, DummyId)) pullBack = true;
             };
             match.GameplayEvent += onEvent;
             try
@@ -203,18 +201,21 @@ namespace DouQuqu
                 while (!done && !Failed(match, localId)) yield return null;
                 while (!Failed(match, localId) && !sweet)
                 {
-                    if (pullBack || !match.PlayerStillIn(DummyId))
+                    BugState dummy = Bug(match, DummyId);
+                    if (dummy != null && dummy.alive)
                     {
-                        BugState dummy = Bug(match, DummyId);
-                        bool dummySettled = dummy == null || !dummy.alive
-                            || (!dummy.airborne && dummy.height <= 0.08f
-                                && new Vector2(dummy.velocity.x, dummy.velocity.z).sqrMagnitude < 0.04f);
-                        if (PlayerGrounded(match, localId) && dummySettled)
-                        {
-                            match.RestoreTutorialDummy(DummyId, at);
-                            ShowMarker(at);
-                            pullBack = false;
-                        }
+                        Vector3 mark = dummy.position;
+                        mark.y = 0f;
+                        ShowMarker(mark);
+                    }
+                    else if (!match.PlayerStillIn(DummyId) && PlayerGrounded(match, localId))
+                    {
+                        bool hintDone = false;
+                        DialogueBoxView.Play(TutorialDirector.IdBattleSweetMiss, () => hintDone = true);
+                        while (!hintDone && !Failed(match, localId) && !sweet) yield return null;
+                        if (Failed(match, localId) || sweet) continue;
+                        match.RestoreTutorialDummy(DummyId, at);
+                        ShowMarker(at);
                     }
                     yield return null;
                 }

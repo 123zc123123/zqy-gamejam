@@ -41,6 +41,7 @@ namespace DouQuqu
         public const string IdBattleNest = "dlg.tutorial.battle_nest";
         public const string IdBattleNestHatch = "dlg.tutorial.battle_nest_hatch";
         public const string IdBattleSweet = "dlg.tutorial.battle_sweet";
+        public const string IdBattleSweetMiss = "dlg.tutorial.battle_sweet_miss";
         public const string IdBattleKill = "dlg.tutorial.battle_kill";
         public const string IdBattleZone = "dlg.tutorial.battle_zone";
         public const string IdBreedDone = "dlg.tutorial.breed_done";

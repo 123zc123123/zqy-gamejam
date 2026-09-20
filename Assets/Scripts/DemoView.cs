@@ -704,7 +704,8 @@ namespace DouQuqu
             float ratio = knobs != null ? knobs.chargeBarRatio : 3f;
             float alphaMin = knobs != null ? knobs.chargeBarAlphaMin : 0.4f;
             float alphaMax = knobs != null ? knobs.chargeBarAlphaMax : 1f;
-            arrow.Apply(true, dist, fill, direction, position + Vector3.up * 0.08f, radius, playerColor, ratio, alphaMin, alphaMax);
+            float sweetR = Rules.SweetRadiusOf(knobs, radius);
+            arrow.Apply(true, dist, fill, direction, position + Vector3.up * 0.08f, radius, playerColor, ratio, alphaMin, alphaMax, sweetR);
         }
 
         private void RefreshGroundMarkers(MatchState state)

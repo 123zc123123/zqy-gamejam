@@ -260,7 +260,7 @@ namespace DouQuqu
             bug.height = 0.02f;
             bug.airborne = true;
             bug.slideMu = Rules.GripOf(knobs, bug);
-            Rules.ArmJumpSweet(bug, distance);
+            Rules.ArmJumpSweet(bug, distance, knobs);
             bug.chargeTime = 0f;
             bug.charging = false;
             bug.pendingCharge = false;

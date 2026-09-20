@@ -60,9 +60,10 @@ namespace DouQuqu.Editor.Tests
             DialogueGroup group = DialogueMarkdown.Parse(asset.text, asset.name);
             Assert.IsNotNull(group);
             Assert.AreEqual(TutorialDirector.IdFinestSkill, group.id);
-            Assert.AreEqual(3, group.lines.Count);
+            Assert.AreEqual(4, group.lines.Count);
             Assert.IsTrue(group.lines[0].text.IndexOf("极品", System.StringComparison.Ordinal) >= 0);
             Assert.IsTrue(group.lines[1].text.IndexOf("技能", System.StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(group.lines[3].text.IndexOf("背包", System.StringComparison.Ordinal) >= 0);
         }
 
         [Test]
