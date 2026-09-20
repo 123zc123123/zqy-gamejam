@@ -345,7 +345,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u5BF9\u5C402\u6B21"
+  m_text: "\u5BF9\u5C401\u6B21"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
   m_sharedMaterial: {fileID: -1070561013298322078, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
@@ -1397,7 +1397,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u5BF9\u5C404\u6B21"
+  m_text: "\u5BF9\u5C402\u6B21"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}
   m_sharedMaterial: {fileID: -1070561013298322078, guid: e4be5137eb3b6ae4aa4057c809a8df15, type: 2}

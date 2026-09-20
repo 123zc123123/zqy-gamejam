@@ -386,7 +386,7 @@ namespace DouQuqu
                 Add(new Entry(QuestId, "任务说明", DefaultClose, new[]
                 {
                     "参与任意对局（好友组队、随机匹配、训练）均局数+1。",
-                    "对局2次、4次均可自选神级蛐蛐。"
+                    "对局1次、2次均可自选神级蛐蛐。"
                 }));
             }
 
