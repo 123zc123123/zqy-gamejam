@@ -255,6 +255,9 @@ namespace DouQuqu
             }
             bool canClick = !claimed && PlayerDataService.BattleCount >= need;
             button.interactable = canClick;
+            ClaimReadyWobble wobble = slot.GetComponent<ClaimReadyWobble>();
+            if (wobble == null && canClick) wobble = slot.gameObject.AddComponent<ClaimReadyWobble>();
+            if (wobble != null) wobble.enabled = canClick;
             button.transition = Selectable.Transition.None;
             if (image != null) button.targetGraphic = image;
             button.onClick.RemoveAllListeners();
@@ -342,6 +345,34 @@ namespace DouQuqu
             if (image == null) return;
             image.preserveAspect = true;
             image.raycastTarget = false;
+        }
+    }
+
+    /// <summary>可领奖时轻微左右摇摆，领奖后由刷新逻辑自动停用。</summary>
+    sealed class ClaimReadyWobble : MonoBehaviour
+    {
+        private RectTransform rect;
+        private Vector3 baseRotation;
+        private float time;
+
+        private void OnEnable()
+        {
+            rect = transform as RectTransform;
+            if (rect != null) baseRotation = rect.localEulerAngles;
+            time = 0f;
+        }
+
+        private void Update()
+        {
+            if (rect == null) return;
+            time += Time.unscaledDeltaTime;
+            float angle = Mathf.Sin(time * 7.2f) * 8f;
+            rect.localEulerAngles = baseRotation + new Vector3(0f, 0f, angle);
+        }
+
+        private void OnDisable()
+        {
+            if (rect != null) rect.localEulerAngles = baseRotation;
         }
     }
 }
