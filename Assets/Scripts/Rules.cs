@@ -35,6 +35,15 @@ namespace DouQuqu
         [InspectorCn("满蓄距离比", "中性蓄力速度、蓄满面板时间时：总距 / 点跳距")]
         [Range(1.2f, 8f)]
         public float jumpDistRatio = 3f;
+        [InspectorCn("蓄力条长度比", "身后蓄力条长度 = 本次跳距 / 该值")]
+        [Range(1.5f, 8f)]
+        public float chargeBarRatio = 3f;
+        [InspectorCn("蓄力条最小不透明度", "点跳时蓄力条不透明度")]
+        [Range(0f, 1f)]
+        public float chargeBarAlphaMin = 0.4f;
+        [InspectorCn("蓄力条最大不透明度", "蓄满时蓄力条不透明度")]
+        [Range(0f, 1f)]
+        public float chargeBarAlphaMax = 1f;
         [HideInInspector]
         public float tFloor = 0.3f;
         [InspectorCn("幼虫蓄力速度", "仅当点跳距离未定时，崽用该值当 A1。玩家跳跃不读")]
@@ -103,9 +112,9 @@ namespace DouQuqu
                     zoneScale1 = 1.5f;
                     zoneScale2 = 1.2f;
                     zoneScale3 = 1f;
-                    zoneHold0 = 35f;
+                    zoneHold0 = 25f;
                     zoneHold1 = 25f;
-                    zoneHold2 = 15f;
+                    zoneHold2 = 25f;
                 }
                 zoneSnapSchema = 3;
             }
@@ -223,7 +232,7 @@ namespace DouQuqu
         [InspectorCn("房子质量", "不位移，只用于对撞分速度")]
         public float nestMass = 6f;
         [InspectorCn("房子半径", "房子碰撞半径")]
-        public float nestR = 2.4f;
+        public float nestR = 4.8f;
         [InspectorCn("散落卵数", "房子爆开散落的卵数")]
         public int nestEggN = 5;
         [InspectorCn("孵化时间", "卵孵化基准时间（秒）")]
@@ -273,11 +282,11 @@ namespace DouQuqu
         [HideInInspector] public float zoneDepthScale2;
         [HideInInspector] public float zoneDepthScale3;
         [InspectorCn("档 0 持稳", "开局后、第一次预告前（秒）")]
-        public float zoneHold0 = 35f;
+        public float zoneHold0 = 25f;
         [InspectorCn("档 1 持稳", "第一次收口后、第二次预告前（秒）")]
         public float zoneHold1 = 25f;
         [InspectorCn("档 2 持稳", "第二次收口后、第三次预告前（秒）")]
-        public float zoneHold2 = 15f;
+        public float zoneHold2 = 25f;
         [InspectorCn("预告时长", "将消失的环带红色脉动；当前档仍算出局边（秒）")]
         public float zoneWarnT = 5f;
         [InspectorCn("出生离边", "开局位距当前档有效区边向内的距离；默认对齐中性满蓄跳距")]
@@ -1319,7 +1328,7 @@ namespace DouQuqu
         /// <summary>判断当前时间是否满足生成新巢穴的条件。</summary>
         public static bool ShouldSpawnNest(MatchState state, int liveCount)
         {
-            if (state == null || IsRage(state.knobs, state.elapsed)) return false;
+            if (state == null) return false;
             if (state.elapsed + 1e-9f < state.knobs.nestFirstT || liveCount >= NestFieldCap(state)) return false;
             if (state.lastNestClearAt < 0f) return true;
             return state.elapsed - state.lastNestClearAt + 1e-9f >= state.knobs.nestGap;

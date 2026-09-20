@@ -24,8 +24,22 @@ namespace DouQuqu
             PlayerPalette.PaintBattleHud(hudRoot);
         }
 
-        private const int RingPoints = 48;
+        public const int RingPoints = 48;
+        public const float DefaultRingScale = 1.38f;
+        public const float DefaultRingWidthScale = 0.1f;
         private const float PreviewRadius = 0.5f;
+
+        /// <summary>脚下可见圆半径，和碰撞半径的比跟预制体默认 ringScale 一致。</summary>
+        public static float CircleRadius(float bugRadius)
+        {
+            return Mathf.Max(0.2f, bugRadius) * DefaultRingScale;
+        }
+
+        /// <summary>脚下描边粗细。</summary>
+        public static float CircleStroke(float bugRadius)
+        {
+            return CircleRadius(bugRadius) * DefaultRingWidthScale;
+        }
 
         [SerializeField, HideInInspector] private Sprite circleSprite;
         [SerializeField, HideInInspector] private Sprite shadowSprite;

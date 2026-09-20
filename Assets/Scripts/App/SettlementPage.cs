@@ -10,6 +10,7 @@ namespace DouQuqu
         const int RowCount = 4;
         const string RowPrefabPath = "Settlement/Prefabs/Parts/PlayerRow";
         const string RankTextureFolder = "Settlement/Textures/";
+        const string RankIconFolder = "Common/Textures/";
         static readonly string[] RankLabels = { "第1名", "第2名", "第3名", "第4名" };
         static readonly Vector2[] DefaultRowPositions =
         {
@@ -132,7 +133,7 @@ namespace DouQuqu
         {
             int clamped = Mathf.Clamp(place, 1, RowCount);
             Sprite bg = Resources.Load<Sprite>(RankTextureFolder + "rank" + clamped + "-bg");
-            Sprite icon = Resources.Load<Sprite>(RankTextureFolder + "rank" + clamped + "-icon");
+            Sprite icon = Resources.Load<Sprite>(RankIconFolder + "rank" + clamped + "-icon");
 
             Image rowImage = row.GetComponent<Image>();
             if (rowImage != null && bg != null) rowImage.sprite = bg;

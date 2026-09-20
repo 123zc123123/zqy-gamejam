@@ -268,7 +268,6 @@
   }
 
   function shouldSpawnNest(state, liveCount) {
-    if (isRage(state)) return false;
     const first = state.knobs.nestFirstT == null ? 25 : state.knobs.nestFirstT;
     if (state.t + 1e-9 < first) return false;
     const live = liveCount == null ? 0 : liveCount;

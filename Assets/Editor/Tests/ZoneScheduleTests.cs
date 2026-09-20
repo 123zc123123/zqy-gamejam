@@ -21,13 +21,13 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
-        public void Z1_DefaultSnapsAt40_70_90()
+        public void Z1_DefaultSnapsAt30_60_90()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
             float[] snaps = Rules.ZoneSnapTimes(knobs);
             Assert.AreEqual(3, snaps.Length);
-            Assert.AreEqual(40f, snaps[0], 1e-4f);
-            Assert.AreEqual(70f, snaps[1], 1e-4f);
+            Assert.AreEqual(30f, snaps[0], 1e-4f);
+            Assert.AreEqual(60f, snaps[1], 1e-4f);
             Assert.AreEqual(90f, snaps[2], 1e-4f);
         }
 
@@ -35,23 +35,23 @@ namespace DouQuqu.Editor.Tests
         public void Z2_SnapIsInstantNoLerp()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 39.9f));
-            Assert.AreEqual(2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 39.9f)), 1e-4f);
-            Assert.AreEqual(1, Rules.ZoneTierAt(knobs, 40f));
-            Assert.AreEqual(1.5f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 40f)), 1e-4f);
-            Assert.AreEqual(2, Rules.ZoneTierAt(knobs, 70f));
-            Assert.AreEqual(1.2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 70f)), 1e-4f);
+            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 29.9f));
+            Assert.AreEqual(2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 29.9f)), 1e-4f);
+            Assert.AreEqual(1, Rules.ZoneTierAt(knobs, 30f));
+            Assert.AreEqual(1.5f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 30f)), 1e-4f);
+            Assert.AreEqual(2, Rules.ZoneTierAt(knobs, 60f));
+            Assert.AreEqual(1.2f, Rules.ZoneScaleOf(knobs, Rules.ZoneTierAt(knobs, 60f)), 1e-4f);
         }
 
         [Test]
         public void Z3_WarnKeepsCurrentSdf()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();
-            Assert.IsTrue(Rules.IsZoneWarn(knobs, 35f));
-            Assert.IsTrue(Rules.IsZoneWarn(knobs, 39.9f));
-            Assert.IsFalse(Rules.IsZoneWarn(knobs, 34.9f));
-            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 37f));
-            Rules.ApplyZoneAt(knobs, 37f);
+            Assert.IsTrue(Rules.IsZoneWarn(knobs, 25f));
+            Assert.IsTrue(Rules.IsZoneWarn(knobs, 29.9f));
+            Assert.IsFalse(Rules.IsZoneWarn(knobs, 24.9f));
+            Assert.AreEqual(0, Rules.ZoneTierAt(knobs, 27f));
+            Rules.ApplyZoneAt(knobs, 27f);
             Vector3 inCurrentOutNext = new Vector3(35f, 0f, 0f);
             Assert.IsTrue(Rules.InsideArena(inCurrentOutNext));
             Rules.SetArenaScale(Rules.ZoneScaleOf(knobs, 1));
@@ -246,8 +246,8 @@ namespace DouQuqu.Editor.Tests
             Assert.AreEqual(120f, Rules.HardStop(training), 1e-4f);
             Assert.IsTrue(training.zoneSchedule);
             Assert.AreEqual(0, Rules.ZoneTierAt(training, 0f));
-            Assert.AreEqual(1, Rules.ZoneTierAt(training, 40f));
-            Assert.AreEqual(2, Rules.ZoneTierAt(training, 70f));
+            Assert.AreEqual(1, Rules.ZoneTierAt(training, 30f));
+            Assert.AreEqual(2, Rules.ZoneTierAt(training, 60f));
             Assert.AreEqual(Rules.LastZoneTier, Rules.ZoneTierAt(training, 90f));
             Assert.AreEqual("2:00", Rules.FormatClock(Rules.RemainingClock(training, 0f, false)));
         }
@@ -268,13 +268,13 @@ namespace DouQuqu.Editor.Tests
             Assert.AreEqual(1.5f, knobs.zoneScale1, 1e-4f);
             Assert.AreEqual(1.2f, knobs.zoneScale2, 1e-4f);
             Assert.AreEqual(1f, knobs.zoneScale3, 1e-4f);
-            Assert.AreEqual(35f, knobs.zoneHold0, 1e-4f);
+            Assert.AreEqual(25f, knobs.zoneHold0, 1e-4f);
             Assert.AreEqual(25f, knobs.zoneHold1, 1e-4f);
-            Assert.AreEqual(15f, knobs.zoneHold2, 1e-4f);
+            Assert.AreEqual(25f, knobs.zoneHold2, 1e-4f);
             float[] snaps = Rules.ZoneSnapTimes(knobs);
             Assert.AreEqual(3, snaps.Length);
-            Assert.AreEqual(40f, snaps[0], 1e-4f);
-            Assert.AreEqual(70f, snaps[1], 1e-4f);
+            Assert.AreEqual(30f, snaps[0], 1e-4f);
+            Assert.AreEqual(60f, snaps[1], 1e-4f);
             Assert.AreEqual(90f, snaps[2], 1e-4f);
         }
 
@@ -339,9 +339,9 @@ namespace DouQuqu.Editor.Tests
             host.ResetMatch(MatchController.MaxPlayers, 20260918);
             host.StartMatch();
             MatchSnapshot before = host.CaptureSnapshot();
-            before.elapsed = 39.9f;
+            before.elapsed = 29.9f;
             MatchSnapshot after = host.CaptureSnapshot();
-            after.elapsed = 40f;
+            after.elapsed = 30f;
 
             MatchController client = CreateMatch();
             client.Configure(MatchRunMode.Client, MatchController.MaxPlayers, knobs);
@@ -367,7 +367,7 @@ namespace DouQuqu.Editor.Tests
             host.Configure(MatchRunMode.Offline, MatchController.MaxPlayers, knobs);
             host.ResetMatch(MatchController.MaxPlayers, 20260918);
             MatchSnapshot snap = host.CaptureSnapshot();
-            snap.elapsed = 40f;
+            snap.elapsed = 30f;
 
             MatchController client = CreateMatch();
             client.Configure(MatchRunMode.Client, MatchController.MaxPlayers, knobs);

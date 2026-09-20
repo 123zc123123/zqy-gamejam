@@ -88,6 +88,7 @@ namespace DouQuqu
             SilenceHudRaycasts();
             BindMatchClock();
             BindScoreHud();
+            BindZoneWarnHud();
             GroundMarker.SyncFromHud(transform);
             bool dropToCorner = boundMatch != null && boundMatch.ConfiguredPlayers > 1;
             if (fitter != null)
@@ -104,6 +105,7 @@ namespace DouQuqu
             BindStick();
             BindMatchClock();
             BindScoreHud();
+            BindZoneWarnHud();
             GroundMarker.SyncFromHud(transform);
             StartMatchIfNeeded();
             if (TutorialDirector.NeedsBattleLesson)
@@ -608,6 +610,16 @@ namespace DouQuqu
             BattleScoreHud hud = GetComponent<BattleScoreHud>();
             if (hud == null) hud = gameObject.AddComponent<BattleScoreHud>();
             hud.Bind(UnityEngine.Object.FindObjectOfType<MatchController>());
+        }
+
+        private void BindZoneWarnHud()
+        {
+            ZoneCollapseWarnHud hud = GetComponent<ZoneCollapseWarnHud>();
+            if (hud == null) hud = gameObject.AddComponent<ZoneCollapseWarnHud>();
+            MatchController match = boundMatch != null
+                ? boundMatch
+                : UnityEngine.Object.FindObjectOfType<MatchController>();
+            hud.Bind(match, transform as RectTransform);
         }
 
         private void BindStick()

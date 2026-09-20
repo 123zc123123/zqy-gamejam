@@ -233,7 +233,7 @@ const knobs = R.mergeKnobs();
   state.t = 37;
   eq("after gap can spawn", R.shouldSpawnNest(state, 0), true);
   state.t = 90;
-  eq("rage no new nest", R.shouldSpawnNest(state, 0), false);
+  eq("rage still spawns nest", R.shouldSpawnNest(state, 0), true);
 }
 
 {

@@ -4,6 +4,9 @@ window.DOU_QUQU_SHIPPED = {
   "knobs": {
     "tChargeMin": 0,
     "tChargeMax": 0.5,
+    "chargeBarRatio": 3,
+    "chargeBarAlphaMin": 0.4,
+    "chargeBarAlphaMax": 1,
     "tFloor": 0.12,
     "staminaMax": 5,
     "staminaCost": 0.8,
@@ -40,7 +43,7 @@ window.DOU_QUQU_SHIPPED = {
     "heartGapOt": 5,
     "nestHP": 4,
     "nestMass": 6,
-    "nestR": 2.4,
+    "nestR": 4.8,
     "nestEggN": 5,
     "eggHatchT": 5,
     "eggHatchGap": 0.28,
