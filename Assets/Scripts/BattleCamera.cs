@@ -47,6 +47,9 @@ namespace DouQuqu
         private bool hasDesignAspect;
         private float playDesignW = 1080f;
         private float playDesignH = 1920f;
+        private float shakeAmp;
+        private float shakeDur;
+        private float shakeT = 1f;
 
         public Camera Cam
         {
@@ -99,22 +102,49 @@ namespace DouQuqu
                 hasFrame = true;
                 toSize = ComputeSize();
                 ApplyImmediate();
+                ApplyShake();
                 return;
             }
 
             if (followEnabled)
             {
                 UpdateFollow();
+                ApplyShake();
                 return;
             }
 
-            if (settleDuration <= 0f || settleElapsed >= settleDuration) return;
+            if (settleDuration <= 0f || settleElapsed >= settleDuration)
+            {
+                ApplyShake();
+                return;
+            }
             settleElapsed += Time.deltaTime;
             float u = Mathf.Clamp01(settleElapsed / Mathf.Max(0.0001f, settleDuration));
             u = u * u * (3f - 2f * u);
             Vector3 pos = Vector3.Lerp(fromCenter, targetCenter, u);
             transform.position = new Vector3(pos.x, transform.position.y, pos.z);
             ApplySize(Mathf.Lerp(fromSize, toSize, u));
+            ApplyShake();
+        }
+
+        public void Shake(float amplitude, float duration)
+        {
+            shakeAmp = Mathf.Max(0f, amplitude);
+            shakeDur = Mathf.Max(0.01f, duration);
+            shakeT = 0f;
+        }
+
+        void ApplyShake()
+        {
+            if (shakeT >= shakeDur || shakeAmp <= 0f) return;
+            shakeT += Time.unscaledDeltaTime;
+            float u = 1f - Mathf.Clamp01(shakeT / shakeDur);
+            float mag = shakeAmp * u * u;
+            Vector3 p = transform.position;
+            transform.position = new Vector3(
+                p.x + (Random.value * 2f - 1f) * mag,
+                p.y,
+                p.z + (Random.value * 2f - 1f) * mag);
         }
 
         /// <summary>
@@ -267,7 +297,18 @@ namespace DouQuqu
             FrameWorld(Vector3.zero, Rules.ArenaHalfWidth, Rules.ArenaHalfDepth, 0f);
         }
 
+        /// <summary>教学看点：停跟随，把世界点放到画面中心并拉近。</summary>
+        public void LookAtPoint(Vector3 world, float duration)
+        {
+            godView = false;
+            fillView = false;
+            padding = 0f;
+            float half = 6.2f;
+            FrameWorld(world, half, half, duration);
+        }
+
         /// <summary>对局中软跟随自己的虫；窗口按预制体设计尺寸，1080 铺满时 field-3 留边。</summary>
+
         public void FollowLocalPlayer(MatchController match, int playerId)
         {
             godView = false;

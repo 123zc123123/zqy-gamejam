@@ -104,6 +104,7 @@ namespace DouQuqu
 
         void BuyCrown()
         {
+            if (TutorialDirector.BlocksCrownPurchase) return;
             if (PlayerDataService.CrownOwned)
             {
                 ShowCrownPopup();

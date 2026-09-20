@@ -181,6 +181,35 @@ namespace DouQuqu
                 ShowStaminaDelta(world, "耐力+" + amount, new Color(1f, 0.35f, 0.82f, 1f));
             else if (TryParseTagged(kind, "steal-loss:", out amount))
                 ShowStaminaDelta(world, "耐力-" + amount, new Color(1f, 0.18f, 0.16f, 1f));
+            else
+                TryLocalHitFeel(kind);
+        }
+
+        void TryLocalHitFeel(string kind)
+        {
+            bool perfect;
+            int a;
+            int b;
+            if (TryParseHitPair(kind, "perfect-ids:", out a, out b)) perfect = true;
+            else if (TryParseHitPair(kind, "hit-ids:", out a, out b)) perfect = false;
+            else return;
+            if (a != localPlayerId && b != localPlayerId) return;
+            BattleHitFeel feel = GetComponent<BattleHitFeel>();
+            if (feel == null) feel = gameObject.AddComponent<BattleHitFeel>();
+            feel.Bind(boundMatch);
+            feel.Play(perfect);
+        }
+
+        static bool TryParseHitPair(string kind, string prefix, out int a, out int b)
+        {
+            a = -1;
+            b = -1;
+            if (string.IsNullOrEmpty(kind) || !kind.StartsWith(prefix)) return false;
+            string rest = kind.Substring(prefix.Length);
+            int split = rest.IndexOf(':');
+            if (split <= 0) return false;
+            return int.TryParse(rest.Substring(0, split), out a)
+                && int.TryParse(rest.Substring(split + 1), out b);
         }
 
         static bool TryParseTagged(string kind, string prefix, out int amount)

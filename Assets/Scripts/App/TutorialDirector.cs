@@ -31,18 +31,26 @@ namespace DouQuqu
         public const string IdHeroSelect = "dlg.tutorial.hero_select";
         public const string IdSettlement = "dlg.tutorial.settlement";
         public const string IdShop = "dlg.tutorial.shop";
+        public const string IdShopSkin = "dlg.tutorial.shop_skin";
         public const string IdShopBought = "dlg.tutorial.shop_bought";
         public const string IdBattleJump = "dlg.tutorial.battle_jump";
+        public const string IdBattleJumpSame = "dlg.tutorial.battle_jump_same";
         public const string IdBattleBound = "dlg.tutorial.battle_bound";
         public const string IdBattleHeart = "dlg.tutorial.battle_heart";
         public const string IdBattleShield = "dlg.tutorial.battle_shield";
         public const string IdBattleNest = "dlg.tutorial.battle_nest";
+        public const string IdBattleNestHatch = "dlg.tutorial.battle_nest_hatch";
         public const string IdBattleKill = "dlg.tutorial.battle_kill";
+        public const string IdBattleZone = "dlg.tutorial.battle_zone";
         public const string IdBreedDone = "dlg.tutorial.breed_done";
         public const string IdBreedMerge = "dlg.tutorial.breed_merge";
+        public const string IdFinestSkill = "dlg.tutorial.finest_skill";
 
         public const float BoundShowSeconds = 2.5f;
         public const float NestHp = 1f;
+        public const float NestLookSeconds = 0.7f;
+        public const float NestHatchWaitSeconds = 8f;
+        public const float NestLookBackSeconds = 0.55f;
 
         public static bool NeedsBattleLesson => Step == StepBattle;
 
@@ -63,6 +71,15 @@ namespace DouQuqu
         public static bool HidesMatchExit =>
             Step == StepClickTraining || Step == StepHeroSelectTalk || Step == StepBattle;
         public static bool BlocksHeroReady => Step == StepHeroSelectTalk || DialogueBoxView.IsPlaying;
+        /// <summary>小铺介绍皮肤时不打开购买，避免卡住买幼虫。</summary>
+        public static bool BlocksCrownPurchase
+        {
+            get
+            {
+                int step = Step;
+                return step == StepOpenShop || step == StepShopTalk || step == StepBuyEgg || step == StepBoughtTalk;
+            }
+        }
         public static bool BlocksStarterGrant(PlayerProfile player)
         {
             if (player == null) return false;
@@ -190,10 +207,13 @@ namespace DouQuqu
             {
                 TutorialSpotlight.Hide();
                 PlayerDataService.SetTutorialStep(StepShopTalk);
-                DialogueBoxView.Play(IdShop, () =>
+                DialogueBoxView.Play(IdShopSkin, () =>
                 {
-                    PlayerDataService.SetTutorialStep(StepBuyEgg);
-                    TutorialSpotlight.Show(shop.EggOfferButton != null ? shop.EggOfferButton.gameObject : null, "买一只幼虫");
+                    DialogueBoxView.Play(IdShop, () =>
+                    {
+                        PlayerDataService.SetTutorialStep(StepBuyEgg);
+                        TutorialSpotlight.Show(shop.EggOfferButton != null ? shop.EggOfferButton.gameObject : null, "买一只幼虫");
+                    });
                 });
                 return;
             }
@@ -260,6 +280,13 @@ namespace DouQuqu
             GameObject back = FindActive("返回icon");
             if (back == null) back = FindActive("BackIcon");
             TutorialSpotlight.Show(back, "点击返回");
+        }
+
+        public static void OnFirstFinestMerged()
+        {
+            if (DialogueBoxView.IsPlaying) return;
+            if (!PlayerDataService.TryConsumeFirstFinestSkillTalk()) return;
+            DialogueBoxView.Play(IdFinestSkill);
         }
 
         static GameObject FindActive(string objectName)

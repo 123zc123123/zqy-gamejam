@@ -109,6 +109,22 @@ namespace DouQuqu.Editor.Tests
         }
 
         [Test]
+        public void ChargeSlopeIs13AndTimeCapsAtPointNine()
+        {
+            MatchKnobs knobs = Rules.DefaultKnobs();
+            knobs.dMin = 3f;
+            knobs.tChargeMax = 0.9f;
+            knobs.chargeSlope = 13f;
+            Assert.AreEqual(13f, Rules.ChargeDistanceRate(knobs, null), 1e-4f);
+            Assert.AreEqual(3f, Rules.JumpDistance(knobs, null, 0f), 1e-4f);
+            Assert.AreEqual(3f + 13f * 0.9f, Rules.JumpDistance(knobs, null, 0.9f), 1e-4f);
+            Assert.AreEqual(Rules.JumpDistance(knobs, null, 0.9f), Rules.JumpDistance(knobs, null, 2f), 1e-4f);
+            BugState fast = new BugState(0, Vector3.zero, knobs);
+            fast.chargeSpeedMul = 1.2f;
+            Assert.AreEqual(13f * 1.2f, Rules.ChargeDistanceRate(knobs, fast), 1e-4f);
+        }
+
+        [Test]
         public void JumpPreviewUsesGripSoMarkerMatchesDesignedLanding()
         {
             MatchKnobs knobs = Rules.DefaultKnobs();

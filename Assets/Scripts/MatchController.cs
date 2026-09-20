@@ -366,6 +366,12 @@ namespace DouQuqu
                 state.nextNestAt = state.elapsed + Mathf.Max(0f, ActiveKnobs.nestGap);
         }
 
+        /// <summary>只放行比赛时钟。人机冻结和停投放仍由 SetTutorialFreeze 管。</summary>
+        public void SetTutorialHoldClock(bool on)
+        {
+            tutorialHoldClock = on;
+        }
+
         public void ClearPickups()
         {
             if (state == null || state.pickups == null) return;

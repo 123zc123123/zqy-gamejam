@@ -3,14 +3,8 @@ id: dlg.tutorial.battle_jump
 title: 新手 · 第一场跳跃
 ---
 
-## 1. 老头 · 摇杆
+## 1. 老头 · 跳一次
 > mood: warm
 > avatar: oldman
 
-老头：点屏幕召出摇杆，往后拉，蛐蛐往前飞。
-
-## 2. 老头 · 跳一次
-> mood: warm
-> avatar: oldman
-
-老头：按住越久跳越远，松手才跳。你先跳一次。
+老头：点屏幕召出摇杆，往后拖就往前跳。按住越久越远，松手才跳。你先跳一次。

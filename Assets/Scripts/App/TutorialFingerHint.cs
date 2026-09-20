@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace DouQuqu
 {
-    /// <summary>跳跃课：循环演示点屏幕并往后拖，呼出摇杆。</summary>
+    /// <summary>跳跃课：按开局选的方向循环演示点屏幕并拖动摇杆。</summary>
     public sealed class TutorialFingerHint : MonoBehaviour
     {
         const string ResourcePath = "Battle/Hud/Textures/GuideFinger";
@@ -19,6 +19,7 @@ namespace DouQuqu
         Vector2 drag;
         float clock;
         float size = Size;
+        bool jumpHint;
 
         public static void Show(Transform hudRoot)
         {
@@ -27,6 +28,7 @@ namespace DouQuqu
             else instance.Attach(hudRoot);
             instance.clock = 0f;
             instance.size = Size;
+            instance.jumpHint = true;
             instance.gameObject.SetActive(true);
         }
 
@@ -36,6 +38,7 @@ namespace DouQuqu
             if (instance == null) instance = Create(barRoot);
             instance.AttachSwipe(barRoot);
             instance.clock = 0f;
+            instance.jumpHint = false;
             instance.gameObject.SetActive(true);
         }
 
@@ -90,12 +93,27 @@ namespace DouQuqu
             size = Size;
             rect.sizeDelta = new Vector2(size, size);
             home = new Vector2(90f, -40f);
-            drag = new Vector2(-170f, 210f);
+            drag = home + JumpDragDelta();
             rect.anchoredPosition = home;
-            rect.localScale = Vector3.one;
+            rect.localRotation = Quaternion.identity;
+            rect.localScale = JumpHintScale();
             group.alpha = 1f;
             group.blocksRaycasts = false;
             group.interactable = false;
+        }
+
+        /// <summary>原来那套往后拖；选「同向」时整段拖法取反，手也倒过来。</summary>
+        public static Vector2 JumpDragDelta()
+        {
+            InputDirectionSettings.Load();
+            Vector2 reverse = new Vector2(-260f, 250f);
+            return InputDirectionSettings.ReverseDrag ? reverse : -reverse;
+        }
+
+        public static Vector3 JumpHintScale()
+        {
+            InputDirectionSettings.Load();
+            return InputDirectionSettings.ReverseDrag ? Vector3.one : new Vector3(-1f, -1f, 1f);
         }
 
         void LateUpdate()
@@ -147,7 +165,8 @@ namespace DouQuqu
             }
 
             rect.anchoredPosition = pos;
-            rect.localScale = Vector3.one * scale;
+            Vector3 hint = jumpHint ? JumpHintScale() : Vector3.one;
+            rect.localScale = new Vector3(hint.x * scale, hint.y * scale, hint.z);
             group.alpha = alpha;
         }
     }

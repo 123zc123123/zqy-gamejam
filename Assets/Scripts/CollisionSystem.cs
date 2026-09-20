@@ -236,6 +236,8 @@ namespace DouQuqu
             HitTier tierA = Rules.HitTierFor(knobs, a.hitTier, massA, launchA, massB, launchB, normal);
             HitTier tierB = Rules.HitTierFor(knobs, b.hitTier, massB, launchB, massA, launchA, -normal);
             BounceMasses(ref launchA, ref launchB, massA, massB, normal);
+            bool aSweet = Rules.IsInJumpSweetSpot(a);
+            bool bSweet = Rules.IsInJumpSweetSpot(b);
             if (!lockA)
             {
                 a.velocity = launchA;
@@ -250,7 +252,13 @@ namespace DouQuqu
                 FaceVelocity(b);
                 ApplyHitSlide(knobs, b, tierB);
             }
-            emit?.Invoke("hit", (a.position + b.position) * 0.5f);
+            if (aSweet && !lockB) Rules.ScaleKnockback(b, Rules.SweetKnockMul);
+            if (bSweet && !lockA) Rules.ScaleKnockback(a, Rules.SweetKnockMul);
+            Vector3 mid = (a.position + b.position) * 0.5f;
+            emit?.Invoke("hit", mid);
+            string pair = a.id + ":" + b.id;
+            if (aSweet || bSweet) emit?.Invoke("perfect-ids:" + pair, mid);
+            else emit?.Invoke("hit-ids:" + pair, mid);
         }
 
         private void BounceBabyPair(BabyState a, BabyState b, Vector3 normal)

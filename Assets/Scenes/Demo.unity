@@ -518,9 +518,10 @@ MonoBehaviour:
   tickFromUnity: 1
   knobs:
     tChargeMin: 0
-    tChargeMax: 0.6
+    tChargeMax: 0.9
     dMin: 3
-    jumpDistRatio: 4
+    jumpDistRatio: 4.9
+    chargeSlope: 13
     tFloor: 1
     vRate: 25
     theta: 15
@@ -535,7 +536,7 @@ MonoBehaviour:
     staminaSlots: 8
     mass: 1
     gravity: 120
-    mu: 1.8
+    mu: 1.4
     resistK: 1
     muCtrlScale: 1
     muSlipScale: 0.6

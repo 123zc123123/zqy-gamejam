@@ -1,0 +1,10 @@
+---
+id: dlg.tutorial.battle_jump_same
+title: 新手 · 第一场跳跃 · 同向
+---
+
+## 1. 老头 · 跳一次
+> mood: warm
+> avatar: oldman
+
+老头：点屏幕召出摇杆，往哪拖就往哪跳。按住越久越远，松手才跳。你先跳一次。

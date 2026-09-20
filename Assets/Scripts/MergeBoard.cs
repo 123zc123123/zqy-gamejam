@@ -75,9 +75,6 @@ namespace DouQuqu
         // 育虫盘：幼虫 → 中虫 → 成虫 → 精品虫。精品虫留在棋盘上，不再往上合。
         private const int HighestMergeLevel = 4;
         private const int DrawOptionCount = 4;
-        /// <summary>临时测试：下一次成虫合成精品必出极品。测完改 false 或删掉。</summary>
-        public const bool DebugFirstDrawIsJiPin = false;
-        private static bool debugForcedJiPin;
 
         [SerializeField] private int width = 4;
         [SerializeField] private int height = 5;
@@ -311,9 +308,15 @@ namespace DouQuqu
             TrySpawn(empty[random.Next(empty.Count)], level);
         }
 
+        /// <summary>账号第一次抽出精品，或保底触发时，品质强制极品。</summary>
+        public static bool ForcesJiPin(bool firstFinest, bool pityTriggered)
+        {
+            return firstFinest || pityTriggered;
+        }
+
         /// <summary>
         /// 成虫合成精品：品质按权重抽，性格四选一。
-        /// 连续未出极品达到保底次数时，下一次强制极品。
+        /// 账号第一次抽出精品必为极品；之后连续未出极品达到保底次数时再强制极品。
         /// </summary>
         private void DrawCard(MergePiece resultPiece)
         {
@@ -321,9 +324,10 @@ namespace DouQuqu
             drawCount++;
 
             bool pityTriggered = drawsWithoutFour >= DrawPityLimit - 1;
-            bool forceJi = DebugFirstDrawIsJiPin && !debugForcedJiPin;
-            if (forceJi) debugForcedJiPin = true;
-            int weightedValue = forceJi || pityTriggered ? DrawOptionCount : RollWeightedOption(weightedDrawWeights);
+            bool firstFinest = PlayerDataService.TryConsumeFirstFinestGuarantee();
+            int weightedValue = ForcesJiPin(firstFinest, pityTriggered)
+                ? DrawOptionCount
+                : RollWeightedOption(weightedDrawWeights);
             int uniformValue = RollWeightedOption(uniformDrawWeights);
 
             drawsWithoutFour = weightedValue == DrawOptionCount ? 0 : drawsWithoutFour + 1;

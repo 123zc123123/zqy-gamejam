@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.battle_nest_hatch
+title: 新手 · 第一场孵化
+---
+
+## 1. 老头 · 看见宝宝
+> mood: warm
+> avatar: oldman
+
+老头：卵会孵成蟋蟀宝宝。你看，出来了。
+
+## 2. 老头 · 帮你撞人
+> mood: warm
+> avatar: oldman
+
+老头：它们只帮饲主撞别人，不撞你。等会儿你自己也去把人撞出边。

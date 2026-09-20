@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.shop_skin
+title: 新手 · 小铺皮肤
+---
+
+## 1. 老头 · 皇冠
+> mood: warm
+> avatar: oldman
+
+老头：左上角那顶皇冠是皮肤。以后想买可以给上场的蛐蛐戴上，现在不用买。
+
+## 2. 老头 · 只改样子
+> mood: warm
+> avatar: oldman
+
+老头：装饰只改样子，不改强弱。好，再说正事——幼虫。

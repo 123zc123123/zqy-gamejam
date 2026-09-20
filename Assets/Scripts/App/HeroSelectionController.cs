@@ -19,6 +19,9 @@ namespace DouQuqu
         private const float DesignHeight = 1920f;
         private static readonly Color GreenFill = new Color(0.28f, 0.92f, 0.34f, 0.22f);
         private static readonly Color GreenLine = new Color(0.22f, 0.86f, 0.30f, 1f);
+        private static readonly Color YellowFill = new Color(1f, 0.84f, 0.12f, 0.28f);
+        private static readonly Color YellowLine = new Color(1f, 0.82f, 0.08f, 1f);
+        private static readonly Color YellowFrame = new Color(1f, 0.9f, 0.2f, 1f);
         private static readonly Color TabOn = new Color(0.96f, 0.90f, 0.62f, 1f);
         private static readonly Color StatusOn = new Color(0.20784315f, 0.6666667f, 0.050980397f, 1f);
         private static readonly Color StatusOff = new Color(0.55f, 0.55f, 0.55f, 1f);
@@ -50,6 +53,7 @@ namespace DouQuqu
         private TMP_Text ownStatusText;
         private TMP_Text ownPlayerName;
         private RectTransform greenBox;
+        private RectTransform yellowBox;
         private Sprite[] qualitySprites;
         private Sprite confirmSprite;
         private Sprite cancelSprite;
@@ -205,6 +209,7 @@ namespace DouQuqu
             BindCricketDetail(root);
 
             EnsureGreenBox();
+            EnsureYellowBox();
             return timerText != null && matchButton != null;
         }
 
@@ -661,6 +666,7 @@ namespace DouQuqu
             filterTemperament = temperament;
             RefreshFilters();
             RefreshCards();
+            RefreshYellowHint();
         }
 
         private void OnReadyClicked()
@@ -851,6 +857,7 @@ namespace DouQuqu
                 RefreshGreenBox();
             }
             RefreshCards();
+            RefreshYellowHint();
             RefreshCricketDetail();
         }
 
@@ -876,6 +883,7 @@ namespace DouQuqu
             RefreshGreenBox();
             RefreshFilters();
             RefreshCards();
+            RefreshYellowHint();
             RefreshCricketDetail();
         }
 
@@ -1316,6 +1324,73 @@ namespace DouQuqu
             greenBox.localScale = Vector3.one;
             greenBox.localRotation = Quaternion.identity;
             greenBox.SetAsLastSibling();
+        }
+
+        private void EnsureYellowBox()
+        {
+            if (yellowBox != null) return;
+            if (selectionFrameSprite == null)
+                selectionFrameSprite = LoadSprite("HeroSelection/Textures/选择框");
+            GameObject go = new GameObject("YellowHint", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            yellowBox = go.GetComponent<RectTransform>();
+            Image image = go.GetComponent<Image>();
+            image.raycastTarget = false;
+            if (selectionFrameSprite != null)
+            {
+                image.sprite = selectionFrameSprite;
+                image.color = YellowFrame;
+                image.preserveAspect = true;
+            }
+            else
+            {
+                image.sprite = WhiteSprite();
+                image.color = YellowFill;
+                Outline outline = go.AddComponent<Outline>();
+                outline.effectColor = YellowLine;
+                outline.effectDistance = new Vector2(6f, -6f);
+            }
+            go.SetActive(false);
+        }
+
+        private void PlaceYellowBox(Transform target)
+        {
+            yellowBox.SetParent(target, false);
+            yellowBox.anchorMin = Vector2.zero;
+            yellowBox.anchorMax = Vector2.one;
+            yellowBox.pivot = new Vector2(0.5f, 0.5f);
+            yellowBox.offsetMin = new Vector2(-10f, -10f);
+            yellowBox.offsetMax = new Vector2(10f, 10f);
+            yellowBox.localScale = Vector3.one;
+            yellowBox.localRotation = Quaternion.identity;
+            yellowBox.SetAsLastSibling();
+        }
+
+        private void RefreshYellowHint()
+        {
+            if (yellowBox == null) return;
+            Transform target = TutorialHintCard();
+            bool show = target != null;
+            yellowBox.gameObject.SetActive(show);
+            if (!show) return;
+            PlaceYellowBox(target);
+        }
+
+        Transform TutorialHintCard()
+        {
+            if (!sessionActive || ready) return null;
+            bool firstPick = TutorialDirector.Step == TutorialDirector.StepHeroSelectTalk
+                || TutorialDirector.OneSlotStart;
+            if (!firstPick) return null;
+            if (slotEntries[0] != null) return null;
+            for (int i = 0; i < cards.Count; i++)
+            {
+                CardView card = cards[i];
+                if (card == null || card.root == null || !card.root.activeSelf) continue;
+                if (string.IsNullOrEmpty(card.instanceId)) continue;
+                if (SlotIndexOf(card.instanceId) >= 0) continue;
+                return card.root.transform;
+            }
+            return null;
         }
 
         private void LoadQualitySprites()

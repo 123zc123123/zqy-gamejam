@@ -251,6 +251,7 @@ namespace DouQuqu
             bool stealArmed = Rules.IsDiaoChan(bug) && Rules.IsFullCharge(knobs, bug);
             bug.stamina = Mathf.Max(0f, bug.stamina - cost);
             bug.luBuArmorT = 0f;
+            float distance = Rules.JumpDistance(knobs, bug, bug.chargeTime);
             float speed = Rules.JumpDeltaV(knobs, bug);
             Vector2 direction = bug.chargeDirection.sqrMagnitude > 0.0001f ? bug.chargeDirection.normalized : Vector2.up;
             bug.velocity = new Vector3(direction.x * speed, 0f, direction.y * speed);
@@ -259,6 +260,7 @@ namespace DouQuqu
             bug.height = 0.02f;
             bug.airborne = true;
             bug.slideMu = Rules.GripOf(knobs, bug);
+            Rules.ArmJumpSweet(bug, distance);
             bug.chargeTime = 0f;
             bug.charging = false;
             bug.pendingCharge = false;

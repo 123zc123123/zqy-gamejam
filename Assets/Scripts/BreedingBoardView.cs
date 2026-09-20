@@ -135,7 +135,11 @@ namespace DouQuqu
             int pieceId = result.id;
             int quality = result.drawA;
             int temperament = result.drawB;
-            FinestRevealFx.Play(cell, title, nameLine, detail, face, legendary, accent, backpackButton, () => CollectRevealed(pieceId, quality, temperament));
+            FinestRevealFx.Play(cell, title, nameLine, detail, face, legendary, accent, backpackButton, () =>
+            {
+                CollectRevealed(pieceId, quality, temperament);
+                if (legendary) TutorialDirector.OnFirstFinestMerged();
+            });
         }
 
         private void CollectRevealed(int pieceId, int quality, int temperament)

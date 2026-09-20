@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -48,8 +49,12 @@ namespace DouQuqu
 
         static IEnumerator LessonJump(MatchController match, int localId, Transform hudRoot)
         {
+            InputDirectionSettings.Load();
+            string id = InputDirectionSettings.ReverseDrag
+                ? TutorialDirector.IdBattleJump
+                : TutorialDirector.IdBattleJumpSame;
             bool done = false;
-            DialogueBoxView.Play(TutorialDirector.IdBattleJump, () => done = true);
+            DialogueBoxView.Play(id, () => done = true);
             while (!done && !Failed(match, localId)) yield return null;
             TutorialFingerHint.Show(hudRoot);
             while (!Failed(match, localId) && !PlayerJumped(match, localId)) yield return null;
@@ -109,7 +114,60 @@ namespace DouQuqu
             while (!done && !Failed(match, localId)) yield return null;
             while (!Failed(match, localId) && match.Nest != null && match.Nest.alive) yield return null;
             HideMarker();
+            yield return WatchHatch(match, localId, at);
             yield return WaitUntilLanded(match, localId);
+        }
+
+        static IEnumerator WatchHatch(MatchController match, int localId, Vector3 nestAt)
+        {
+            float waitEggs = 0f;
+            while (!Failed(match, localId) && waitEggs < 1.2f && !HasLiveEgg(match) && !HasLiveBaby(match))
+            {
+                waitEggs += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            BattleCamera cam = Object.FindObjectOfType<BattleCamera>();
+            Vector3 look = WatchPoint(match.Eggs, match.Babies, nestAt);
+            if (cam != null) cam.LookAtPoint(look, TutorialDirector.NestLookSeconds);
+            float lookT = 0f;
+            while (!Failed(match, localId) && lookT < TutorialDirector.NestLookSeconds)
+            {
+                look = WatchPoint(match.Eggs, match.Babies, look);
+                lookT += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            match.SetTutorialHoldClock(false);
+            float waited = 0f;
+            while (!Failed(match, localId) && waited < TutorialDirector.NestHatchWaitSeconds && !HasLiveBaby(match))
+            {
+                look = WatchPoint(match.Eggs, match.Babies, look);
+                if (cam != null) cam.LookAtPoint(look, 0f);
+                waited += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            look = WatchPoint(match.Eggs, match.Babies, look);
+            if (cam != null) cam.LookAtPoint(look, 0f);
+
+            bool talkDone = false;
+            DialogueBoxView.Play(TutorialDirector.IdBattleNestHatch, () => talkDone = true);
+            while (!talkDone && !Failed(match, localId))
+            {
+                look = WatchPoint(match.Eggs, match.Babies, look);
+                if (cam != null) cam.LookAtPoint(look, 0f);
+                yield return null;
+            }
+
+            match.SetTutorialHoldClock(true);
+            if (cam != null) cam.FollowLocalPlayer(match, localId);
+            float back = 0f;
+            while (!Failed(match, localId) && back < TutorialDirector.NestLookBackSeconds)
+            {
+                back += Time.unscaledDeltaTime;
+                yield return null;
+            }
         }
 
         static IEnumerator LessonKill(MatchController match, int localId)
@@ -185,6 +243,72 @@ namespace DouQuqu
                 if (gap >= minGap) return at;
             }
             return match.PointInward(localId, distance);
+        }
+
+        /// <summary>选一颗还活着的卵（没有卵就选宝宝），对准镜头中心。优先离锚点最近的那颗。</summary>
+        public static Vector3 WatchPoint(IReadOnlyList<EggState> eggs, IReadOnlyList<BabyState> babies, Vector3 fallback)
+        {
+            Vector3 best = fallback;
+            float bestDist = float.PositiveInfinity;
+            bool found = false;
+            if (eggs != null)
+            {
+                for (int i = 0; i < eggs.Count; i++)
+                {
+                    if (!TryCloser(eggs[i] != null && eggs[i].alive, eggs[i] != null ? eggs[i].position : Vector3.zero,
+                            fallback, ref found, ref best, ref bestDist))
+                        continue;
+                }
+            }
+            if (found)
+            {
+                best.y = 0f;
+                return best;
+            }
+            if (babies != null)
+            {
+                for (int i = 0; i < babies.Count; i++)
+                {
+                    if (!TryCloser(babies[i] != null && babies[i].alive, babies[i] != null ? babies[i].position : Vector3.zero,
+                            fallback, ref found, ref best, ref bestDist))
+                        continue;
+                }
+            }
+            best.y = 0f;
+            return best;
+        }
+
+        static bool TryCloser(bool alive, Vector3 position, Vector3 anchor, ref bool found, ref Vector3 best, ref float bestDist)
+        {
+            if (!alive) return false;
+            float dist = (position - anchor).sqrMagnitude;
+            if (found && dist >= bestDist) return false;
+            found = true;
+            best = position;
+            bestDist = dist;
+            return true;
+        }
+
+        public static bool HasLiveEgg(MatchController match)
+        {
+            if (match == null || match.Eggs == null) return false;
+            for (int i = 0; i < match.Eggs.Count; i++)
+            {
+                EggState egg = match.Eggs[i];
+                if (egg != null && egg.alive) return true;
+            }
+            return false;
+        }
+
+        public static bool HasLiveBaby(MatchController match)
+        {
+            if (match == null || match.Babies == null) return false;
+            for (int i = 0; i < match.Babies.Count; i++)
+            {
+                BabyState baby = match.Babies[i];
+                if (baby != null && baby.alive) return true;
+            }
+            return false;
         }
 
         static bool PickupAlive(MatchController match, string kind)

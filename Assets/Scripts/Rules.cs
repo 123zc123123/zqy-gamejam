@@ -29,12 +29,14 @@ namespace DouQuqu
         public float tChargeMin = 0f;
         [FormerlySerializedAs("tMax")]
         [InspectorCn("蓄满时间", "按满要多久；蓄满后可继续按，距离不再涨。不进跳出力气")]
-        public float tChargeMax = 1f;
+        public float tChargeMax = 0.9f;
         [InspectorCn("点跳距离", "点一下的水平总位移。满蓄 = 该值 × 距离比。改重力/仰角/摩擦不改落点")]
         public float dMin = 1f;
         [InspectorCn("满蓄距离比", "中性蓄力速度、蓄满面板时间时：总距 / 点跳距")]
         [Range(1.2f, 8f)]
         public float jumpDistRatio = 3f;
+        [InspectorCn("蓄力斜率", "每秒加在点跳距离上。蟋蟀蓄力速度再乘。0 = 用点跳距和满蓄比反推")]
+        public float chargeSlope = 13f;
         [InspectorCn("蓄力条长度比", "身后蓄力条长度 = 本次跳距 / 该值")]
         [Range(1.5f, 8f)]
         public float chargeBarRatio = 3f;
@@ -77,7 +79,7 @@ namespace DouQuqu
         [InspectorCn("重力", "抛物线与落地减速都用")]
         public float gravity = 120f;
         [InspectorCn("地面摩擦", "落地匀减速 a = μg，也改匀速占比")]
-        public float mu = 1.8f;
+        public float mu = 1.4f;
         [InspectorCn("抵抗系数", "R = K × 质量 × 出发法向速度；K 大则更难失衡")]
         [Range(0f, 2f)]
         public float resistK = 1f;
@@ -953,6 +955,48 @@ namespace DouQuqu
             if (bug == null) return;
             bug.launchVelocity = Vector3.zero;
             bug.initialSpeed = 0f;
+            ClearJumpSweet(bug);
+        }
+
+        public const float SweetKnockMul = 3f;
+
+        public static void ArmJumpSweet(BugState bug, float jumpDistance)
+        {
+            if (bug == null) return;
+            if (jumpDistance <= 0.01f)
+            {
+                ClearJumpSweet(bug);
+                return;
+            }
+            Vector2 dir = bug.chargeDirection.sqrMagnitude > 0.0001f ? bug.chargeDirection.normalized : Vector2.up;
+            bug.jumpSweetArmed = true;
+            bug.jumpSweetLanding = bug.position + new Vector3(dir.x * jumpDistance, 0f, dir.y * jumpDistance);
+            bug.jumpSweetRadius = Mathf.Max(0.12f, bug.radius);
+        }
+
+        public static void ClearJumpSweet(BugState bug)
+        {
+            if (bug == null) return;
+            bug.jumpSweetArmed = false;
+        }
+
+        /// <summary>虫心进了这次跳跃落点圈（和蓄力菊花一样大）。空中、滑行都算。</summary>
+        public static bool IsInJumpSweetSpot(BugState bug)
+        {
+            if (bug == null || !bug.alive || !bug.jumpSweetArmed) return false;
+            float dx = bug.position.x - bug.jumpSweetLanding.x;
+            float dz = bug.position.z - bug.jumpSweetLanding.z;
+            float r = Mathf.Max(0.12f, bug.jumpSweetRadius);
+            return dx * dx + dz * dz <= r * r;
+        }
+
+        /// <summary>距离 × mul、时间不变：速度和摩擦同乘。</summary>
+        public static void ScaleKnockback(BugState bug, float mul)
+        {
+            if (bug == null || mul <= 0f) return;
+            bug.velocity *= mul;
+            SetLaunch(bug, bug.velocity);
+            if (bug.slideMu > 0f) bug.slideMu *= mul;
         }
 
         public static void ClearLaunch(BabyState baby)
@@ -1068,10 +1112,11 @@ namespace DouQuqu
             return Mathf.Sqrt(Mathf.Max(0f, distance) * g / Mathf.Max(1e-6f, coeff));
         }
 
-        /// <summary>未强化满蓄水平速度，对应距离 dMin × R。</summary>
+        /// <summary>未强化满蓄水平速度，对应点跳 + 斜率 × 蓄满时间。</summary>
         public static float PanelVMax(MatchKnobs knobs, BugState bug = null)
         {
-            return JumpSpeedFromDistance(knobs, DMinOf(knobs, bug), bug) * Mathf.Sqrt(JumpDistRatio(knobs));
+            float tMax = knobs == null ? 0.9f : Mathf.Max(0.000001f, knobs.tChargeMax);
+            return JumpSpeedFromDistance(knobs, JumpDistance(knobs, bug, tMax), bug);
         }
 
         /// <summary>返回带下限保护的重力值。</summary>
@@ -1111,13 +1156,16 @@ namespace DouQuqu
             return d0 + t * ChargeDistanceRate(knobs, bug);
         }
 
-        /// <summary>每秒加在点跳距离上的 k。中性蓄力速度在蓄满面板时间时，总距 = 点跳 × 满蓄距离比。</summary>
+        /// <summary>每秒加在点跳距离上的 k。底板读蓄力斜率；蟋蟀蓄力速度、成长和增益再乘。</summary>
         public static float ChargeDistanceRate(MatchKnobs knobs, BugState bug)
         {
-            float dRef = Mathf.Max(0.01f, knobs.dMin);
-            float tRef = Mathf.Max(0.000001f, knobs.tChargeMax);
-            float r = JumpDistRatio(knobs);
-            float k0 = dRef * (r - 1f) / tRef;
+            float k0 = knobs.chargeSlope;
+            if (k0 <= 0.0001f)
+            {
+                float dRef = Mathf.Max(0.01f, knobs.dMin);
+                float tRef = Mathf.Max(0.000001f, knobs.tChargeMax);
+                k0 = dRef * (JumpDistRatio(knobs) - 1f) / tRef;
+            }
             float speed = bug == null ? 1f : StatMul(bug.chargeSpeedMul);
             float s = ChargeActive(bug) ? PickupChargeScale(knobs, bug) : 1f;
             float k = k0 * speed * JumpGrowRate(knobs, bug) * s;
@@ -1647,6 +1695,9 @@ namespace DouQuqu
         public bool pendingCharge;
         public bool airborne;
         public int score;
+        public bool jumpSweetArmed;
+        public Vector3 jumpSweetLanding;
+        public float jumpSweetRadius;
 
         public BugState(int playerId, Vector3 spawn, MatchKnobs knobs)
         {

@@ -116,7 +116,7 @@
     theta: 15,
     m: 1,
     g: 80,
-    mu: 1.8,
+    mu: 1.4,
     rStand: 0.4,
     rMax: 0.6,
     rChargeScale: 0.5,

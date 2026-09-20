@@ -1,0 +1,16 @@
+---
+id: dlg.tutorial.battle_zone
+title: 新手 · 第一次缩圈
+---
+
+## 1. 老头 · 崩塌
+> mood: warm
+> avatar: oldman
+
+老头：看，区域要崩塌了。有效区会往里收一圈。
+
+## 2. 老头 · 往里站
+> mood: warm
+> avatar: oldman
+
+老头：收完站在外边就算出局。跟着红圈往中间走。

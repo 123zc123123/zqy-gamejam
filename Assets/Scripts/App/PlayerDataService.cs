@@ -42,6 +42,9 @@ namespace DouQuqu
         public bool questChest2Claimed;
         public bool crownOwned;
         public bool crownEquipped;
+        public bool firstFinestUsed;
+        public bool zoneCollapseTold;
+        public bool finestSkillTold;
     }
 
     [Serializable]
@@ -334,6 +337,40 @@ namespace DouQuqu
             if (CurrentPlayer.crownEquipped) return true;
             CurrentPlayer.crownEquipped = true;
             return CommitEconomy();
+        }
+
+        /// <summary>账号第一次抽出精品时消耗保证，必出极品。之后按权重和保底。</summary>
+        public static bool TryConsumeFirstFinestGuarantee()
+        {
+            if (!ShouldForceFirstFinest(CurrentPlayer)) return false;
+            CurrentPlayer.firstFinestUsed = true;
+            CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
+            SaveDatabase();
+            return true;
+        }
+
+        /// <summary>账号第一次看到场地预告时消耗；之后不再弹老头说明。</summary>
+        public static bool TryConsumeFirstZoneTalk()
+        {
+            if (CurrentPlayer == null || CurrentPlayer.zoneCollapseTold) return false;
+            CurrentPlayer.zoneCollapseTold = true;
+            CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
+            SaveDatabase();
+            return true;
+        }
+
+        public static bool ShouldForceFirstFinest(PlayerProfile player)
+        {
+            return player != null && !player.firstFinestUsed;
+        }
+
+        public static bool TryConsumeFirstFinestSkillTalk()
+        {
+            if (CurrentPlayer == null || CurrentPlayer.finestSkillTold) return false;
+            CurrentPlayer.finestSkillTold = true;
+            CurrentPlayer.updatedAtUtcTicks = DateTime.UtcNow.Ticks;
+            SaveDatabase();
+            return true;
         }
 
         private static bool CommitEconomy()
