@@ -69,7 +69,7 @@ namespace DouQuqu
             if (Input.GetKey(left)) direction.x -= 1f;
             if (Input.GetKey(right)) direction.x += 1f;
             // 反弹：往后按、朝反方向飞。方向为零表示“保持上一次瞄准方向”。
-            if (direction.sqrMagnitude > 0.0001f) direction = -direction;
+            if (direction.sqrMagnitude > 0.0001f && InputDirectionSettings.ReverseDrag) direction = -direction;
 
             bool held = Input.GetKey(jump);
             bool released = previousHeld[playerId] && !held;

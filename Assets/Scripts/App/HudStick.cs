@@ -295,7 +295,7 @@ namespace DouQuqu
                 SetDir(false, flyDirection);
                 return;
             }
-            flyDirection = -local.normalized;
+            flyDirection = InputDirectionSettings.ReverseDrag ? -local.normalized : local.normalized;
             SetDir(true, flyDirection);
         }
 

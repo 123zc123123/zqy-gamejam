@@ -265,7 +265,7 @@ namespace DouQuqu
             SetHandleOffset(offset);
             if (mag < deadZone) return;
             Vector2 pull = new Vector2(offset.x, -offset.y).normalized;
-            flyDirection = -pull;
+            flyDirection = InputDirectionSettings.ReverseDrag ? -pull : pull;
         }
 
         private void SetHandleOffset(Vector2 offset)
