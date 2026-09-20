@@ -39,12 +39,13 @@ namespace DouQuqu.Editor.Tests
 
             Transform endpoint = arrow.transform.Find("Endpoint");
             Assert.IsNotNull(endpoint);
-            LineRenderer ring = endpoint.GetComponent<LineRenderer>();
+            SpriteRenderer ring = endpoint.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(ring);
             Assert.IsTrue(ring.enabled);
-            Assert.IsTrue(ring.loop);
+            Assert.IsNull(endpoint.GetComponent<LineRenderer>());
             Assert.That(endpoint.localPosition.z, Is.EqualTo(distance).Within(0.05f));
-            Assert.That(ring.GetPosition(0).magnitude, Is.EqualTo(circleR).Within(0.05f));
+            Assert.That(ring.bounds.size.x, Is.EqualTo(circleR * 2f).Within(0.12f));
+            Assert.That(ring.bounds.size.z, Is.EqualTo(circleR * 2f).Within(0.12f));
 
             Transform first = arrow.transform.Find("Chevrons/Chevron_0");
             Assert.IsNotNull(first);

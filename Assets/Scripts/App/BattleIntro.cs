@@ -87,7 +87,7 @@ namespace DouQuqu
                 yield return WaitUnscaled(1f);
             }
 
-            if (label != null) label.text = "开罐！";
+            if (label != null) label.text = " 开罐！";
             yield return WaitUnscaled(1f);
 
             if (overlay != null) UnityEngine.Object.Destroy(overlay.gameObject);
@@ -134,7 +134,7 @@ namespace DouQuqu
             TMP_Text side = sideNode != null ? sideNode.GetComponent<TMP_Text>() : null;
             if (side != null)
             {
-                side.text = "你是<color=#" + hex + ">" + colorWord + "</color>色方！";
+                side.text = "你是<color=#" + hex + ">" + colorWord + "</color>色方";
                 side.richText = true;
             }
 
@@ -144,7 +144,7 @@ namespace DouQuqu
 
         private static void BindSlogan(RectTransform overlay, TMP_Text side)
         {
-            const string sloganCopy = "撞出对手，留到最后！";
+            const string sloganCopy = "撞出对手，留到最后";
             Transform sloganNode = overlay.Find("SloganLabel");
             TMP_Text slogan = sloganNode != null ? sloganNode.GetComponent<TMP_Text>() : null;
             if (slogan == null && side != null)

@@ -11,7 +11,6 @@ namespace DouQuqu
         private const string PrefabPath = "HeroSelection/Prefabs/Parts/选择名角背包";
         private static readonly string[] FilterLabels = { "全部", "耐战", "强攻", "灵巧", "智谋" };
         private static readonly Color TabOn = new Color(0.96f, 0.90f, 0.62f, 1f);
-        private static readonly Color TabOff = new Color(0.78f, 0.74f, 0.62f, 0.72f);
 
         private const float DesignWidth = 1080f;
         private const float DesignHeight = 1920f;
@@ -247,7 +246,7 @@ namespace DouQuqu
                 bool on = tab.temperament == filterTemperament;
                 if (tab.line != null) tab.line.gameObject.SetActive(on);
                 if (tab.label == null) continue;
-                tab.label.color = on ? TabOn : TabOff;
+                tab.label.color = TabOn;
                 tab.label.fontStyle = on ? FontStyles.Bold : FontStyles.Normal;
             }
         }

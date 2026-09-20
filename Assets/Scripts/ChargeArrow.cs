@@ -4,18 +4,20 @@ using UnityEngine.Rendering;
 namespace DouQuqu
 {
     /// <summary>
-    /// 蓄力指示：身后 strength 条（等比缩放 + 矩形窗口按长度揭示），身前加粗三角虚线 + 同尺寸描边落点。
+    /// 蓄力指示：身后 strength 条（等比缩放 + 矩形窗口按长度揭示），身前加粗三角虚线 + targetCircle 落点。
     /// </summary>
     public sealed class ChargeArrow : MonoBehaviour
     {
         public const int MaxChevrons = 48;
         private const string TriangleResource = "Battle/Entities/Textures/go_triangle";
         private const string StrengthResource = "Battle/Entities/Textures/strength";
+        private const string TargetResource = "Battle/Entities/Textures/targetCircle";
 
         [SerializeField] private Sprite fillSprite;
         [SerializeField] private Sprite chevronSprite;
+        [SerializeField] private Sprite endpointSprite;
         [SerializeField] private SpriteRenderer fill;
-        [SerializeField] private LineRenderer endpoint;
+        [SerializeField] private SpriteRenderer endpoint;
         [SerializeField] private SpriteRenderer[] chevrons = new SpriteRenderer[MaxChevrons];
         [SerializeField] private float minDistance = 0.02f;
 
@@ -23,11 +25,11 @@ namespace DouQuqu
         private Sprite fallbackChevron;
         private Sprite runtimeTriangle;
         private Sprite runtimeStrength;
+        private Sprite runtimeTarget;
         private Sprite barWindow;
         private Texture barWindowTex;
         private float barWindowSpan = -1f;
         private Material spriteMaterial;
-        private Material lineMaterial;
 
         public void Apply(
             bool charging,
@@ -86,8 +88,9 @@ namespace DouQuqu
             StripIncompatibleFill();
             StripNamedChild("BarMask");
             StripNamedChild("BarFill");
+            StripLineRenderer("Endpoint");
             if (fill == null) fill = CreateSpriteChild("Fill", UsableBarSprite(), 24);
-            if (endpoint == null) endpoint = CreateEndpointRing();
+            if (endpoint == null) endpoint = CreateSpriteChild("Endpoint", UsableTargetSprite(), 28);
 
             SpriteRenderer[] old = chevrons;
             if (chevrons == null || chevrons.Length != MaxChevrons)
@@ -209,7 +212,7 @@ namespace DouQuqu
         {
             Sprite mark = UsableTriangleSprite();
             float circleR = GroundMarker.CircleRadius(radius);
-            LayoutEndpointRing(distance, circleR, GroundMarker.CircleStroke(radius), color);
+            LayoutEndpoint(distance, circleR, color);
 
             float triLen = Mathf.Clamp(radius * 0.34f, 0.22f, 0.5f) * 4.5f;
             float triWidth = triLen * 0.72f;
@@ -238,60 +241,31 @@ namespace DouQuqu
                 if (chevrons[i] != null) chevrons[i].enabled = false;
         }
 
-        private LineRenderer CreateEndpointRing()
+        private void LayoutEndpoint(float distance, float circleR, Color color)
         {
-            Transform existing = transform.Find("Endpoint");
-            GameObject child = existing != null ? existing.gameObject : new GameObject("Endpoint");
-            if (existing == null) child.transform.SetParent(transform, false);
-
-            SpriteRenderer leftover = child.GetComponent<SpriteRenderer>();
-            if (leftover != null) Object.DestroyImmediate(leftover);
-
-            LineRenderer line = child.GetComponent<LineRenderer>();
-            if (line == null) line = child.AddComponent<LineRenderer>();
-            line.useWorldSpace = false;
-            line.loop = true;
-            line.numCapVertices = 4;
-            line.numCornerVertices = 2;
-            line.shadowCastingMode = ShadowCastingMode.Off;
-            line.receiveShadows = false;
-            line.alignment = LineAlignment.TransformZ;
-            line.sortingOrder = 28;
-            line.enabled = false;
-            Material material = LineMaterial();
-            if (material != null) line.sharedMaterial = material;
-            child.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            child.transform.localPosition = Vector3.zero;
-            child.transform.localScale = Vector3.one;
-            return line;
-        }
-
-        private void LayoutEndpointRing(float distance, float circleR, float stroke, Color color)
-        {
-            if (endpoint == null || circleR < 0.01f)
+            Sprite mark = UsableTargetSprite();
+            if (endpoint == null || mark == null || circleR < 0.01f)
             {
                 if (endpoint != null) endpoint.enabled = false;
                 return;
             }
 
-            endpoint.enabled = true;
-            endpoint.loop = true;
-            endpoint.positionCount = GroundMarker.RingPoints;
-            endpoint.startWidth = stroke;
-            endpoint.endWidth = stroke;
-            endpoint.startColor = color;
-            endpoint.endColor = color;
-            endpoint.sortingOrder = 28;
-            endpoint.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            endpoint.transform.localPosition = new Vector3(0f, 0.06f, distance);
-            endpoint.transform.localScale = Vector3.one;
-            Material material = LineMaterial();
-            if (material != null) endpoint.sharedMaterial = material;
-            for (int i = 0; i < GroundMarker.RingPoints; i++)
-            {
-                float t = i / (float)GroundMarker.RingPoints * Mathf.PI * 2f;
-                endpoint.SetPosition(i, new Vector3(circleR * Mathf.Sin(t), circleR * Mathf.Cos(t), 0f));
-            }
+            float diameter = circleR * 2f;
+            LayoutGroundSprite(
+                endpoint,
+                mark,
+                new Vector3(0f, 0.06f, distance),
+                new Vector2(diameter, diameter),
+                color,
+                28);
+        }
+
+        private void StripLineRenderer(string childName)
+        {
+            Transform child = transform.Find(childName);
+            if (child == null) return;
+            LineRenderer line = child.GetComponent<LineRenderer>();
+            if (line != null) Object.DestroyImmediate(line);
         }
 
         private SpriteRenderer CreateSpriteChild(string childName, Sprite sprite, int sorting, Transform parent = null)
@@ -301,8 +275,10 @@ namespace DouQuqu
             if (existing == null) child.transform.SetParent(parent != null ? parent : transform, false);
             MeshFilter filter = child.GetComponent<MeshFilter>();
             MeshRenderer mesh = child.GetComponent<MeshRenderer>();
+            LineRenderer line = child.GetComponent<LineRenderer>();
             if (filter != null) Object.DestroyImmediate(filter);
             if (mesh != null) Object.DestroyImmediate(mesh);
+            if (line != null) Object.DestroyImmediate(line);
             SpriteRenderer renderer = child.GetComponent<SpriteRenderer>();
             if (renderer == null) renderer = child.AddComponent<SpriteRenderer>();
             ConfigureRenderer(renderer, sprite, sorting);
@@ -401,6 +377,22 @@ namespace DouQuqu
             return FallbackChevron();
         }
 
+        private Sprite UsableTargetSprite()
+        {
+            if (IsNamed(endpointSprite, "targetCircle")) return endpointSprite;
+            Sprite loaded = Resources.Load<Sprite>(TargetResource);
+            if (loaded != null) return loaded;
+            Texture2D texture = Resources.Load<Texture2D>(TargetResource);
+            if (texture != null)
+            {
+                if (runtimeTarget == null || runtimeTarget.texture != texture)
+                    runtimeTarget = MakeSprite(texture, new Vector2(0.5f, 0.5f), "targetCircle");
+                return runtimeTarget;
+            }
+            if (endpointSprite != null && endpointSprite.bounds.size.sqrMagnitude > 0.0001f) return endpointSprite;
+            return FallbackChevron();
+        }
+
         private Sprite FallbackFill()
         {
             if (fallbackFill != null) return fallbackFill;
@@ -470,13 +462,6 @@ namespace DouQuqu
             if (spriteMaterial != null) return spriteMaterial;
             spriteMaterial = MakeUnlitMaterial("ChargeArrowSprite");
             return spriteMaterial;
-        }
-
-        private Material LineMaterial()
-        {
-            if (lineMaterial != null) return lineMaterial;
-            lineMaterial = MakeUnlitMaterial("ChargeArrowLine");
-            return lineMaterial;
         }
 
         private static Material MakeUnlitMaterial(string materialName)

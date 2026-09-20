@@ -18,7 +18,7 @@ namespace DouQuqu
         const float ButtonFloatPx = 28f;
         const float HudAppearSeconds = 0.22f;
         const float HudSlidePx = 18f;
-        const float SceneSettleSeconds = 0.9f;
+        const float SceneSettleSeconds = 1.8f;
         const float UiRevealDelaySeconds = 0.72f;
         static readonly Vector2 TitleFromLogin = new Vector2(0f, 400f);
         static readonly Vector2 TitleAtHome = new Vector2(-4.03f, 570.5f);
@@ -297,7 +297,9 @@ namespace DouQuqu
 
         static float EaseInOut(float t)
         {
-            return t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) * 0.5f;
+            return t < 0.5f
+                ? 4f * t * t * t
+                : 1f - Mathf.Pow(-2f * t + 2f, 3f) * 0.5f;
         }
 
         private static void Bind(GameObject root, string objectName, string sceneName)
