@@ -5,7 +5,7 @@ namespace DouQuqu
 {
     /// <summary>
     /// 身下耐力条：World Space Canvas + Image。
-    /// 底板 / 描边 / 填充九宫；填充从左连续裁；分隔线只负责分格。
+    /// 底板 / 描边 / 填充九宫；填充从左连续裁，不再显示分格线。
     /// </summary>
     [ExecuteAlways]
     public sealed class StaminaBar : MonoBehaviour
@@ -35,21 +35,18 @@ namespace DouQuqu
         private Sprite bgSprite;
         private Sprite outlineSprite;
         private Sprite fillSprite;
-        private Sprite dividerSprite;
         private Sprite iconSprite;
         private RectTransform hud;
         private RectTransform fillArea;
         private RectTransform pendingClip;
         private RectTransform remainClip;
         private RectTransform hotClip;
-        private RectTransform dividerRoot;
         private Image bg;
         private Image outline;
         private Image icon;
         private Image pendingFill;
         private Image remainFill;
         private Image hotFill;
-        private Image[] dividers;
         private float authoredHudW;
         private float authoredHudH;
         private bool capturedSize;
@@ -141,18 +138,15 @@ namespace DouQuqu
             pendingFill = EnsureImage("Pending", pendingClip, true);
             remainFill = EnsureImage("Remain", remainClip, true);
             hotFill = EnsureImage("Hot", hotClip, true);
-            dividerRoot = EnsureRect("Dividers", hud);
-            if (dividers == null || dividers.Length != MaxSlots - 1)
-                dividers = new Image[MaxSlots - 1];
-            for (int i = 0; i < MaxSlots - 1; i++)
-                dividers[i] = EnsureImage("Divider_" + i, dividerRoot, false);
+            // 兼容旧预制体中已经保存的分隔层：不销毁资源，只在实例上关闭。
+            Transform legacyDividers = hud.Find("Dividers");
+            if (legacyDividers != null) legacyDividers.gameObject.SetActive(false);
             outline = EnsureImage("Outline", hud, true);
             icon = EnsureImage("Icon", hud, false);
             bg.transform.SetSiblingIndex(0);
             fillArea.SetSiblingIndex(1);
-            dividerRoot.SetSiblingIndex(2);
-            outline.transform.SetSiblingIndex(3);
-            icon.transform.SetSiblingIndex(4);
+            outline.transform.SetSiblingIndex(2);
+            icon.transform.SetSiblingIndex(3);
         }
 
         private void Layout(float currentRatio, int slots, float pendingRatio, float hotGate)
@@ -191,7 +185,6 @@ namespace DouQuqu
             LayoutClip(pendingClip, pendingFill, 0f, fillW * currentRatio, fillW, fillH, ghost, showPending);
             LayoutClip(remainClip, remainFill, 0f, fillW * remainRatio, fillW, fillH, tint, showRemain);
             LayoutClip(hotClip, hotFill, fillW * hotGate, fillW * Mathf.Max(0f, remainRatio - hotGate), fillW, fillH, hotColor, showHot);
-            LayoutDividers(slots, fillW, fillH);
             ApplyIconSprite();
         }
 
@@ -235,25 +228,6 @@ namespace DouQuqu
             float shift = cap > 0f && clipW < cap ? cap : 0f;
             SetLeft(fill.rectTransform, -start - shift, new Vector2(fillW, fillH));
             Paint(fill, fillSprite, true, color, true);
-        }
-
-        private void LayoutDividers(int slots, float fillW, float fillH)
-        {
-            SetCenter(dividerRoot, Vector2.zero, new Vector2(fillW, fillH));
-            for (int i = 0; i < MaxSlots - 1; i++)
-            {
-                Image image = dividers[i];
-                if (image == null) continue;
-                bool on = dividerSprite != null && i < slots - 1;
-                image.gameObject.SetActive(on);
-                if (!on) continue;
-                float x = -fillW * 0.5f + fillW * ((i + 1) / (float)slots);
-                RectTransform rt = image.rectTransform;
-                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(x, 0f);
-                Paint(image, dividerSprite, false, Color.white, true);
-            }
         }
 
         /// <summary>只挂图，不改预制体里定好的大小和位置。</summary>
@@ -326,7 +300,6 @@ namespace DouQuqu
             image.type = sliced ? Image.Type.Sliced : Image.Type.Simple;
             image.fillCenter = true;
             if (created && childName == "Icon") InitIconRect(rt);
-            if (created && childName.StartsWith("Divider_")) InitDividerRect(rt);
             return image;
         }
 
@@ -337,12 +310,6 @@ namespace DouQuqu
                 ? iconSprite.rect.width / Mathf.Max(1f, iconSprite.rect.height)
                 : 64f / 93f;
             SetCenter(rt, new Vector2(-BgPx, 0f), new Vector2(height * aspect, height));
-        }
-
-        private void InitDividerRect(RectTransform rt)
-        {
-            Vector2 size = dividerSprite != null ? dividerSprite.rect.size : new Vector2(5f, FillPx);
-            SetCenter(rt, Vector2.zero, size);
         }
 
         private static void Paint(Image image, Sprite sprite, bool sliced, Color color, bool on)
@@ -398,7 +365,6 @@ namespace DouQuqu
             if (bgSprite == null) bgSprite = Resources.Load<Sprite>(TexRoot + "bg");
             if (outlineSprite == null) outlineSprite = Resources.Load<Sprite>(TexRoot + "outline");
             if (fillSprite == null) fillSprite = Resources.Load<Sprite>(TexRoot + "fill");
-            if (dividerSprite == null) dividerSprite = Resources.Load<Sprite>(TexRoot + "middleLine");
             if (iconSprite == null) iconSprite = Resources.Load<Sprite>(TexRoot + "体力icon");
         }
 

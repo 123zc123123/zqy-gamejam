@@ -199,6 +199,32 @@ namespace DouQuqu.Editor.Tests
             Assert.Greater(bytes, LanSession.UdpSafePayloadBytes);
         }
 
+        [Test]
+        public void ApplyingSnapshotKeepsAuthoritativeLifeAndRosterState()
+        {
+            MatchController match = CreateMatch();
+            match.Configure(MatchRunMode.Client, 2, Rules.DefaultKnobs());
+            match.ResetMatch(2, 20260918);
+
+            MatchSnapshot snapshot = match.CaptureSnapshot(true);
+            snapshot.cricketIndex[0] = 2;
+            snapshot.playerIn[0] = false;
+            snapshot.place[0] = 2;
+            snapshot.matchScore[0] = 17;
+
+            int[] cricketIndexStorage = match.State.cricketIndex;
+            bool[] playerInStorage = match.State.playerIn;
+
+            match.ApplySnapshot(snapshot);
+
+            Assert.AreSame(cricketIndexStorage, match.State.cricketIndex);
+            Assert.AreSame(playerInStorage, match.State.playerIn);
+            Assert.AreEqual(2, match.CricketIndex(0));
+            Assert.IsFalse(match.PlayerStillIn(0));
+            Assert.AreEqual(2, match.Place(0));
+            Assert.AreEqual(17, match.MatchScore(0));
+        }
+
         MatchController CreateMatch()
         {
             GameObject go = new GameObject("LanClientFeel");

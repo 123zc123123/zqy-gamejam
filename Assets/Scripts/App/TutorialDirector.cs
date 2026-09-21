@@ -294,12 +294,15 @@ namespace DouQuqu
         public static void OnFirstZoneWarn(MatchController match)
         {
             if (match == null || match.IsOver) return;
+            // 坍塌对白只属于第一场新手战斗。以前只检查“是否讲过”，
+            // 导致教学局错过后会在任意普通对局首次缩圈时补弹。
+            if (Step != StepBattle) return;
             if (PlayerDataService.ZoneCollapseTold) return;
             if (TutorialBattleDirector.LessonsActive) return;
             if (!match.ZoneWarn) return;
-            match.SetTutorialHoldClock(true);
             if (DialogueBoxView.IsPlaying) return;
             if (!PlayerDataService.TryConsumeFirstZoneTalk()) return;
+            match.SetTutorialHoldClock(true);
             for (int i = 0; i < MatchController.MaxPlayers; i++)
                 match.SetPlayerIdle(i, true);
             DialogueBoxView.Play(IdBattleZone, () => FinishFirstZoneTalk(match));

@@ -72,8 +72,7 @@ namespace DouQuqu
 
     /// <summary>
     /// Demo 使用的最小局域网传输层。通过 UDP 广播发现房间，通过 UDP 数据报
-    /// 传输指令和快照，不依赖外部网络包。主机拥有权威状态并发送 MatchSnapshot；
-    /// 客户端对本地输入做预测，收到快照后回滚并重放未确认输入。
+    /// 传输指令和快照，不依赖外部网络包。主机拥有权威状态并发送 MatchSnapshot。
     /// </summary>
     public sealed class LanSession : MonoBehaviour
     {
@@ -111,7 +110,6 @@ namespace DouQuqu
         public const int UdpSafePayloadBytes = 1200;
         private int outgoingInputSequence;
         private readonly LanClientInputGate inputGate = new LanClientInputGate();
-        private readonly List<InputFrame> predictedInputs = new List<InputFrame>(128);
         private int roomCapacity = MatchController.MaxPlayers;
         private LanPlayerSlot[] slots = new LanPlayerSlot[MatchController.MaxPlayers];
         private bool running;
@@ -602,7 +600,6 @@ namespace DouQuqu
             lastSnapshotTick = -1;
             LastSnapshotByteCount = 0;
             outgoingInputSequence = 0;
-            predictedInputs.Clear();
             inputGate.Reset();
             discoveryTimer = 0f;
             automaticMatchmaking = false;
@@ -748,13 +745,6 @@ namespace DouQuqu
         private void SendInputPacket(Vector2 direction, bool held, bool released)
         {
             InputFrame frame = new InputFrame(LocalPlayerId, direction, held, released, ++outgoingInputSequence);
-            // 先写入本地副本，网络只负责把同一帧交给房主。
-            if (!IsHost && match != null && match.IsStarted)
-            {
-                match.SetInput(frame);
-                predictedInputs.Add(new InputFrame(frame.playerId, frame.Direction, frame.held, frame.released, frame.sequence));
-                if (predictedInputs.Count > 240) predictedInputs.RemoveAt(0);
-            }
             SendEnvelope(sessionSocket, hostEndpoint, "INPUT", JsonUtility.ToJson(frame), LocalPlayerId);
         }
 
@@ -997,10 +987,17 @@ namespace DouQuqu
             if (!IsHost || finalSnapshotBroadcastRemaining <= 0f || string.IsNullOrEmpty(finalSnapshotBody)) return;
             finalSnapshotBroadcastRemaining -= Time.unscaledDeltaTime;
             finalSnapshotBroadcastTick -= Time.unscaledDeltaTime;
-            if (finalSnapshotBroadcastTick > 0f) return;
+            bool closePlayerHost = !dedicatedServer && finalSnapshotBroadcastRemaining <= 0f;
+            if (finalSnapshotBroadcastTick > 0f && !closePlayerHost) return;
             finalSnapshotBroadcastTick = 0.12f;
             foreach (IPEndPoint endpoint in clients.Values)
                 SendEnvelope(sessionSocket, endpoint, "SNAPSHOT", finalSnapshotBody, 0);
+
+            // 普通玩家房主停在结算页时不能继续占用旧房间和固定端口。
+            // 最终帧已持续冗余发送两秒，发送窗口结束后自动释放会话；
+            // 结算界面仍由 BattleSceneController 持有，不依赖 LanSession 继续运行。
+            if (closePlayerHost)
+                Stop();
         }
 
         private void RaiseMatchReady()
@@ -1307,7 +1304,7 @@ namespace DouQuqu
             }
         }
 
-        // 客户端按 tick 顺序应用快照，忽略旧包；应用前保存预测进度，应用后重放未确认输入。
+        // 客户端按 tick 顺序应用快照，忽略延迟到达的旧 UDP 数据包。
         private void HandleClientMessage(LanEnvelope envelope)
         {
             if (envelope.type == "WELCOME")
@@ -1419,20 +1416,7 @@ namespace DouQuqu
                 Debug.LogWarning("[Lan] client snapshot gap " + (snapshot.tick - lastSnapshotTick)
                     + " ticks (" + lastSnapshotTick + "->" + snapshot.tick + ")");
             lastSnapshotTick = snapshot.tick;
-            if (match != null)
-            {
-                int predictedTick = match.State == null ? snapshot.tick : match.State.tick;
-                match.ApplySnapshot(snapshot);
-                int ack = 0;
-                if (snapshot.lastInputSequence != null && LocalPlayerId >= 0 && LocalPlayerId < snapshot.lastInputSequence.Length)
-                    ack = snapshot.lastInputSequence[LocalPlayerId];
-                for (int i = predictedInputs.Count - 1; i >= 0; i--)
-                    if (predictedInputs[i].sequence <= ack) predictedInputs.RemoveAt(i);
-                int replayTicks = Mathf.Max(0, predictedTick - snapshot.tick);
-                for (int i = 0; i < predictedInputs.Count; i++) match.SetInput(predictedInputs[i]);
-                for (int i = 0; i < replayTicks && match.IsStarted && !match.IsOver; i++)
-                    match.Tick(MatchController.FixedDeltaTime);
-            }
+            if (match != null) match.ApplySnapshot(snapshot);
             else pendingSnapshot = snapshot;
         }
 

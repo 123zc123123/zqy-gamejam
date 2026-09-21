@@ -110,8 +110,12 @@ Shader "DouQuqu/UI/LiewenReveal"
                 float innerU = max(d.x / max(innerH.x, 1e-5), d.y / max(innerH.y, 1e-5));
                 float inRing = step(outerU, 1.002) * step(1.0, innerU);
 
-                float ratio = max(innerScale.x, innerScale.y);
-                float inward = saturate((1.0 - outerU) / max(1e-4, 1.0 - ratio));
+                // 分别按横纵环带厚度计算到外沿的归一化距离。
+                // 旧实现取 max(innerScale)，某一轴不收缩（scale=1）时分母会退化，
+                // 裂纹扩散会被挤成一条并产生明显拉伸。
+                float2 bandHalf = 0.5 * max(1.0 - innerScale, float2(1e-4, 1e-4));
+                float2 edgeDepth = (0.5 - d) / bandHalf;
+                float inward = saturate(min(edgeDepth.x, edgeDepth.y));
                 float jag = (Hash21(uv * 22.0) - 0.5) * 0.14
                           + (Hash21(uv * 9.0 + 4.7) - 0.5) * 0.08;
                 float progress = saturate(_Progress);

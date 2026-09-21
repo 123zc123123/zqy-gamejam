@@ -749,15 +749,14 @@ namespace DouQuqu
         {
             if (playersRoot == null || AppServices.Instance == null || AppServices.Instance.Network == null) return;
             IReadOnlyList<LanPlayerSlot> slots = AppServices.Instance.Network.Slots;
-            TMP_Text[] labels = playersRoot.GetComponentsInChildren<TMP_Text>(true);
-            int slot = 0;
-            for (int i = 0; i < labels.Length && slot < 4; i++)
+            Transform root = playersRoot.transform;
+            int count = Mathf.Min(4, root.childCount);
+            for (int slot = 0; slot < count; slot++)
             {
-                TMP_Text label = labels[i];
+                Transform card = root.GetChild(slot);
+                Transform nameNode = FindNamed(card, "player-name") ?? FindNamed(card, "PlayerName");
+                TMP_Text label = nameNode != null ? nameNode.GetComponent<TMP_Text>() : null;
                 if (label == null) continue;
-                string sample = label.text ?? string.Empty;
-                if (sample.IndexOf("离开", System.StringComparison.Ordinal) >= 0) continue;
-                if (sample.IndexOf("准备", System.StringComparison.Ordinal) >= 0) continue;
                 string name = "空位";
                 if (slots != null && slot < slots.Count && slots[slot] != null && slots[slot].connected)
                 {
@@ -765,7 +764,6 @@ namespace DouQuqu
                     if (slot == 0) name += "（房主）";
                 }
                 label.text = name;
-                slot++;
             }
 
             PaintLobbyFrames();

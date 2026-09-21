@@ -31,7 +31,8 @@ namespace DouQuqu
         private readonly NestSystem nestSystem = new NestSystem();
         private readonly AISystem ai = new AISystem();
 
-        // 主机/单机推进权威状态；客户端开启预测时也推进本地副本，快照到达后再回滚。
+        // 只有主机/单机控制器推进状态；局域网客户端只应用快照，
+        // 将此对象作为表现层读取模型。
         private MatchState state;
         private CricketPick[][] pendingRoster;
         private float accumulator;
@@ -133,7 +134,7 @@ namespace DouQuqu
         // Unity 可变帧时间累积为固定模拟 Tick；单帧上限避免暂停后一次跳过过长对局时间。
         private void Update()
         {
-            if (!tickFromUnity || !IsStarted || IsOver) return;
+            if (!tickFromUnity || runMode == MatchRunMode.Client || !IsStarted || IsOver) return;
             accumulator += Mathf.Min(Time.deltaTime, 0.1f);
             while (accumulator >= FixedDeltaTime)
             {
@@ -230,8 +231,6 @@ namespace DouQuqu
         {
             runMode = mode;
             configuredPlayers = Mathf.Clamp(playerCount, 1, MaxPlayers);
-            // 客户端副本用于本地输入预测；权威结果仍只来自房主快照。
-            if (mode == MatchRunMode.Client) tickFromUnity = true;
             if (matchKnobs != null)
             {
                 knobs = matchKnobs;
@@ -571,9 +570,6 @@ namespace DouQuqu
                 matchScore = CopyInts(state.matchScore),
                 killStreak = CopyInts(state.killStreak)
             };
-            snapshot.lastInputSequence = new int[state.bugs.Length];
-            for (int i = 0; i < snapshot.lastInputSequence.Length; i++)
-                snapshot.lastInputSequence[i] = inputs[i] == null ? 0 : inputs[i].sequence;
             PackRoster(snapshot);
             for (int i = 0; i < state.bugs.Length; i++)
             {
@@ -1206,6 +1202,15 @@ namespace DouQuqu
                 return;
             }
 
+            // 只在存储缺失或人数改变时初始化。每个 20Hz 快照都调用 EnsureRoster
+            // 会持续重建阵容/生命/比分数组，既覆盖权威状态又制造明显 GC 卡顿。
+            bool missingStorage = state.roster == null || state.roster.Length != count
+                || state.cricketIndex == null || state.cricketIndex.Length != count
+                || state.playerIn == null || state.playerIn.Length != count
+                || state.place == null || state.place.Length != count
+                || state.matchScore == null || state.matchScore.Length != count
+                || state.killStreak == null || state.killStreak.Length != count;
+            if (missingStorage) EnsureRoster(count);
             CopyIntsInPlace(ref state.cricketIndex, snapshot.cricketIndex, count);
             CopyBoolsInPlace(ref state.playerIn, snapshot.playerIn, count);
             CopyIntsInPlace(ref state.place, snapshot.place, count);
@@ -1214,7 +1219,6 @@ namespace DouQuqu
                 CopyIntsInPlace(ref state.killStreak, snapshot.killStreak, count);
             else if (state.killStreak == null || state.killStreak.Length != count)
                 state.killStreak = new int[count];
-            EnsureRoster(count);
             if (snapshot.rosterCatalog == null) return;
             for (int i = 0; i < count; i++)
             {

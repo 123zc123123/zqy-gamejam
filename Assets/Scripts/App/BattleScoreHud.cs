@@ -27,13 +27,11 @@ namespace DouQuqu
         readonly int[] lastAvatarKey = { int.MinValue, int.MinValue, int.MinValue, int.MinValue };
         readonly int[] lastSlotKey = new int[PlayerCount * SlotCount];
         readonly string[] lastNames = new string[PlayerCount];
-        bool namedOnce;
 
         public void Bind(MatchController matchController)
         {
             match = matchController;
             CacheCards();
-            namedOnce = false;
             for (int i = 0; i < lastSlotKey.Length; i++) lastSlotKey[i] = int.MinValue;
             for (int i = 0; i < PlayerCount; i++)
             {
@@ -65,11 +63,9 @@ namespace DouQuqu
         {
             CacheCards();
             if (match == null) match = Object.FindObjectOfType<MatchController>();
-            if (!namedOnce || force)
-            {
-                BindNames();
-                namedOnce = true;
-            }
+            // 客户端可能先创建战斗 HUD、后收到最终大厅名单。每帧比较缓存后补刷，
+            // 避免第一次绑定时把预制体默认的“空位”永久保留下来。
+            BindNames();
 
             for (int i = 0; i < PlayerCount; i++)
             {
